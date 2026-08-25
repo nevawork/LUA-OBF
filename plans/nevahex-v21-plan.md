@@ -161,6 +161,73 @@ self-check throw ⇒ exact mismatch named in build error.
 4. §6.2 closure boundaries + contract grep test.
 5. Full e2e/vitest green → then Triple-VM Phases 3.2+ pending spec text.
 
+## 7. CORRECTED TRIPLE-VM ARTIFACT SHAPE (spec Phase 3 — authoritative target)
+
+User correction: single-VM + comment markers does NOT satisfy Phase 3.
+Required: three distinct interpreter layers, each a Lua closure, communicating
+ONLY through sealed opaque handles. Workspace already contains: layered emit
+mode (`opts.layered`, currently opt-in), entropypool.ts module, CI persist step.
+REMAINING DELTA to match this shape exactly:
+
+a) pipeline.ts: flip default → `layered: opts.layered !== false` (spec-default ON,
+   `--no-layered` escape hatch). [edit denied by session rules this turn]
+b) emitter.ts: introduce L3 CONST PLANE as real accessor closures instead of
+   direct table reads from L2:
+     local L3=(function(h) local Cc={} ... return {C=Cc,Wtouch=...,} end)(L1)
+   - carrier tick becomes `wmv=(L3.Wtouch(six)==nil) and 1 or 0`
+   - CLOSURE handler proto fetch goes through L1 handle (already bound local)
+c) emitter.ts: Entropy Pool block placement INSIDE L1 before keystream fill
+   (module exists: protection/entropypool.ts; wiring exists behind envProfile).
+d) contract grep test in dispatch-check: assert no direct `PROTOS[`/`.WM[`
+   references outside their owning layer region.
+e) sample below becomes the e2e fixture snapshot once Bug B fixed.
+
+Target skeleton (identifiers randomized per build; shown stable for review):
+
+```lua
+--[L1_SHELL] ══════════════════════════════════════════════════
+local L1=(function()
+  local BLOB="..."                      -- encrypted bytecode+consts
+  local sa,sb=<obf literals>            -- cipher seed registers
+  -- ▼ Environmental Entropy Pool (Phase 3.1): STABLE signals only —
+  --   no tostring({}) addresses, no os.clock() micro-time
+  do
+    local acc=5381
+    local function feed(n) acc=(acc*33+n)%2147483647 end
+    local _v=tostring(_VERSION or "")
+    for i=1,#_v do feed(string.byte(_v,i)*31+i-1) end
+    feed(1)
+    feed(rawget(_G,"unpack")~=nil and 11 or 13)   -- …10 more presence bits…
+    feed(17) feed(17)                              -- math fingerprints
+    acc=acc%2147483646+1
+    sa=(sa+acc)%2147483647 ; sb=(sb+acc*7)%2147483647
+  end
+  -- keystream fill + varint decode of PROTOS / watermark tail into WM
+  return { P=PROTOS, WM=WM, WMI=wmi }   -- ◀ the ONLY thing L1 exposes
+end)()
+
+--[L3_CONSTS] ══════════════════════════════════════════════════
+local L3=(function(h)
+  local function Wtouch(i) return h.WM[(i*7)%h.WMI+1] end
+  return { P=h.P, Wtouch=Wtouch }       -- const-plane gatekeeper
+end)(L1)
+
+--[L2_VM] ══════════════════════════════════════════════════════
+local ICV={…} local SLICES={…} local NIC=#SLICES      -- integrity lives IN L2
+local function VM(l1,l3,pid,env,upv,args,escf)
+  local PROTOS,WMI=l1.P,l1.WMI                        -- opaque handle binds
+  local wmTouch=l3.Wtouch
+  …frames/cells/countdown/dispatch chain identical to current…
+    wmv=(wmTouch(six)==nil) and 1 or 0                -- via L3 only
+end
+VM(L1,L3,1,ENVROOT,{},PK(...),nil)
+```
+
+Contract enforcement tests (dispatch-check additions):
+  - no `PROTOS[` token outside L1 body region
+  - no `.WM[` token outside L1 body + L3 Wtouch
+  - run() signature must be `(l1,l3,…)` when layered
+
 ## 5. Exit Criteria
 
 - [ ] e2e suite green (17+ cases)
