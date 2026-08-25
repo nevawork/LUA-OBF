@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Push pending workspace changes to the session branch.
 set -e
 cd "$(dirname "$0")/.."
 
