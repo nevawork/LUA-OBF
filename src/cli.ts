@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { protect, Manifest } from "./pipeline";
 import { extractWatermark } from "./extract";
 import { parse } from "./lang/parser";
+import { normalizeTier } from "./engine/runtime/tiers";
 
 function fail(msg: string): never {
   console.error(`nevahex: ${msg}`);
@@ -30,8 +31,8 @@ switch (cmd) {
     } catch {
       fail(`cannot read ${input}`);
     }
-    const tier = (flagOf("--tier") ?? "silent") as "strict" | "silent" | "off";
-    if (!["strict", "silent", "off"].includes(tier)) fail("tier must be strict|silent|off");
+    const tier = normalizeTier((flagOf("--tier") ?? "silent") as never);
+    if (!["strict", "silent", "off"].includes(tier)) fail("tier must be TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|TIER_PARANOID_OFF|strict|silent|off");
     const target = (flagOf("--target") ?? "universal") as string;
     if (!["lua51", "luajit", "luau", "universal"].includes(target))
       fail("target must be lua51|luajit|luau|universal");
@@ -68,6 +69,18 @@ switch (cmd) {
     }
     break;
   }
+  case "metrics": {
+    const a = flagOf("--a");
+    const b = flagOf("--b");
+    if (!a || !b) fail("usage: nevahex metrics --a <manifest1.json> --b <manifest2.json>");
+    const { layoutSimilarity } = require("./testing/metrics");
+    const ma = JSON.parse(readFileSync(a!, "utf8"));
+    const mb = JSON.parse(readFileSync(b!, "utf8"));
+    const sim = layoutSimilarity(ma.fingerprint, mb.fingerprint);
+    console.log(`layout similarity: ${sim.toFixed(4)}`);
+    console.log(`spec target < 0.15: ${sim < 0.15 ? "PASS" : "FAIL"}`);
+    break;
+  }
   case "verify": {
     const input = args[0];
     if (!input) fail("usage: nevahex verify <input.lua>");
@@ -85,12 +98,16 @@ switch (cmd) {
 Usage:
   nevahex protect <input.lua> [options]
       -o <out.lua>              output path
-      --tier <mode>             strict | silent | off   (default silent)
+      --tier <mode>             TIER_PARANOID_STRICT | TIER_PARANOID_SILENT | off (default silent)
       --seed <256-bit hex>      deterministic build nonce
       --watermark <text>        embed recoverable watermark
       --manifest <path>         manifest output path
+      --target <env>            lua51 | luajit | luau | universal
+      --env-keying              bind decryption to the target fingerprint
+      --anti-emu                enable timing-based anti-emulation (non-luau)
   nevahex extract <protected.lua> --manifest <file>
-  nevahex verify <input.lua>`);
+  nevahex verify <input.lua>
+  nevahex metrics --a <manifest1.json> --b <manifest2.json>`);
     break;
 }
 

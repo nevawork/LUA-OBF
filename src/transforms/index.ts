@@ -3,6 +3,7 @@
 export { encryptStrings, resetStringsCounter } from "./strings";
 export { flattenControlFlow, resetFlattenCounter } from "./flatten";
 export { injectOpaqueJunk, resetOpaqueCounter } from "./opaque";
+export { preserveTaskLibrary, luauCompatScan } from "./luau";
 
 /** reset all module-local counters (determinism across repeated builds) */
 export function resetCounter(): void {

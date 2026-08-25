@@ -70,15 +70,18 @@ docs/ARCHITECTURE.md            file ↔ spec-phase map
 
 ## 4. Remaining Spec Systems (after restructure)
 
-| Spec requirement | Plan |
-|---|---|
-| Anti-emulation/sandbox (Phase 1 adversary class) | `antiemulation.ts`: batched `os.clock` deltas vs executed-op count; slowdown ⇒ tamper path. Off for Luau target (`--target luau`). |
-| Environmental keying, hardened (colluding attacker) | `envkeying.ts`: derive blob subkey from runtime fingerprint (`_VERSION` + selected global fingerprints). Wrong env ⇒ wrong keys ⇒ cryptic failure — derive-not-compare avoids original's weakness. Optional flag. |
-| Bounded resources (graceful degradation) | `resources.ts`: decode budget caps, max integrity slices per tick, embedded iteration guards. |
-| Phase 21 verification & fuzz harness | `tests/fuzz.test.ts`: random-program generator → protect → differential run vs reference Lua; byte-flip mutation tests must trip tiers; extraction round-trip incl. wrong-key CRC failure; determinism/isomorphism. |
-| Handler-diversity metric (replaces unverifiable ML claim) | `nevahex metrics a.lua b.lua`: dispatch-order + handler-body similarity across builds. |
-| Luau compat (typeof / __namecall / task lib) | Passthrough guarantees documented: method names encrypted at rest only, resolved correctly at runtime; globals never rewritten. Target flag gates os-dependent layers. |
-| Addendum 0.1 bounded adversary cost | Documented as design goal with measurable proxies (handler diversity, mutation coverage) in ARCHITECTURE.md. |
+| Spec requirement | Plan | State |
+|---|---|---|
+| Anti-emulation/sandbox (Phase 1 adversary class) | `antiemulation.ts`: batched `os.clock` deltas vs executed-op count; slowdown ⇒ tamper path. Off for Luau target (`--target luau`). | DONE (wired, unverified) |
+| Environmental keying, hardened (colluding attacker) | `envkeying.ts`: derive blob subkey from runtime fingerprint (`_VERSION` + selected global bits). Wrong env ⇒ wrong keys ⇒ cryptic failure — derive-not-compare. `--env-keying --target <profile>`. | DONE (wired, unverified) |
+| Bounded resources (graceful degradation) | `resources.ts`: decode budget caps embedded in decoder. | DONE |
+| Phase 21 verification & fuzz harness | `tests/unit.test.ts` + `tests/fuzz.test.ts` (24-case generator, mutation-trips-tier test). Run via vitest. | WRITTEN, needs run |
+| Handler-diversity metric (cosine < 0.15 replacement) | `testing/metrics.ts` + `nevahex metrics --a m1 --b m2`; fingerprint stored in manifest. | DONE |
+| Tier naming per Addendum 0.2 | `TIER_PARANOID_*` accepted + normalized. | DONE |
+| Luau compat: task as `_G["\116\97\115\107"]` | `transforms/luau.ts` `preserveTaskLibrary` wired into pipeline. | DONE |
+| Luau compat: typeof / __namecall | passthrough guarantees; ISA never triggers __namecall. Documented in module header. | DONE |
+| **Triple-VM hypervisor (Phase 3)** Layers 1–3, entropy pool | **BLOCKED: spec text truncated** at Phase 3.1 both deliveries. Need Phases 3–20 full text. | NOT STARTED |
+| Addendum 0.1 bounded adversary cost | documented as design goal w/ measurable proxies in ARCHITECTURE.md. | DOCUMENTED |
 
 ## 5. Exit Criteria
 

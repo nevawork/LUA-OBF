@@ -45,6 +45,8 @@ export interface EmitOptions {
 
 export interface EmitResult {
   lua: string;
+  /** physical-op sequence of the emitted dispatch chain (diversity metric) */
+  dispatchOrder: number[];
 }
 
 const M31 = 2147483647;
@@ -443,6 +445,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   chainLines.push(`else`);
   chainLines.push(`error(${JSON.stringify(garbage(rng))})`);
   chainLines.push(`end`);
+  const dispatchOrder = ordered.map((h) => P[h.op]);
 
   // ---------- seeds / constants ----------
   const s0 = normSeed(opts.cipherLiterals ? opts.cipherLiterals[0] : opts.seeds[0]);
@@ -608,5 +611,5 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(` ${N.run}(${opts.rootPid},${N.envroot},{},${F.A},nil)`);
   L.push(`end`);
 
-  return { lua: L.join("\n") };
+  return { lua: L.join("\n"), dispatchOrder };
 }

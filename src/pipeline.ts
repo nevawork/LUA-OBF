@@ -8,7 +8,7 @@ import {
   spreadWatermark, crc16, normSeed,
 } from "./vm/serializer";
 import { emitRuntime, Tier } from "./vm/emitter";
-import { encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter } from "./transforms";
+import { encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter, preserveTaskLibrary } from "./transforms";
 import { BuildRng, randomNonce, sha256 } from "./gen/prng";
 import { planIntegritySlices } from "./protection/antitamper";
 import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
@@ -40,6 +40,8 @@ export interface Manifest {
   envProfile: EnvProfile;
   integritySlices: number;
   watermark: { seed: number; len: number; crc16: number };
+  /** per-build layout fingerprint (handler-diversity metric, spec Phase 1) */
+  fingerprint: { perm: number[]; dispatchOrder: number[] };
   createdAt: string;
 }
 
@@ -71,6 +73,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
 
   // ---- Phase T: source transforms (all randomness from the build rng) ----
   resetCounter();
+  preserveTaskLibrary(chunk); // spec Phase 2: task as _G[...] (no-op if unused)
   encryptStrings(chunk);
   if (opts.flatten !== false)
     flattenControlFlow(chunk, { keys: () => 1 + rng.int(100000) });
@@ -147,6 +150,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     tier,
     envProfile,
     integritySlices: cappedIntegrity.length,
+    fingerprint: { perm, dispatchOrder: emitted.dispatchOrder },
     watermark: {
       seed: normSeed(seeds[2]),
       len: wmPayload ? wmPayload.length : 0,

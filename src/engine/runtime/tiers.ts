@@ -7,6 +7,25 @@
 
 export type Tier = "off" | "strict" | "silent";
 
+/** Spec-canonical tier names (Addendum 0.2) accepted by the CLI/pipeline */
+export type ParanoidTier = "TIER_PARANOID_OFF" | "TIER_PARANOID_STRICT" | "TIER_PARANOID_SILENT";
+
+export function normalizeTier(t: Tier | ParanoidTier): Tier {
+  switch (t) {
+    case "TIER_PARANOID_OFF":
+    case "off":
+      return "off";
+    case "TIER_PARANOID_STRICT":
+    case "strict":
+      return "strict";
+    case "TIER_PARANOID_SILENT":
+    case "silent":
+      return "silent";
+    default:
+      return (t as Tier);
+  }
+}
+
 export interface TierContext {
   /** frame-local variable holding the poison flag */
   poisonVar: string;
