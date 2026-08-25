@@ -24,7 +24,7 @@ function hasFlag(name: string): boolean {
 switch (cmd) {
   case "protect": {
     const input = args[0];
-    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier strict|silent|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu]");
+    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu] [--no-mba] [--dyn-load]");
     let source: string;
     try {
       source = readFileSync(input, "utf8");
@@ -44,6 +44,8 @@ switch (cmd) {
       watermark: flagOf("--watermark"),
       envProfile: envKeying,
       antiEmulation: target !== "luau" && hasFlag("--anti-emu"),
+      mbaPlus: !hasFlag("--no-mba"),
+      dynLoad: hasFlag("--dyn-load") && target !== "luau",
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);
@@ -105,6 +107,8 @@ Usage:
       --target <env>            lua51 | luajit | luau | universal
       --env-keying              bind decryption to the target fingerprint
       --anti-emu                enable timing-based anti-emulation (non-luau)
+      --no-mba                  disable MBA+ algebra rewrites (on by default)
+      --dyn-load                optional string.dump+load path (non-luau)
   nevahex extract <protected.lua> --manifest <file>
   nevahex verify <input.lua>
   nevahex metrics --a <manifest1.json> --b <manifest2.json>`);

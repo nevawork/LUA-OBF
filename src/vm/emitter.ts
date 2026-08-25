@@ -14,6 +14,7 @@ import { buildHandlers, assembleChain } from "../engine/runtime/dispatcher";
 import { AntiEmulationConfig, emitAntiEmulationBlock } from "../protection/antiemulation";
 import { EnvProfile, emitEnvKeyingBlock } from "../protection/envkeying";
 import { ResourceBudget, DEFAULT_BUDGET } from "../protection/resources";
+import { emitDynLoadPrelude } from "../engine/runtime/dynload";
 
 export type { Tier };
 
@@ -36,6 +37,8 @@ export interface EmitOptions {
   antiEmulation?: AntiEmulationConfig | null;
   /** bounded-resource budget */
   budget?: ResourceBudget;
+  /** optional string.dump+load path (Phase 2 exception; disabled for luau) */
+  dynLoad?: boolean;
   /**
    * baked-down cipher seed literals embedded in the file (environment keying).
    * When present they replace seeds[0]/[1] as the embedded sa/sb registers;
@@ -200,6 +203,14 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
   L.push(`local function ${N.ur}(t,i,j) if i>j then return end return t[i],${N.ur}(t,i+1,j) end`);
   L.push(`local ${N.envroot}=_G or _ENV`);
+
+  // optional dynamic-load path (Phase 2 exception; opt-in, disabled for luau)
+  if (opts.dynLoad && opts.envProfile !== "luau") {
+    const dyn = emitDynLoadPrelude(true, opts.envProfile ?? "universal", { fn: ids.alloc() });
+    if (dyn) for (const dl of dyn.lines) L.push(dl);
+  }
+
+  L.push(`--[L1_SHELL] outer shell: blob decryption + environment derivation + budgets`);
   L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
   L.push(`local ${N.protos}={}`);
   L.push(`local ${N.wm}={}`);
@@ -282,6 +293,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`end`);
   L.push(`${N.wmi}=#${N.wm}`);
   L.push(`if ${N.wmi}<1 then ${N.wmi}=1 ${N.wm}[1]=0 end`);
+  L.push(`--[L3_CONSTS] const plane: proto constant pools + watermark carriers`);
   if (tier !== "off") {
     L.push(`local ${N.icv}={${icvLits}}`);
     L.push(`local ${N.slices}={${slicesLits}}`);
@@ -290,6 +302,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     L.push(`local ${N.nic}=0`);
     L.push(`local ${N.icv}={} local ${N.slices}={}`);
   }
+  L.push(`--[L2_VM] core VM: dispatcher + integrity ticks + tier policy`);
   L.push(`local function ${N.run}(${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
   L.push(` local ${F.P0}=${N.protos}[${F.pid}]`);
   L.push(` local ${F.K}=${F.P0}.k`);

@@ -8,12 +8,13 @@ import {
   spreadWatermark, crc16, normSeed,
 } from "./vm/serializer";
 import { emitRuntime, Tier } from "./vm/emitter";
-import { encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter, preserveTaskLibrary } from "./transforms";
+import { encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter, preserveTaskLibrary, applyMbaPlus } from "./transforms";
 import { BuildRng, randomNonce, sha256 } from "./gen/prng";
 import { planIntegritySlices } from "./protection/antitamper";
 import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 import { verifyGeneratedDispatch } from "./testing/dispatch-check";
+import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
 
 export interface ProtectOptions {
   source: string;
@@ -28,6 +29,10 @@ export interface ProtectOptions {
   envProfile?: EnvProfile;
   /** anti-emulation timing layer (default: off; ignored for luau profile) */
   antiEmulation?: boolean;
+  /** corrected MBA+ algebra rewrites (spec summary item 8; default on) */
+  mbaPlus?: boolean;
+  /** optional string.dump+load dynamic path (Phase 2 exception; off for luau) */
+  dynLoad?: boolean;
 }
 
 export interface Manifest {
@@ -43,6 +48,8 @@ export interface Manifest {
   watermark: { seed: number; len: number; crc16: number };
   /** per-build layout fingerprint (handler-diversity metric, spec Phase 1) */
   fingerprint: { perm: number[]; dispatchOrder: number[] };
+  /** Triple-VM boundary seals (spec Phase 3) */
+  layerSeals: LayerSeals;
   createdAt: string;
 }
 
@@ -79,6 +86,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
   if (opts.flatten !== false)
     flattenControlFlow(chunk, { keys: () => 1 + rng.int(100000) });
   injectOpaqueJunk(chunk, opts.junkDensity ?? 0.12, rng);
+  if (opts.mbaPlus !== false)
+    applyMbaPlus(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
 
   // ---- Phase V: compile to VM bytecode ----
   const root = compileChunk(chunk);
@@ -139,6 +148,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     envProfile,
     antiEmulation: antiEmu,
     cipherLiterals: embeddedCipherLits,
+    dynLoad: opts.dynLoad === true && envProfile !== "luau",
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
@@ -152,6 +162,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     );
   }
 
+  // ---- Triple-VM boundary seals (Phase 3 contracts) ----
+  const layerSeals = computeLayerSeals(emitted.lua);
+
   const manifest: Manifest = {
     format: "nevahex-manifest",
     version: 2,
@@ -163,6 +176,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     envProfile,
     integritySlices: cappedIntegrity.length,
     fingerprint: { perm, dispatchOrder: emitted.dispatchOrder },
+    layerSeals,
     watermark: {
       seed: normSeed(seeds[2]),
       len: wmPayload ? wmPayload.length : 0,

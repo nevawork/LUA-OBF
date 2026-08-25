@@ -40,9 +40,14 @@ src/
 └── transforms/
     ├── strings.ts                rolling-key string encryption
     ├── flatten.ts                keyed state-machine flattening + decoys
-    ├── opaque.ts                 opaque dead-code injection
+    ├── opaque.ts                 semantic poisoning (fake data-flow over live vars)
     ├── luau.ts                   task/_G escape, typeof/__namecall guarantees
+    ├── mba.ts                    corrected MBA+ algebra (SMT-resistant rewrites)
     └── index.ts                  registry (+ determinism counter resets)
+
+engine/triple/contracts.ts        Triple-VM boundary contracts + layer seals
+engine/runtime/dynload.ts         optional string.dump+load path (Phase 2 exception)
+testing/dispatch-check.ts         build-time dispatch self-verification
 
 scripts/e2e.cjs                   differential suite vs wasmoon (Lua 5.4 WASM)
 scripts/verify.sh                 one-shot: tsc + e2e + vitest + determinism + cleanup
