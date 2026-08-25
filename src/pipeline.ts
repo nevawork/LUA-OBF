@@ -33,6 +33,8 @@ export interface ProtectOptions {
   mbaPlus?: boolean;
   /** optional string.dump+load dynamic path (Phase 2 exception; off for luau) */
   dynLoad?: boolean;
+  /** enforce Triple-VM closure boundaries in the artifact (Phase 3) */
+  layered?: boolean;
 }
 
 export interface Manifest {
@@ -149,6 +151,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     antiEmulation: antiEmu,
     cipherLiterals: embeddedCipherLits,
     dynLoad: opts.dynLoad === true && envProfile !== "luau",
+    layered: opts.layered === true,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----

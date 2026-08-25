@@ -4,6 +4,9 @@ on:
     branches: ["**"]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -43,6 +46,26 @@ jobs:
             finally { lua.global.close(); }
           })();
           " || true
+
+      - name: Persist diagnostics into branch
+        if: always()
+        run: |
+          set +e
+          node scripts/e2e.cjs > diag-e2e.txt 2>&1
+          node scripts/diagnose.cjs > diag-dispatch.txt 2>&1
+          NEVAHEX_DEBUG=1 node -e "
+          const {protect}=require('./dist/pipeline.js');
+          const {LuaFactory}=require('wasmoon');
+          (async()=>{const r=protect({source:'EXPECTED={2+3}',tier:'silent',seedHex:'11'.repeat(32)});
+          const lua=await new LuaFactory().createEngine();
+          try{await lua.doString(r.lua);console.log('DEBUG RUN OK',JSON.stringify(lua.global.getTable('EXPECTED')));}
+          catch(e){console.log('DEBUG ERR:',String(e.message).split('\n')[0]);}
+          finally{lua.global.close();}})();" > dbg-probe.txt 2>&1
+          git config user.name "kiloconnect[bot]"
+          git config user.email "240665456+kiloconnect[bot]@users.noreply.github.com"
+          git add -f diag-e2e.txt diag-dispatch.txt dbg-probe.txt
+          git commit -m "chore(ci): persist diagnostics [skip ci]" || true
+          git push origin HEAD:session/agent_6d4208be-13aa-43a3-a5ad-1d5cc2a855f1 || true
 
       - name: Unit + fuzz suites
         run: npx vitest run

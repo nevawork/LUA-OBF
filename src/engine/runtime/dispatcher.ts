@@ -30,6 +30,8 @@ export interface DispatchCtx {
   gate(): string;
   /** cryptic literal for the reserved ESCAPE op */
   escapeGarbageLit: string;
+  /** per-build handler synthesis: number of never-matched decoy arms */
+  synthCount?: number;
 }
 
 export function buildHandlers(ctx: DispatchCtx): Handler[] {
@@ -342,6 +344,20 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     `end`,
   ]);
   add(Op.ESCAPE, [`error(${ctx.escapeGarbageLit})`]);
+
+  // Per-build handler synthesis (spec Phase 1, DPA defense): decoy arms with
+  // literals outside the physical opcode range — never dispatched, but every
+  // build carries a different synthetic handler population.
+  const nSynth = ctx.synthCount ?? 0;
+  for (let s = 0; s < nSynth; s++) {
+    const fake = 100 + s;
+    hs.push({
+      op: Op.MOVE,
+      phys: fake,
+      test: `op==${fake}${gate()}`,
+      body: [`do local ${F.t}=${F.S}[${F.sp}] ${F.S}[${F.sp}]=${F.t} end`],
+    });
+  }
 
   return hs;
 }

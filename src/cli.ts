@@ -46,6 +46,7 @@ switch (cmd) {
       antiEmulation: target !== "luau" && hasFlag("--anti-emu"),
       mbaPlus: !hasFlag("--no-mba"),
       dynLoad: hasFlag("--dyn-load") && target !== "luau",
+      layered: hasFlag("--layered"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);

@@ -15,6 +15,7 @@ import { AntiEmulationConfig, emitAntiEmulationBlock } from "../protection/antie
 import { EnvProfile, emitEnvKeyingBlock } from "../protection/envkeying";
 import { ResourceBudget, DEFAULT_BUDGET } from "../protection/resources";
 import { emitDynLoadPrelude } from "../engine/runtime/dynload";
+import { emitEntropyPoolBlock } from "../protection/entropypool";
 
 export type { Tier };
 
@@ -39,6 +40,10 @@ export interface EmitOptions {
   budget?: ResourceBudget;
   /** optional string.dump+load path (Phase 2 exception; disabled for luau) */
   dynLoad?: boolean;
+  /** Environmental Entropy Pool mixing (Phase 3.1); active when envProfile set */
+  entropyPool?: boolean;
+  /** enforce Triple-VM closure boundaries in the artifact (Phase 3 contracts) */
+  layered?: boolean;
   /**
    * baked-down cipher seed literals embedded in the file (environment keying).
    * When present they replace seeds[0]/[1] as the embedded sa/sb registers;
@@ -98,6 +103,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     ctn: id(), pk: id(), ur: id(), envroot: id(), blob: id(), protos: id(),
     ch: id(), pos: id(), u8: id(), uvar: id(), svar: id(), np: id(),
     run: id(), pid2: id(), icv: id(), slices: id(), nic: id(), wm: id(), wmi: id(),
+    l1: id(),
   };
   const F = {
     P0: id(), K: id(), C: id(), S: id(), cells: id(), sp: id(), mr: id(),
@@ -139,6 +145,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     phys: (op: Op): number => P[op],
     gate,
     escapeGarbageLit: JSON.stringify(garbage(rng)),
+    synthCount: 2 + rng.int(4),
   });
   const { chainLines, dispatchOrder } = assembleChain(
     handlers,
@@ -211,11 +218,23 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   }
 
   L.push(`--[L1_SHELL] outer shell: blob decryption + environment derivation + budgets`);
-  L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
-  L.push(`local ${N.protos}={}`);
-  L.push(`local ${N.wm}={}`);
-  L.push(`local ${N.ch}=string.char`);
-  L.push(`do`);
+  // Phase 3 enforced boundaries: when layered, decode internals live inside a
+  // sealed L1 closure exposing only an opaque handle {P, WM, WMI}.
+  const layered = opts.layered === true;
+  if (layered) {
+    L.push(`local ${N.l1}=(function()`);
+    L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
+    L.push(`local ${N.protos}={}`);
+    L.push(`local ${N.wm}={}`);
+    L.push(`local ${N.ch}=string.char`);
+    L.push(`do`);
+  } else {
+    L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
+    L.push(`local ${N.protos}={}`);
+    L.push(`local ${N.wm}={}`);
+    L.push(`local ${N.ch}=string.char`);
+    L.push(`do`);
+  }
   L.push(` local ${N.pos}=1`);
   L.push(` local D={} local bn=#${N.blob}`);
   // bounded-resource guard: refuse absurd blobs outright
@@ -225,6 +244,11 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // environmental keying (hardened derive-not-compare): mix fingerprint constant
   const envLines = emitEnvKeyingBlock(opts.envProfile ?? "universal", "sa", "sb");
   if (envLines) for (const el of envLines) L.push(` ${el}`);
+  // Environmental Entropy Pool (Phase 3.1): stable-signal fingerprint mixing
+  if (opts.entropyPool !== false && (opts.envProfile ?? "universal") !== "universal") {
+    const pool = emitEntropyPoolBlock(opts.envProfile ?? "universal", "sa", "sb");
+    if (pool) for (const pl of pool) L.push(` ${pl}`);
+  }
   L.push(` for i=1,bn do`);
   L.push(`  sa=(sa*48271)%MM sb=(sb*69621)%MM`);
   L.push(`  D[i]=(string.byte(${N.blob},i)-((math.floor(sa/65536)+math.floor(sb/65536))%256)+512)%256`);
@@ -290,9 +314,17 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  ${N.wm}[i]=(D[${N.pos}]-((math.floor(wa/65536)+math.floor(wb/65536))%256)+512)%256`);
   L.push(`  ${N.pos}=${N.pos}+1`);
   L.push(` end`);
-  L.push(`end`);
-  L.push(`${N.wmi}=#${N.wm}`);
-  L.push(`if ${N.wmi}<1 then ${N.wmi}=1 ${N.wm}[1]=0 end`);
+  if (layered) {
+    // WMI fixups stay inside L1; then seal the handle
+    L.push(`${N.wmi}=#${N.wm}`);
+    L.push(`if ${N.wmi}<1 then ${N.wmi}=1 ${N.wm}[1]=0 end`);
+    L.push(`return {P=${N.protos},WM=${N.wm},WMI=${N.wmi}}`);
+    L.push(`end)()`);
+  } else {
+    L.push(`end`);
+    L.push(`${N.wmi}=#${N.wm}`);
+    L.push(`if ${N.wmi}<1 then ${N.wmi}=1 ${N.wm}[1]=0 end`);
+  }
   L.push(`--[L3_CONSTS] const plane: proto constant pools + watermark carriers`);
   if (tier !== "off") {
     L.push(`local ${N.icv}={${icvLits}}`);
@@ -303,7 +335,12 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     L.push(`local ${N.icv}={} local ${N.slices}={}`);
   }
   L.push(`--[L2_VM] core VM: dispatcher + integrity ticks + tier policy`);
-  L.push(`local function ${N.run}(${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
+  if (layered) {
+    L.push(`local function ${N.run}(l1,${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
+    L.push(` local ${N.protos},${N.wm},${N.wmi}=l1.P,l1.WM,l1.WMI`);
+  } else {
+    L.push(`local function ${N.run}(${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
+  }
   L.push(` local ${F.P0}=${N.protos}[${F.pid}]`);
   L.push(` local ${F.K}=${F.P0}.k`);
   L.push(` local ${F.C}=${F.P0}.c`);
@@ -330,7 +367,11 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`end`);
   L.push(`do`);
   L.push(` local ${F.A}=${N.pk}(...)`);
-  L.push(` ${N.run}(${opts.rootPid},${N.envroot},{},${F.A},nil)`);
+  if (layered) {
+    L.push(` ${N.run}(${N.l1},${opts.rootPid},${N.envroot},{},${F.A},nil)`);
+  } else {
+    L.push(` ${N.run}(${opts.rootPid},${N.envroot},{},${F.A},nil)`);
+  }
   L.push(`end`);
 
   return { lua: L.join("\n"), dispatchOrder };
