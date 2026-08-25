@@ -1,0 +1,17 @@
+/home/runner/work/LUA-OBF/LUA-OBF/dist/pipeline.js:99
+        throw new Error(`NEVAHEX internal: generated dispatch failed self-check\n` +
+              ^
+
+Error: NEVAHEX internal: generated dispatch failed self-check
+  - arm count 54 != ISA size 51 (lost/duplicated handlers?)
+    at protect (/home/runner/work/LUA-OBF/LUA-OBF/dist/pipeline.js:99:15)
+    at [eval]:4:20
+    at [eval]:8:31
+    at runScriptInThisContext (node:internal/vm:209:10)
+    at node:internal/process/execution:118:14
+    at [eval]-wrapper:6:24
+    at runScript (node:internal/process/execution:101:62)
+    at evalScript (node:internal/process/execution:133:3)
+    at node:internal/main/eval_string:51:3
+
+Node.js v20.20.2
