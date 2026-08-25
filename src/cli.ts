@@ -23,7 +23,7 @@ function hasFlag(name: string): boolean {
 switch (cmd) {
   case "protect": {
     const input = args[0];
-    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier strict|silent|off] [--seed <hex>] [--watermark <text>] [--manifest out.json]");
+    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier strict|silent|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu]");
     let source: string;
     try {
       source = readFileSync(input, "utf8");
@@ -32,11 +32,17 @@ switch (cmd) {
     }
     const tier = (flagOf("--tier") ?? "silent") as "strict" | "silent" | "off";
     if (!["strict", "silent", "off"].includes(tier)) fail("tier must be strict|silent|off");
+    const target = (flagOf("--target") ?? "universal") as string;
+    if (!["lua51", "luajit", "luau", "universal"].includes(target))
+      fail("target must be lua51|luajit|luau|universal");
+    const envKeying = hasFlag("--env-keying") ? (target as import("./protection/envkeying").EnvProfile) : "universal";
     const result = protect({
       source: source!,
       tier,
       seedHex: flagOf("--seed"),
       watermark: flagOf("--watermark"),
+      envProfile: envKeying,
+      antiEmulation: target !== "luau" && hasFlag("--anti-emu"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);

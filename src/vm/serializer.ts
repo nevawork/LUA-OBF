@@ -1,116 +1,31 @@
-// NEVAHEX-VM — proto tree serialization, transport cipher, watermark spread.
-// Cipher contract (mirrored by the emitted Lua runtime):
-//   Lehmer LCG pair mod 2^31-1; keystream byte = (hi16(a) + hi16(b)) & 0xFF
-//   encrypt: c = (p + k) & 0xFF ; decrypt: p = (c - k) & 0xFF
-// Pure-arithmetic so the identical routine runs on Lua 5.1/LuaJIT/Luau.
+// NEVAHEX-VM — proto tree serialization & blob framing.
+// Cipher primitives live in src/engine/crypto/cipher.ts; watermark spread in
+// src/protection/watermark.ts. This module keeps the wire format and re-exports
+// the historical names so existing call sites stay stable.
 import { Proto } from "./opcodes";
+import {
+  M31, normSeed, makeKeyStream, wmSeeds,
+} from "../engine/crypto/cipher";
+import { spreadWatermark, unspreadWatermark, crc16 } from "../protection/watermark";
 
 export type Seeds = [number, number, number, number];
 
-const M31 = 2147483647;
-export { M31 };
-
-/** normalized positive seed in [1, M31-2]; idempotent & safe for identical Lua-side % behavior */
-export function normSeed(s: number): number {
-  const m = M31 - 1;
-  const r = ((s % m) + m) % m;
-  return r === 0 ? 1 : r;
-}
-
-function lcgPair(seedA: number, seedB: number): () => number {
-  let sa = normSeed(seedA);
-  let sb = normSeed(seedB === seedA ? seedB + 1 : seedB);
-  return (): number => {
-    sa = (sa * 48271) % M31;
-    sb = (sb * 69621) % M31;
-    return ((Math.floor(sa / 65536) + Math.floor(sb / 65536)) & 0xff);
-  };
-}
-
-/** canonical second-stream seed pair for watermark masking (shared with runtime/extractor) */
-export function wmSeeds(seed: number): [number, number] {
-  const b = ((seed ^ 0x5f3759df) >>> 0) || 7;
-  return [seed, b];
-}
-
-export function makeKeyStream(seedA: number, seedB: number): (n: number) => Uint8Array {
-  const next = lcgPair(seedA, seedB);
-  return (n: number): Uint8Array => {
-    const out = new Uint8Array(n);
-    for (let i = 0; i < n; i++) out[i] = next();
-    return out;
-  };
-}
+export { M31, normSeed, makeKeyStream, wmSeeds, spreadWatermark, unspreadWatermark, crc16 };
 
 export function encryptBlob(plain: Uint8Array, seeds: Seeds): Buffer {
-  const ks = makeKeyStream(seeds[0], seeds[1]);
-  const keys = ks(plain.length);
+  const keys = makeKeyStream(seeds[0], seeds[1])(plain.length);
   const out = Buffer.alloc(plain.length);
   for (let i = 0; i < plain.length; i++) out[i] = (plain[i] + keys[i]) & 0xff;
   return out;
 }
 
 export function decryptBlob(cipher: Uint8Array, seeds: Seeds): Buffer {
-  const ks = makeKeyStream(seeds[0], seeds[1]);
-  const keys = ks(cipher.length);
+  const keys = makeKeyStream(seeds[0], seeds[1])(cipher.length);
   const out = Buffer.alloc(cipher.length);
   for (let i = 0; i < cipher.length; i++) out[i] = (cipher[i] - keys[i] + 256) & 0xff;
   return out;
 }
 
-/**
- * Watermark carrier region: three payload copies separated by 32-byte
- * keystream filler, whole region XOR-masked with a second keystream.
- * Layout is position-deterministic so the extractor needs only the seed + length.
- */
-export function spreadWatermark(payload: Buffer, seed: number): Buffer {
-  const fillerLen = 32;
-  const total = payload.length * 3 + fillerLen * 2;
-  const [m0, m1] = wmSeeds(seed);
-  const maskKs = makeKeyStream(m0, m1);
-  const fillKs = makeKeyStream((seed * 2654435761) % M31, normSeed(seed + 11));
-  const fill = fillKs(fillerLen * 2);
-  const region = Buffer.alloc(total);
-  let o = 0;
-  region.set(payload, o); o += payload.length;
-  region.set(fill.subarray(0, fillerLen), o); o += fillerLen;
-  region.set(payload, o); o += payload.length;
-  region.set(fill.subarray(fillerLen), o); o += fillerLen;
-  region.set(payload, o);
-  const mask = maskKs(total);
-  for (let i = 0; i < total; i++) region[i] = (region[i] + mask[i]) & 0xff;
-  return region;
-}
-
-export function unspreadWatermark(region: Uint8Array, wmLen: number, seed: number): Buffer {
-  const fillerLen = 32;
-  const [m0, m1] = wmSeeds(seed);
-  const maskKsCache = makeKeyStream(m0, m1)(region.length);
-  const out = Buffer.alloc(wmLen);
-  const copyAt = (copyIdx: number, i: number): number => {
-    const off = copyIdx * (wmLen + fillerLen) + i;
-    return (region[off] - maskKsCache[off] + 256) & 0xff;
-  };
-  for (let i = 0; i < wmLen; i++) {
-    const a = copyAt(0, i);
-    const b = copyAt(1, i);
-    const c = copyAt(2, i);
-    // majority vote
-    out[i] = (a === b || a === c) ? a : b;
-  }
-  return out;
-}
-
-export function crc16(buf: Uint8Array): number {
-  let crc = 0xffff;
-  for (let i = 0; i < buf.length; i++) {
-    crc ^= buf[i];
-    for (let b = 0; b < 8; b++) {
-      crc = crc & 1 ? (crc >> 1) ^ 0xa001 : crc >> 1;
-    }
-  }
-  return crc & 0xffff;
-}
 
 // ---- varints ----
 

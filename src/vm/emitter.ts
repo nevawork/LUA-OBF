@@ -1,12 +1,19 @@
-// NEVAHEX-VM — runtime emitter: generates the per-build Lua VM interpreter.
-// Per-build hardening: shuffled physical opcodes, reordered dispatch chain,
-// randomized identifiers, MBA-gated comparisons, woven integrity checks,
-// tiered tamper response (strict halt / silent poisoning), watermark carriers.
+// NEVAHEX-VM — runtime emitter (artifact assembly).
+// Modules consumed from engine/runtime/: identifiers, tiers, integrity,
+// carriers. Protection layers wired here: anti-tamper (integrity ticks),
+// watermark carriers, optional anti-emulation, environmental keying, budgets.
 import { BuildRng } from "../gen/prng";
 import { Op } from "./opcodes";
 import { Seeds, normSeed, wmSeeds } from "./serializer";
+import { IdAllocator } from "../engine/runtime/identifiers";
+import { Tier, tierViolationLines } from "../engine/runtime/tiers";
+import { emitIntegrityCheck, IntegrityNames } from "../engine/runtime/integrity";
+import { emitCarrierTouch } from "../engine/runtime/carriers";
+import { AntiEmulationConfig, emitAntiEmulationBlock } from "../protection/antiemulation";
+import { EnvProfile, emitEnvKeyingBlock } from "../protection/envkeying";
+import { ResourceBudget, DEFAULT_BUDGET } from "../protection/resources";
 
-export type Tier = "off" | "strict" | "silent";
+export type { Tier };
 
 export interface EmitOptions {
   seeds: Seeds;
@@ -21,6 +28,19 @@ export interface EmitOptions {
   rootPid: number;
   /** logical→physical opcode mapping (owned by the pipeline) */
   perm: number[];
+  /** environment keying profile (default universal = disabled) */
+  envProfile?: EnvProfile;
+  /** anti-emulation timing layer config (null = disabled) */
+  antiEmulation?: AntiEmulationConfig | null;
+  /** bounded-resource budget */
+  budget?: ResourceBudget;
+  /**
+   * baked-down cipher seed literals embedded in the file (environment keying).
+   * When present they replace seeds[0]/[1] as the embedded sa/sb registers;
+   * the runtime adds its fingerprint constant back to recover the effective
+   * opts.seeds[0]/[1] that encrypted the blob.
+   */
+  cipherLiterals?: [number, number] | null;
 }
 
 export interface EmitResult {
@@ -64,16 +84,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const tier = opts.tier;
 
   // ---------- identifiers ----------
-  const used = new Set<string>(["run", "self"]);
-  const id = (): string => {
-    for (;;) {
-      const n = rng.ident(6 + rng.int(6));
-      if (!used.has(n)) {
-        used.add(n);
-        return n;
-      }
-    }
-  };
+  const ids = new IdAllocator(["run", "self"], rng);
+  const id = (): string => ids.alloc();
 
   const N = {
     ctn: id(), pk: id(), ur: id(), envroot: id(), blob: id(), protos: id(),
@@ -433,8 +445,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   chainLines.push(`end`);
 
   // ---------- seeds / constants ----------
-  const s0 = normSeed(opts.seeds[0]);
-  const s1 = normSeed(opts.seeds[1]);
+  const s0 = normSeed(opts.cipherLiterals ? opts.cipherLiterals[0] : opts.seeds[0]);
+  const s1 = normSeed(opts.cipherLiterals ? opts.cipherLiterals[1] : opts.seeds[1]);
 
   const icvLits = opts.integrity.map((s) => obf(s[3], rng)).join(",");
   const slicesLits = opts.integrity
@@ -442,32 +454,30 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     .join(",");
   const pbiasLit = obf(normSeed(opts.pbias), rng);
 
-  // ---------- integrity + watermark tick ----------
+  // integrity tick names → dispatcher frame locals
+  const IN: IntegrityNames = {
+    icv: N.icv, slices: N.slices, nic: N.nic, six: F.six,
+    protos: N.protos, sl: F.sl, seg: F.seg, h: F.h, j: F.j, q: F.q, v: F.v,
+  };
+
+  // ---------- integrity + watermark tick (engine/runtime modules) ----------
   const tick: string[] = [];
   if (tier !== "off") {
-    tick.push(
-      `if ${N.nic}>0 then`,
-      `local ${F.sl}=${N.slices}[${F.six}]`,
-      `${F.six}=${F.six}%${N.nic}+1`,
-      `if ${F.sl} then`,
-      `local ${F.seg}=${N.protos}[${F.sl}.p] and ${N.protos}[${F.sl}.p].k`,
-      `if ${F.seg} then`,
-      `local ${F.h}=(2166136261%1000000007)`,
-      `for ${F.j}=${F.sl}.a,${F.sl}.b do`,
-      `local ${F.q}=${F.seg}[${F.j}]`,
-      `if ${F.q} then ${F.h}=(${F.h}*16777619+${F.q}[1]*31+${F.q}[2]*7+${F.q}[3]*3+${F.q}[4])%1000000007 end`,
-      `end`,
-      `if ${F.h}~=${N.icv}[${F.sl}.i] then`,
-      tier === "strict"
-        ? `error(${JSON.stringify(garbage(rng))})`
-        : `${F.poison}=true ${F.PB}=${pbiasLit}`,
-      `end`,
-      `end`,
-      `end`,
-      `end`,
-    );
+    const response = tierViolationLines(tier, JSON.stringify(garbage(rng)), {
+      poisonVar: F.poison, pbVar: F.PB, biasLit: pbiasLit,
+    });
+    tick.push(...emitIntegrityCheck(IN, response));
   }
-  tick.push(`${F.wmv}=(${N.wm}[(${F.six}*7)%${N.wmi}+1]==nil) and 1 or 0`);
+  tick.push(...emitCarrierTouch({ wmVar: N.wm, wmiVar: N.wmi, sixVar: F.six, sinkVar: F.wmv }));
+  // anti-emulation timing layer (os.clock required; caller disables for luau)
+  const ae = emitAntiEmulationBlock(opts.antiEmulation ?? null, {
+    tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB,
+  });
+  if (ae) {
+    tick.push(`if os and os.clock then`);
+    tick.push(...ae.map((l) => l));
+    tick.push(`end`);
+  }
 
   const countdown =
     tier === "off"
@@ -488,7 +498,13 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`do`);
   L.push(` local ${N.pos}=1`);
   L.push(` local D={} local bn=#${N.blob}`);
+  // bounded-resource guard: refuse absurd blobs outright
+  const budget = opts.budget ?? DEFAULT_BUDGET;
+  L.push(` if bn>${budget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(` local sa=${obf(s0, rng)} sb=${obf(s1, rng)} MM=${M31}`);
+  // environmental keying (hardened derive-not-compare): mix fingerprint constant
+  const envLines = emitEnvKeyingBlock(opts.envProfile ?? "universal", "sa", "sb");
+  if (envLines) for (const el of envLines) L.push(` ${el}`);
   L.push(` for i=1,bn do`);
   L.push(`  sa=(sa*48271)%MM sb=(sb*69621)%MM`);
   L.push(`  D[i]=(string.byte(${N.blob},i)-((math.floor(sa/65536)+math.floor(sb/65536))%256)+512)%256`);
@@ -514,6 +530,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // skip header: marker(3) + version(1)
   L.push(` local _mh1,_mh2,_mh3,_mv=${N.u8}(),${N.u8}(),${N.u8}(),${N.u8}()`);
   L.push(` local ${N.np}=${N.uvar}()`);
+  L.push(` if ${N.np}>${budget.maxProtos} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(` for ${N.pid2}=1,${N.np} do`);
   L.push(`  local pr={}`);
   L.push(`  pr.pn=${N.u8}()`);
@@ -523,6 +540,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  for i=1,nu do pr.uv[i]={${N.u8}()==1 and 1 or 0,${N.uvar}()} end`);
   L.push(`  pr.ns=${N.uvar}()`);
   L.push(`  local nc=${N.uvar}()`);
+  L.push(`  if nc>${budget.maxConsts} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.c={}`);
   L.push(`  for i=1,nc do`);
   L.push(`   local tag=${N.u8}()`);
@@ -536,6 +554,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`   else pr.c[i]=nil end`);
   L.push(`  end`);
   L.push(`  local nk=${N.uvar}()`);
+  L.push(`  if nk>${budget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.k={}`);
   L.push(`  for i=1,nk do`);
   L.push(`   pr.k[i]={${N.u8}(),${N.svar}(),${N.svar}(),${N.svar}()}`);

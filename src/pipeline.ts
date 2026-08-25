@@ -10,6 +10,9 @@ import {
 import { emitRuntime, Tier } from "./vm/emitter";
 import { encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter } from "./transforms";
 import { BuildRng, randomNonce, sha256 } from "./gen/prng";
+import { planIntegritySlices } from "./protection/antitamper";
+import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
+import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 
 export interface ProtectOptions {
   source: string;
@@ -20,6 +23,10 @@ export interface ProtectOptions {
   /** transform intensities */
   junkDensity?: number;
   flatten?: boolean;
+  /** environmental keying profile (default: universal = disabled) */
+  envProfile?: EnvProfile;
+  /** anti-emulation timing layer (default: off; ignored for luau profile) */
+  antiEmulation?: boolean;
 }
 
 export interface Manifest {
@@ -30,6 +37,7 @@ export interface Manifest {
   pbias: number;
   rootPid: number;
   tier: Tier;
+  envProfile: EnvProfile;
   integritySlices: number;
   watermark: { seed: number; len: number; crc16: number };
   createdAt: string;
@@ -72,12 +80,23 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const root = compileChunk(chunk);
 
   const seeds: Seeds = [
-    rng.int(2147483646) + 1,
-    rng.int(2147483646) + 1,
-    rng.int(2147483646) + 1,
-    rng.int(2147483646) + 1,
+    normSeed(rng.int(2147483646) + 1),
+    normSeed(rng.int(2147483646) + 1),
+    normSeed(rng.int(2147483646) + 1),
+    normSeed(rng.int(2147483646) + 1),
   ];
   const pbias = 1 + rng.int(3);
+
+  // ---- environmental keying (hardened derive-not-compare) ----
+  const envProfile: EnvProfile = opts.envProfile ?? "universal";
+  // Blob is encrypted with the EFFECTIVE seeds (manifest holds them; they are
+  // holder-side secrets). The file embeds BAKED-DOWN literals; at load time the
+  // runtime re-derives the fingerprint constant and adds it back, recovering
+  // the effective seeds. Wrong environment ⇒ wrong stream ⇒ cryptic failure.
+  const encSeeds: Seeds = seeds;
+  const embeddedCipherLits: [number, number] | null = envProfile === "universal"
+    ? null
+    : bakeProfileSeeds([seeds[0], seeds[1]], envProfile);
 
   // ---- physical opcode permutation applied in-memory ----
   const logicalCount = Object.keys(Op).filter((x) => isNaN(Number(x))).length;
@@ -94,34 +113,16 @@ export function protect(opts: ProtectOptions): ProtectResult {
 
   // ---- serialize & encrypt ----
   const { plain } = serializeProto(root, wmRegion ?? undefined);
-  const blob = encryptBlob(plain, seeds);
+  const blob = encryptBlob(plain, encSeeds);
 
   // ---- integrity slices over decoded representation ----
-  const { flat } = deserializeBlob(decryptBlob(blob, seeds));
-  const integrity: [number, number, number, number][] = [];
-  const WINDOW = 48;
-  for (let pid = 0; pid < flat.length; pid++) {
-    const code = flat[pid].code;
-    for (let start = 0; start < code.length; start += WINDOW * 4) {
-      const a = start + 1; // 1-based inclusive
-      const b = Math.min(code.length, start + WINDOW * 4);
-      if (a > b) break;
-      let h = 2166136261 % 1000000007;
-      for (let j = a - 1; j < b; j++) {
-        const q = code[j];
-        h = (h * 16777619 + q[0] * 31 + q[1] * 7 + q[2] * 3 + q[3]) % 1000000007;
-      }
-      integrity.push([pid + 1, a, b, h]);
-      if (integrity.length >= 64) break;
-    }
-    if (integrity.length >= 64) break;
-  }
-  // cap via sampling keeps runtime cost bounded (bounded resource guarantee)
-  const cappedIntegrity = integrity.length > 32
-    ? Array.from({ length: 32 }, (_, i) => integrity[Math.floor((i * integrity.length) / 32)])
-    : integrity;
+  const { flat } = deserializeBlob(decryptBlob(blob, encSeeds));
+  const cappedIntegrity = planIntegritySlices(flat);
 
   // ---- emit runtime ----
+  const antiEmu = opts.antiEmulation && envProfile !== "luau"
+    ? { ...DEFAULT_ANTI_EMULATION }
+    : null;
   const emitted = emitRuntime({
     seeds,
     tier,
@@ -131,6 +132,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     pbias,
     rootPid: 1,
     perm,
+    envProfile,
+    antiEmulation: antiEmu,
+    cipherLiterals: embeddedCipherLits,
   });
 
   const manifest: Manifest = {
@@ -141,6 +145,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     pbias,
     rootPid: 1,
     tier,
+    envProfile,
     integritySlices: cappedIntegrity.length,
     watermark: {
       seed: normSeed(seeds[2]),
