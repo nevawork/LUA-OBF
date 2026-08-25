@@ -1,0 +1,55 @@
+name: ci
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc
+
+      - name: E2E differential suite (Lua 5.4 WASM)
+        run: node scripts/e2e.cjs
+
+      - name: Unit + fuzz suites
+        run: npx vitest run
+
+      - name: Determinism / isomorphism / diversity metric
+        run: |
+          node -e "
+          const {protect} = require('./dist/pipeline.js');
+          const {layoutSimilarity} = require('./dist/testing/metrics.js');
+          const a = protect({source:'return 1', tier:'silent', seedHex:'ab'.repeat(32)});
+          const b = protect({source:'return 1', tier:'silent', seedHex:'ab'.repeat(32)});
+          const c = protect({source:'return 1', tier:'silent', seedHex:'cd'.repeat(32)});
+          if (a.lua !== b.lua) throw new Error('FAIL determinism');
+          if (a.lua === c.lua) throw new Error('FAIL per-build isomorphism');
+          const simAB = layoutSimilarity(a.manifest.fingerprint, b.manifest.fingerprint);
+          const simAC = layoutSimilarity(a.manifest.fingerprint, c.manifest.fingerprint);
+          console.log('same-seed similarity:', simAB.toFixed(4));
+          console.log('diff-seed similarity:', simAC.toFixed(4));
+          if (simAC >= 0.15) throw new Error('FAIL diversity target (<0.15)');
+          console.log('OK');
+          "
+
+      - name: Watermark extraction round-trip
+        run: |
+          npx tsx src/cli.ts protect fixtures/smoke.lua -o /tmp/out.lua \
+            --watermark "ci-license-42" --seed 1111111111111111111111111111111111111111111111111111111111111111
+          npx tsx src/cli.ts extract /tmp/out.lua --manifest /tmp/out.lua.manifest.json | grep -q "ci-license-42"
+
+      - name: Cleanup stray scratch files
+        run: rm -f scripts/noop*.cjs scripts/.keep.cjs scripts/.placeholder.cjs scripts/.gitkeep scripts/run-all.cjs scripts/dbg*.cjs
