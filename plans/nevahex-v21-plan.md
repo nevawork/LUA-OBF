@@ -92,8 +92,74 @@ docs/ARCHITECTURE.md            file ↔ spec-phase map
 | Tier naming per Addendum 0.2 | `TIER_PARANOID_*` accepted + normalized. | DONE |
 | Luau compat: task as `_G["\116\97\115\107"]` | `transforms/luau.ts` `preserveTaskLibrary` wired into pipeline. | DONE |
 | Luau compat: typeof / __namecall | passthrough guarantees; ISA never triggers __namecall. Documented in module header. | DONE |
-| **Triple-VM hypervisor (Phase 3)** Layers 1–3, entropy pool | **BLOCKED: spec text truncated** at Phase 3.1 both deliveries. Need Phases 3–20 full text. | NOT STARTED |
+| **Triple-VM hypervisor (Phase 3)** Layers 1–3, entropy pool | **PARTIAL**: boundary contracts + layer markers + manifest seals shipped. Entropy pool + enforced closure boundaries designed below (§6) — apply when writes/bash restored or full spec text arrives. | DESIGN READY |
 | Addendum 0.1 bounded adversary cost | documented as design goal w/ measurable proxies in ARCHITECTURE.md. | DOCUMENTED |
+
+## 6. PENDING PATCHES (fully specified; blocked by session write-permission lock)
+
+Current permission state: source-file writes denied (only plans/*.md editable),
+bash denied (`bash: deny *`, session rule). Everything below is final-design,
+apply verbatim when either is restored.
+
+### 6.1 Environmental Entropy Pool — `src/protection/entropypool.ts` (NEW)
+
+Phase 3.1 fix: replaces unreliable `tostring({})` addresses and non-deterministic
+`os.clock()` micro-time with STABLE signals only.
+
+Signals (per profile): exact `_VERSION` string folded char-by-char
+(`feed(byte*31+i-1)`), then terminator `feed(1)`, then presence bits 11/13 for:
+unpack,setfenv,loadstring,jit,bit,ffi,task,game,typeof,stringx; math
+fingerprints (pi,huge) feed 17 on all real targets.
+
+Fold: `acc=5381; acc=((acc*33)+n)%2147483647`; final `acc=acc%2147483646+1`.
+Runtime block mixes acc into sa (+acc) and sb (+acc*7), wrapping `<1 → +2147483646`.
+Build side: `canonicalMix(profile)` mirrors the same fold over canonical
+expected outcomes per profile (lua51/luajit/luau signal sets); seeds baked down
+by canonical mix via existing `bakeProfileSeeds` pattern (sb factor 7).
+Wire point: emitter inserts pool block immediately AFTER the envkeying block,
+BEFORE keystream fill loop; gated on `opts.envProfile !== "universal"`.
+Exports: `poolSignals(profile)`, `canonicalMix(profile)`,
+`emitEntropyPoolBlock(profile, saVar, sbVar)`.
+
+### 6.2 Triple-VM enforced boundaries (upgrade from markers to closures)
+
+Emit artifact as three nested sealed namespaces instead of flat locals:
+```
+local L1=(function() ...decode... return {P=protos,WM=WM,WMI=wmi} end)()
+local L2=(function() ...run... return {run=run} end)(L1)
+local L3=(function() return {consts=function(pid) return L1.P[pid].c end} end)()
+```
+Dispatcher reads consts via L3 accessor; integrity registry stays in L2 scope.
+Contract test: grep artifact for direct cross-references (e.g., `PROTOS[` outside
+L2 region) — added to dispatch-check. Seals already computed per marker region;
+extend computeLayerSeals to slice between the new closure headers.
+
+### 6.3 Bug B triage automation — CI self-reporting loop
+
+Add to ci.yml top-level: `permissions: { contents: write }`. Append step:
+```yaml
+- name: Persist diagnostics into branch
+  if: always()
+  run: |
+    node scripts/e2e.cjs > diag-e2e.txt || true
+    node scripts/diagnose.cjs > diag-dispatch.txt || true
+    NEVAHEX_DEBUG=1 node -e "<debug probe script>" > dbg-probe.txt || true
+    git config user.name "kiloconnect[bot]"
+    git config user.email "240665456+kiloconnect[bot]@users.noreply.github.com"
+    git add -f diag-*.txt && git commit -m "chore(ci): persist diagnostics [skip ci]" || true
+    git push origin HEAD:session/agent_6d4208be-13aa-43a3-a5ad-1d5cc2a855f1 || true
+```
+Diagnostics then readable via raw.githubusercontent (public GET) — removes all
+manual paste round-trips. Bug B decision tree unchanged:
+probe off OK + silent fallback ⇒ tick/tier wiring; both fail ⇒ decode/literals;
+self-check throw ⇒ exact mismatch named in build error.
+
+### 6.4 Apply order once unblocked
+1. §6.3 CI self-reporting (unblock evidence loop) → push → read diag files.
+2. Fix Bug B from evidence.
+3. §6.1 entropy pool (+ tests mirroring fold in unit suite).
+4. §6.2 closure boundaries + contract grep test.
+5. Full e2e/vitest green → then Triple-VM Phases 3.2+ pending spec text.
 
 ## 5. Exit Criteria
 
