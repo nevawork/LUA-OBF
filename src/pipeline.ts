@@ -13,6 +13,7 @@ import { BuildRng, randomNonce, sha256 } from "./gen/prng";
 import { planIntegritySlices } from "./protection/antitamper";
 import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
+import { verifyGeneratedDispatch } from "./testing/dispatch-check";
 
 export interface ProtectOptions {
   source: string;
@@ -139,6 +140,17 @@ export function protect(opts: ProtectOptions): ProtectResult {
     antiEmulation: antiEmu,
     cipherLiterals: embeddedCipherLits,
   });
+
+  // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
+  const usedPhysicalOps = new Set<number>();
+  for (const p of flat) for (const q of p.code) usedPhysicalOps.add(q[0]);
+  const check = verifyGeneratedDispatch(emitted.lua, perm, usedPhysicalOps);
+  if (!check.ok) {
+    throw new Error(
+      `NEVAHEX internal: generated dispatch failed self-check\n` +
+        check.problems.map((p) => `  - ${p}`).join("\n"),
+    );
+  }
 
   const manifest: Manifest = {
     format: "nevahex-manifest",

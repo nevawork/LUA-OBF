@@ -27,8 +27,10 @@ function analyze(name, opts) {
   const usedOps = new Set(flat[0].code.map((q) => q[0]));
 
   // extract chain tests from generated source and evaluate their literals
+  // literal may contain one nesting level: ((15+256)-256)
   const armLines = [];
-  const re = /(elseif|if) op==(\([^()]*\)|[\d*+\-\/ ]+?)( and .+?)? then/g;
+  const LIT = "\\((?:[^()]|\\([^()]*\\))*\\)";
+  const re = new RegExp("(elseif|if) op==(" + LIT + "|[\\d*+\\-/ ]+?)( and \\S.*)? then", "g");
   let mm;
   while ((mm = re.exec(r.lua)) !== null) {
     armLines.push({ litRaw: mm[2], gate: (mm[3] || "").trim() });

@@ -22,11 +22,23 @@ Target layout is a multi-module engine; no monolithic files.
 
 ## 2. Immediate Correctness Gate (blocking)
 
-1. **[FIXED, UNVERIFIED]** MBA gate tautology bug: `(7x²)%2==0` is false for odd x
-   and the tamper counter starts at 37 → every gated handler was dead at startup.
-   Replaced with `(7x²+x)%2==0`, a true tautology (∀ integers, x²≡x mod 2).
-2. Build + run `scripts/e2e.cjs` (17 semantic fixtures, tier variants,
-   determinism, per-build isomorphism) until green.
+1. **[FIXED]** MBA gate tautology bug: `(7x²)%2==0` false for odd x → `(7x²+x)%2==0`.
+2. **[FIXED]** Parser infix `and`/`or`: keyword tokens never matched in the binop
+   loop, so `(a or b)` died with "expected ')' near 'or'".
+3. **[FIXED]** CLOSURE operand off-by-one: compiler emitted 0-based child ids,
+   serializer remap expected 1-based — every function definition resolved wrong.
+4. **[FIXED]** Transforms registry: dropped luau exports + re-export scope bug.
+5. **[FIXED]** cipher.ts duplicate M31 export.
+6. **[ACTIVE — Bug B]** Every instruction hits dispatch fallback at runtime.
+   Mitigation shipped: build-time self-check (`testing/dispatch-check.ts`) now
+   runs inside protect() and fails the BUILD with an exact diff if literals/
+   permutation/gates desync from decoded bytecode; NEVAHEX_DEBUG artifacts emit
+   per-instruction op traces and a diagnostic fallback (`FB op=.. pc=..`).
+   ⚠️ Arm-extraction regexes previously missed nested-paren literals
+   (((n+256)-256)); fixed in dispatch-check + diagnose. Prior coverage audits
+   were partially blind to those arms.
+7. Run `scripts/e2e.cjs` (17 semantic fixtures, tier variants, determinism,
+   per-build isomorphism) until green; CI runs it automatically.
 
 ## 3. Engine Restructure (requirement: real multi-file system/engine)
 

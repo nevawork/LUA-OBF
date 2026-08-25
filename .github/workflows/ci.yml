@@ -29,6 +29,21 @@ jobs:
         run: |
           node scripts/diagnose.cjs || true
 
+      - name: Debug probe (NEVAHEX_DEBUG trace)
+        if: always()
+        run: |
+          NEVAHEX_DEBUG=1 node -e "
+          const {protect} = require('./dist/pipeline.js');
+          const {LuaFactory} = require('wasmoon');
+          (async () => {
+            const r = protect({source:'EXPECTED={2+3}', tier:'silent', seedHex:'11'.repeat(32)});
+            const lua = await new LuaFactory().createEngine();
+            try { await lua.doString(r.lua); console.log('DEBUG RUN OK'); }
+            catch(e){ console.log('DEBUG ERR:', String(e.message).split('\n')[0]); }
+            finally { lua.global.close(); }
+          })();
+          " || true
+
       - name: Unit + fuzz suites
         run: npx vitest run
 

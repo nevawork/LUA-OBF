@@ -143,6 +143,16 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     JSON.stringify(garbage(rng)),
   );
 
+  if (process.env.NEVAHEX_DEBUG) {
+    // diagnostic build: fallback reveals op/pc instead of garbage
+    const elseIdx = chainLines.lastIndexOf("else");
+    if (elseIdx >= 0) {
+      chainLines[elseIdx + 1] =
+        `error("FB op="..tostring(op).." pc="..tostring(pc - 1).." ns="..tostring(P0 ~= nil and P0.ns or -1))`;
+      void elseIdx;
+    }
+  }
+
   // ---------- seeds / constants ----------
   const s0 = normSeed(opts.cipherLiterals ? opts.cipherLiterals[0] : opts.seeds[0]);
   const s1 = normSeed(opts.cipherLiterals ? opts.cipherLiterals[1] : opts.seeds[1]);
@@ -296,6 +306,9 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(` local ${F.ins},${F.op}`);
   L.push(` while true do`);
   for (const cl of countdown) L.push(`  ${cl}`);
+  if (process.env.NEVAHEX_DEBUG) {
+    L.push(`  do local _i=${F.K}[${F.pc}] print("DBG pc",${F.pc},"op",_i and _i[1]) end`);
+  }
   L.push(`  ${F.ins}=${F.K}[${F.pc}]`);
   L.push(`  ${F.op}=${F.ins}[1]`);
   L.push(`  ${F.pc}=${F.pc}+1`);
