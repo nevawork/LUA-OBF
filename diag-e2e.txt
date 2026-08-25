@@ -1,0 +1,30 @@
+FAIL arithmetic: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL strings: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL closures: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL tables: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL loops: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL varargs: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL methods: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL multiple-returns: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL recursion: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL metatables: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL break-repeat: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL shadowing: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL loop-capture: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL and-or: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL numeric-for-step: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL upvalue-adder: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL nested-closures: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL tier-off: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+FAIL tier-strict: protect() threw: NEVAHEX internal: generated dispatch failed self-check
+/home/runner/work/LUA-OBF/LUA-OBF/dist/pipeline.js:99
+        throw new Error(`NEVAHEX internal: generated dispatch failed self-check\n` +
+              ^
+
+Error: NEVAHEX internal: generated dispatch failed self-check
+  - arm count 55 != ISA size 51 (lost/duplicated handlers?)
+    at protect (/home/runner/work/LUA-OBF/LUA-OBF/dist/pipeline.js:99:15)
+    at main (/home/runner/work/LUA-OBF/LUA-OBF/scripts/e2e.cjs:152:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+Node.js v20.20.2
