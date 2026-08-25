@@ -6,7 +6,7 @@ Multi-module engine. No monolithic files. Each protection system is its own modu
 
 ```
 src/
-├── cli.ts                        CLI: protect / extract / verify
+├── cli.ts                        CLI: protect / extract / verify / metrics
 │                                 flags: --tier --seed --watermark --manifest
 │                                        --target lua51|luajit|luau|universal
 │                                        --env-keying --anti-emu
@@ -16,7 +16,7 @@ src/
 │   ├── lexer.ts                  Lua 5.1 tokenizer
 │   ├── parser.ts                 recursive-descent parser
 │   └── nodes.ts                  AST types + walkers
-├── engine/                       THE ENGINE CORE
+├── engine/                       THE ENGINE CORE (canonical implementations)
 │   ├── vm/
 │   │   ├── opcodes.ts            logical ISA (51 ops)
 │   │   ├── compiler.ts           AST→bytecode, closure conversion (boxed cells)
@@ -26,7 +26,7 @@ src/
 │   │   └── cipher.ts             Lehmer-pair stream cipher contract (bit-op free)
 │   └── runtime/
 │       ├── identifiers.ts        per-build identifier scrambler
-│       ├── dispatcher.ts         handler construction + chain assembly
+│       ├── dispatcher.ts         handler table + randomized chain assembly
 │       ├── integrity.ts          integrity tick emission (hash mirror)
 │       ├── carriers.ts           watermark carrier consumption
 │       ├── tiers.ts              off | strict-halt | silent-poison (Add. 0.2)
@@ -41,11 +41,19 @@ src/
     ├── strings.ts                rolling-key string encryption
     ├── flatten.ts                keyed state-machine flattening + decoys
     ├── opaque.ts                 opaque dead-code injection
+    ├── luau.ts                   task/_G escape, typeof/__namecall guarantees
     └── index.ts                  registry (+ determinism counter resets)
 
 scripts/e2e.cjs                   differential suite vs wasmoon (Lua 5.4 WASM)
+scripts/verify.sh                 one-shot: tsc + e2e + vitest + determinism + cleanup
+tests/unit.test.ts                Phase 21 unit suite
+tests/fuzz.test.ts                Phase 21 fuzz harness + mutation-trip test
 plans/nevahex-v21-plan.md         execution plan & exit criteria
 ```
+
+Legacy paths (`src/vm/opcodes`, `src/vm/compiler`, `src/vm/serializer`,
+`src/gen/prng`) re-export shims → canonical engine modules, kept for import
+stability during migration.
 
 Legacy paths (`src/vm/opcodes`, `src/gen/prng`) re-export shims → canonical
 engine modules, kept for import stability during migration.
@@ -66,9 +74,9 @@ engine modules, kept for import stability during migration.
 ## Verification Commands
 
 ```sh
-npx tsc && node scripts/e2e.cjs      # build + 21-case differential suite
+bash scripts/verify.sh               # one-shot: tsc + e2e + vitest + determinism + cleanup
 npx tsx src/cli.ts protect fixtures/x.lua --target luajit --env-keying --anti-emu \
-    --tier silent --watermark "license" --seed $(head -c32 /dev/urandom | xxd -p)
+    --tier TIER_PARANOID_SILENT --watermark "license" --seed $(head -c32 /dev/urandom | xxd -p)
 npx tsx src/cli.ts extract out.lua --manifest out.lua.manifest.json
-rm -f scripts/noop*.cjs scripts/.keep.cjs scripts/.placeholder.cjs scripts/.gitkeep scripts/run-all.cjs
+npx tsx src/cli.ts metrics --a m1.json --b m2.json   # layout similarity vs 0.15 target
 ```
