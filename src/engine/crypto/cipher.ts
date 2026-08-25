@@ -4,7 +4,6 @@
 // Canonical location: src/engine/crypto/cipher.ts
 
 export const M31 = 2147483647;
-export { M31 };
 
 /** normalized positive seed in [1, M31-2]; idempotent & Lua-safe for % behavior */
 export function normSeed(s: number): number {
