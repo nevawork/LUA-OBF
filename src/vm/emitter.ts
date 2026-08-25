@@ -103,9 +103,10 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     if (!rng.bool()) return "";
     const ctr = gateCounter % 2 === 0 ? F.tc : F.wmv;
     switch (rng.int(3)) {
+      // all forms verified tautologies over integers: x²≡x (mod 2)
       case 0: return ` and ((${ctr}*${ctr}+${ctr})%2)==0`;
       case 1: return ` and (((${ctr}*${ctr})-${ctr})%2)==0`;
-      default: return ` and (7*${ctr}*${ctr})%2==0`;
+      default: return ` and ((7*${ctr}*${ctr})+${ctr})%2==0`;
     }
   };
 
