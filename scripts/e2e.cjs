@@ -5,7 +5,13 @@ const fs = require("fs");
 
 async function runCase(name, source, expected, opts) {
   opts = opts || {};
-  const r = protect({ source: source, tier: opts.tier || "silent", seedHex: opts.seed || "11".repeat(32) });
+  let r;
+  try {
+    r = protect({ source: source, tier: opts.tier || "silent", seedHex: opts.seed || "11".repeat(32) });
+  } catch (e) {
+    console.log("FAIL " + name + ": protect() threw: " + String(e.message).split("\n")[0]);
+    return false;
+  }
   const factory = new LuaFactory();
   const lua = await factory.createEngine();
   try {

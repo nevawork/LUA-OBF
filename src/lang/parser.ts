@@ -283,7 +283,8 @@ class Parser {
     }
     for (;;) {
       const op = this.peek();
-      if (op.type !== Tok.Op || !(op.value in BINPRI)) break;
+      // infix operators arrive as Op tokens; 'and'/'or' arrive as Keywords
+      if ((op.type !== Tok.Op && op.type !== Tok.Keyword) || !BINPRI[op.value]) break;
       const [lp, rp] = BINPRI[op.value];
       if (lp <= limit) break;
       this.next();

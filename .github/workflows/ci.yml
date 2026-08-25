@@ -24,6 +24,11 @@ jobs:
       - name: E2E differential suite (Lua 5.4 WASM)
         run: node scripts/e2e.cjs
 
+      - name: Dispatch diagnostics (always)
+        if: always()
+        run: |
+          node scripts/diagnose.cjs || true
+
       - name: Unit + fuzz suites
         run: npx vitest run
 
