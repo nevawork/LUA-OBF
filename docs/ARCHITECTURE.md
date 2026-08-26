@@ -11,7 +11,7 @@ zero attacker wins:
 | Adversary move | Defense | Redteam stage |
 |---|---|---|
 | Identify the protection format | framing v3: no magic, randomized prologue | `format-identification` |
-| Recover cipher keys from embedded literals | seeds only behind per-build obfuscation; default manifests carry nothing | `seed-literal-recovery` |
+| Recover cipher keys from embedded literals | universal profile SHIPS two register literals by design (single-file constraint; redteam records an advisory loss); env-keyed profiles bake them down and decryption fails cryptically | `seed-literal-recovery` (advisory on universal) |
 | Lift handlers via literal tests | rolling-key opcodes (stored values are position-dependent noise), polymorphic bodies, range-tree routers invisible to arm scanners | `opcode-mapping-recovery` |
 | Dump plaintext constants | wire-level payload masking + decrypt-on-access with cached-only plaintext | `constant-plaintext-scan` |
 | Strip integrity checks | shell ciphertext guard (pre-decode) + decoy ticks + CVW coupling: stripping ticks corrupts decryption | `integrity-inventory` |

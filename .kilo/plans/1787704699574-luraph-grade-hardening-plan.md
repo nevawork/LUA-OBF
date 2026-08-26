@@ -40,6 +40,19 @@
 >   blobEntropy + lineJaccard (<0.15 cross-build target); extract.ts gains
 >   in-memory extractWatermarkBytes core; ARCHITECTURE.md threat-model table
 >   with honest limitations; tests/phase7.test.ts incl. negative controls.
+> - POST-SHIP AUDIT (bash still denied; manual tsc/test simulation pass):
+>   • obf() ALWAYS wraps arithmetic (never bare digits) ⇒ hygiene
+>     "no-seed-literals" assertion was unsatisfiable as written — redesigned
+>     to enforce bare-token absence (seeds ≥100k) + wrapper-presence instead,
+>     matching the Phase-1 keys-in-artifact design decision.
+>   • Redteam S2 modeled honestly: universal builds legitimately yield their
+>     registers (advisory loss, excluded from layersDefeated); env-keyed
+>     builds genuinely stop the stage via baked-down literals. phase7 test +
+>     ARCHITECTURE threat-table updated to match.
+>   • Verified: Reader API surface, emitter decode/fetch/watermark regions,
+>     dispatch-check realSet extension, fused-band regex coverage [500,40500],
+>     entropy expectations (~8 bits/byte since additive mask whitens any
+>     plaintext distribution), lineJaccard <0.15 feasibility estimate.
 > - ALL PLAN PHASES SHIPPED (0–7). Remaining: run `bash scripts/verify.sh`
 >   the moment shell access is granted, fill PERFORMANCE.md baseline, then
 >   differential-test and flip on deferred features.
