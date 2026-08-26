@@ -110,6 +110,51 @@ held · perf ratio improves or holds.
 - Targets: default ≤2× source runtime; decode ≥ baseline budget; size within
   regression caps.
 
+### A1 implementation notes (frozen design — implement next session, one atomic write)
+
+ISA is FROZEN in `engine/vm/microvm.ts` (30 ops, STRS pool, ExecOptions).
+Remaining build items, in order, as ONE atomic change gated by
+tests/phase10.test.ts (differential fuzz ×300 vs deserializeBlob + shuffle-
+invariance + maskProgram round-trip):
+
+1. Asm class: emit(op,a,b,c) · mark/emitJ with per-slot fixups
+   (JMP→word a; JEQZ/JNEZ→word b; JLT→word c) · resolve().
+2. maskProgram/unmaskProgram: additive Lehmer stream mod 251 per word,
+   seed=0 ⇒ plaintext.
+3. Register map (frozen): hdr1 np2 pid3 one4 zero5 cnt6 nu7 ns8 nc9 nk10
+   i11 lim12 tag13 ln14 bb15 tmp16 tmp17 val18 carr19 skel20 rec21 sstr22
+   lrk23 mmv24 oe25 aw26 b1 27 b2 28 cw29 sum30 kOP31..kC35 wa36 wb37
+   wc38 wd39 pv2 40 wl41 rk0r42 astR43.
+4. emitLongConst(a,reg,v,tmp): LDI lo; LDI tmp,mid; MUL tmp,256·mid;
+   ADD; LDI tmp,hi; MUL tmp,256·hi? — careful: hi lane needs ×65536 via two
+   MULs or an extra const reg; verify exactness (<2^53) in test.
+5. Program outline (labels): framing(skipTest/skipEnd) → np guard(npErr/npOk)
+   → protoTop guard(JLT np,pid→protoEnd) → PROTO_NEW → params/isVararg
+   (boolFlag pattern: EQI val,byte,1 / else-val=0) → uv loop(uvTest..uvEnd)
+   → numSlots → consts guard(ncErr/ncOk) → cTest loop with tag dispatch:
+     per tag [1,2,7,8,9,5,6]: LDI tmp,tag; EQI eq,tmp,tagVal; JNEZ eq,lbl
+     branches kTrue/kFalse (EQI true:=EQI zeroReg,0; false:=EQI oneReg,0)/
+     kNaN/kInf/kNeg (NONFINITE)/kNum(RDUV,PAYLOAD,STRFROM,FLOAT)/
+     kStr(…STRFROM push)/kNil(LDNIL); each pushes via GETF consts+PUSH;
+     shared cNext increment+JMP cTest.
+   → code guard(nkErr/nkOk) → lrk init(LDIW RK0; MUL pid·ASTEP; MOD 65536)
+   → kLoop(kLoopTest/kLoopEnd): mm=FLOORDIV(lrk,3),MOD 256; RDUV oe;
+     RDSV aw−mm; b1−mm; b2+mm; cw−mm; SUM=b1+b2; step lrk+=AINC%65536;
+     NEWT rec + SETF 1..4=[oe,aw,SUM,cw]; GETF code; PUSH; kLoopInc.
+   → COMMIT_PROTO pid; pid+=1; JMP protoTop; protoEnd.
+   → watermark: RDUV wl; long-const wa/wb from wmSeeds (normalized);
+     wc=(wa*31+wb)%M; wd=(wb*17+wa)%M; pv2=0; wmTest loop: RDU8 v;
+     v=(v−pv2+256)%256; WMPUSH; i+=1; JMP wmTest; wmEnd → HALT.
+6. Equality contract with deserializeBlob (test comparator): deep-equal on
+   flat[] (params,isVararg:boolean,upvals[{instack,idx}],numSlots,consts
+   with Number.isNaN for NaN, masked tag5/6 payloads identical garbage,
+   code tuples [opE,a,b1+b2,c]) + wm array.
+7. Lua emission (session after core green): interpreter closure mirrors
+   exec switch verbatim; program stored maskProgram(seed)-masked; seed +
+   budgets embedded obfuscated; --stage2 flag replaces old decode text.
+
+### A1 implementation notes end
+
 ## Part IV — Execution graph
 
 ```
