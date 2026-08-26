@@ -104,5 +104,5 @@ export interface ExecResult {
   pos: number;
 }
 
-type OpenCodeParams = import("../runtime/opencode").OpenCodeParams;
-type Proto = import("./opcodes").Proto;
+export type OpenCodeParams = import("../runtime/opencode").OpenCodeParams;
+export type Proto = import("./opcodes").Proto;

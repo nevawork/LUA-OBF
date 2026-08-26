@@ -330,8 +330,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(` local ${N.pos}=1`);
   L.push(` local D={} local bn=#${N.blob}`);
   // bounded-resource guard: refuse absurd blobs outright
-  const budget = opts.budget ?? DEFAULT_BUDGET;
-  L.push(` if bn>${budget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
+  const runtimeBudget = opts.budget ?? DEFAULT_BUDGET;
+  L.push(` if bn>${runtimeBudget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
   // W1.2 keyless: registers reassemble from decrypted prologue bytes + decoy
   // pool entries (modulus M31-1 everywhere, mirroring pipeline norm()).
   // Legacy builds keep the obfuscated register literals.
@@ -413,7 +413,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(` if ${N.hdr}<128 then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(` for i=1,${N.hdr}-128 do ${N.u8}() end`);
   L.push(` local ${N.np}=${N.uvar}()`);
-  L.push(` if ${N.np}>${budget.maxProtos} then error(${JSON.stringify(garbage(rng))}) end`);
+  L.push(` if ${N.np}>${runtimeBudget.maxProtos} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(` for ${N.pid2}=1,${N.np} do`);
   L.push(`  local pr={}`);
   L.push(`  pr.pn=${N.u8}()`);
@@ -423,7 +423,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  for i=1,nu do pr.uv[i]={${N.u8}()==1 and 1 or 0,${N.uvar}()} end`);
   L.push(`  pr.ns=${N.uvar}()`);
   L.push(`  local nc=${N.uvar}()`);
-  L.push(`  if nc>${budget.maxConsts} then error(${JSON.stringify(garbage(rng))}) end`);
+  L.push(`  if nc>${runtimeBudget.maxConsts} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.c={}`);
   L.push(`  for i=1,nc do`);
   // Phase 3: payloads arrive MASKED — store opaque {t,n,b} records; the CV
@@ -443,7 +443,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`   else pr.c[i]=nil end`);
   L.push(`  end`);
   L.push(`  local nk=${N.uvar}()`);
-  L.push(`  if nk>${budget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
+  L.push(`  if nk>${runtimeBudget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.k={}`);
   // per-proto rolling-key mirror for operand de-whitening (same chain the
   // fetch loop uses for opE — independent simulation, identical sequence)

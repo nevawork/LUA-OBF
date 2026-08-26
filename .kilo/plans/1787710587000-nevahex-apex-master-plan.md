@@ -162,7 +162,7 @@ two failed monolith attempts** — the decomposition is the fix:
 ✅ `microvm-asm.ts` — Asm (per-slot jump fixups, byte-lane masking guard:
    program exceeds 256 instructions ⇒ build error) + mask/unmaskProgram.
 ✅ `microvm-exec.ts` — complete reference interpreter (30-op switch,
-   chunked STRFROM, preamble register bank, debugRegs capture hook).
+   preamble register bank, debugRegs capture hook).
 ✅ `tests/phase10-microvm.test.ts` — hand-written mini-program unit tests:
    guard-loop arithmetic (sum 1..10), EQI/JEQZ/JNEZ branching, PAYLOAD+
    STRFROM+FLOAT decimal reconstruction, NONFINITE trio, MicroError id
@@ -170,6 +170,16 @@ two failed monolith attempts** — the decomposition is the fix:
 ⏳ NEXT (own turn): `microvm-program.ts` assembleDecodeProgram() per the
    outline below → phase10 differential fuzz ×300 vs deserializeBlob →
    Lua emission behind --stage2 → redteam `stage2-escape`.
+
+CI TRIAGE (run #25 — microvm decomposition): 5 errors, all fixed.
+  · emitter.ts redeclared `const budget` (line 333) shadowing line 567's
+    same name — renamed to `runtimeBudget`.
+  · redteam.ts:120 arrow body `: void =>` without block caused
+    `stages.push(...)` (returns number) to be checked against void — wrapped
+    in block body `{ stages.push({...}); }`.
+  · microvm.ts:108 `type Proto` unexported while `ExecResult.flat: Proto[]`
+    re-exported the alias — added `export`.
+  · 1 warning (Node 20 deprecation, not an error).
 
 ## Part IV — Execution graph
 

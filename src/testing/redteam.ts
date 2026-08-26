@@ -116,8 +116,9 @@ export function runRedteam(lua: string, opts?: {
   forgedWmLen?: number;
 }): RedteamResult {
   const stages: RedteamStage[] = [];
-  const push = (name: string, stopped: boolean, detail: string): void =>
+  const push = (name: string, stopped: boolean, detail: string): void => {
     stages.push({ name, stopped, detail });
+  };
 
   // ---- S1: format identification -----------------------------------------
   const magics = ["NVX", "LPH!", "\x1bLua"];
