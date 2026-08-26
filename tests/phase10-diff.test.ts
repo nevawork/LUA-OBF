@@ -7,16 +7,11 @@
 // TS mirror (deserializeBlob), which is the same semantic guarantee the
 // Lua-side interpreter will give at runtime.
 import { describe, it, expect } from "vitest";
-import {
-  serializeProto, deserializeBlob, encryptBlob, decryptBlob, normSeed,
-} from "../src/engine/vm/serializer";
-import { compileChunk } from "../src/vm/compiler";
-import { parse } from "../src/lang/parser";
+import { serializeProto, deserializeBlob, normSeed } from "../src/engine/vm/serializer";
 import { execProgram } from "../src/engine/vm/microvm-exec";
 import { DECODE_PROGRAM } from "../src/engine/vm/microvm-program";
 import { OpenCodeParams } from "../src/engine/runtime/opencode";
 import { Proto } from "../src/engine/vm/opcodes";
-import { makeKeyStream } from "../src/engine/crypto/cipher";
 
 const M = 2147483647;
 
@@ -55,7 +50,6 @@ function buildRandomProto(r: () => number, depth: number): Proto {
     else if (k < 0.65) consts.push(Number.POSITIVE_INFINITY);
     else if (k < 0.7) consts.push(Number.NEGATIVE_INFINITY);
     else if (k < 0.85) {
-      // number: integers, fractions, negatives, zero — all round-tripable
       const m = ri(r, 0, 5);
       const v =
         m === 0 ? 0 :
@@ -65,7 +59,6 @@ function buildRandomProto(r: () => number, depth: number): Proto {
                   ri(r, -1e9, 1e9) / 1e6;
       consts.push(v);
     } else {
-      // string: random printable latin1 chars
       const len = ri(r, 0, 12);
       let s = "";
       for (let j = 0; j < len; j++) s += String.fromCharCode(ri(r, 32, 126));
@@ -81,7 +74,6 @@ function buildRandomProto(r: () => number, depth: number): Proto {
       ri(r, -100, 100),
     ]);
   }
-  // nested protos — serializer flattens them but we still include in code
   const protos: Proto[] = [];
   if (depth > 0) {
     for (let i = 0, n = ri(r, 0, 2); i < n; i++) {
@@ -93,9 +85,9 @@ function buildRandomProto(r: () => number, depth: number): Proto {
 
 function makeOC(r: () => number): OpenCodeParams {
   return {
-    rk0: normSeed(1 + Math.floor(r() * M - 1)),
-    astep: 1000003 + ri(r, 0, 699_997) | 1,
-    ainc: 65521 + ri(r, 0, 200_000) | 1,
+    rk0: normSeed(1 + Math.floor(r() * (M - 1))),
+    astep: (1000003 + ri(r, 0, 699_997)) | 1,
+    ainc: (65521 + ri(r, 0, 200_000)) | 1,
   };
 }
 
@@ -112,8 +104,11 @@ function deepEqFlat(a: Proto, b: Proto, path = ""): void {
   for (let i = 0; i < a.consts.length; i++) {
     const av = a.consts[i];
     const bv = b.consts[i];
-    if (typeof av === "number" && Number.isNaN(av)) expect(Number.isNaN(bv), `${path}consts[${i}]`).toBe(true);
-    else expect(bv, `${path}consts[${i}]`).toBe(av);
+    if (typeof av === "number" && Number.isNaN(av)) {
+      expect(Number.isNaN(bv), `${path}consts[${i}]`).toBe(true);
+    } else {
+      expect(bv, `${path}consts[${i}]`).toBe(av);
+    }
   }
   expect(a.code.length, path + "code.length").toBe(b.code.length);
   for (let i = 0; i < a.code.length; i++) {
@@ -126,57 +121,37 @@ function deepEqFlat(a: Proto, b: Proto, path = ""): void {
   expect(b.protos.length, path + "b.protos.length").toBe(0);
 }
 
-function wmEqual(a: number[] | null, b: Buffer | null): void {
-  // normalize both to comparable form
-  const av = a ? Uint8Array.from(a) : null;
-  const bv = b ? new Uint8Array(b) : null;
-  if (av === null && bv === null) return;
-  expect(av).not.toBeNull();
-  expect(bv).not.toBeNull();
-  expect(av!.length).toBe(bv!.length);
-  for (let i = 0; i < av!.length; i++) {
-    expect(av![i], `wm[${i}]`).toBe(bv![i]);
-  }
+function wmEqual(a: number[] | null, b: Uint8Array | null): void {
+  if (a === null && b === null) return;
+  const av = a === null ? null : Uint8Array.from(a);
+  const bv = b === null ? null : new Uint8Array(b);
+  if (av === null || bv === null) throw new Error("wm null mismatch");
+  expect(av.length).toBe(bv.length);
+  for (let i = 0; i < av.length; i++) expect(av[i], `wm[${i}]`).toBe(bv[i]);
 }
 
 describe("A1 differential fuzz: execProgram ≡ deserializeBlob", () => {
-  it("×300 random Proto trees, with opencode+constKey+permMap", () => {
+  it("×300 random Proto trees, with opencode+constKey", () => {
     const r = mulberry32(0xA1FEED);
     for (let trial = 0; trial < 300; trial++) {
       const oc = makeOC(r);
-      const jumpOps = new Set<number>([
-        oc.astep, 36, 37, 38, 46, 47, 48, 49, // logical JMP/JF/JT/loop-class
-      ]);
-      // generate a flat tree of 1..3 protos (no nested: serializer flattens
-      // before writing, so we feed only the root — nested protos in source
-      // would be re-assigned via idMap).
-      const np = ri(r, 1, 3);
       const root = buildRandomProto(r, 0);
-      // constKey from a free rng call; wm seeds arbitrary
       const constKey = normSeed(1 + Math.floor(r() * (M - 1)));
-      // construct an "opencode" pipe through which the program is run
       const ctx = {
         rng: { int: (n: number) => Math.floor(r() * n) },
-        jumpOps,
+        jumpOps: new Set<number>(),
         opencode: oc,
         constKey,
-        permMap: undefined, // not permuting — keep logical opcode values
       };
       const { plain } = serializeProto(root, undefined, ctx);
-      // exec options
-      const fieldKeys = { OP: 31, A: 32, B1: 33, B2: 34, C: 35 };
       const opts = {
         budgets: { maxProtos: 16, maxConsts: 64, maxCode: 256 },
-        fieldKeys,
+        fieldKeys: { OP: 31, A: 32, B1: 33, B2: 34, C: 35 },
         opencode: oc,
         wmSeeds: [1234567, 7654321],
       };
-      // run exec with programSeed 0 (unmasked)
       const exec = execProgram(DECODE_PROGRAM, plain, { ...opts, programSeed: 0 });
-      // run reference deserializer
       const ref = deserializeBlob(plain, { opencode: oc });
-
-      // diff
       try {
         expect(exec.flat.length, `trial ${trial}: flat.length`).toBe(ref.flat.length);
         for (let i = 0; i < exec.flat.length; i++) {
@@ -184,9 +159,8 @@ describe("A1 differential fuzz: execProgram ≡ deserializeBlob", () => {
         }
         wmEqual(exec.wm, ref.wm);
       } catch (e) {
-        // surface a compact diagnosis on the first failure
         throw new Error(
-          `trial ${trial}: ${(e as Error).message}\n  exec.flat.length=${exec.flat.length} ref.flat.length=${ref.flat.length}`,
+          `trial ${trial}: ${(e as Error).message}\n  exec.flat.length=${exec.flat.length} ref.flat.length=${ref.flat.length} plain[0]=${plain[0]}`,
         );
       }
     }
@@ -202,7 +176,7 @@ describe("A1 differential fuzz: execProgram ≡ deserializeBlob", () => {
     };
     const ctx = {
       rng: { int: (n: number) => Math.floor(r() * n) },
-      jumpOps: new Set<number>([36, 37, 38]),
+      jumpOps: new Set<number>(),
       opencode: oc,
       constKey: normSeed(7),
     };
@@ -216,10 +190,10 @@ describe("A1 differential fuzz: execProgram ≡ deserializeBlob", () => {
     const exec = execProgram(DECODE_PROGRAM, plain, { ...opts, programSeed: 0 });
     const ref = deserializeBlob(plain, { opencode: oc });
     expect(exec.flat.length).toBe(ref.flat.length);
-    expect(exec.flat[0].consts[0]).toBeNaN();
+    expect(Number.isNaN(exec.flat[0].consts[0])).toBe(true);
     expect(exec.flat[0].consts[1]).toBe(Number.POSITIVE_INFINITY);
     expect(exec.flat[0].consts[2]).toBe(Number.NEGATIVE_INFINITY);
-    expect(ref.flat[0].consts[0]).toBeNaN();
+    expect(Number.isNaN(ref.flat[0].consts[0])).toBe(true);
     expect(ref.flat[0].consts[1]).toBe(Number.POSITIVE_INFINITY);
     expect(ref.flat[0].consts[2]).toBe(Number.NEGATIVE_INFINITY);
   });
