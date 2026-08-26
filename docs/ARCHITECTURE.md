@@ -2,6 +2,34 @@
 
 Multi-module engine. No monolithic files. Each protection system is its own module.
 
+## Threat model (Phase 7)
+
+Adversary classes and the layers that answer them; each maps to a red-team
+stage in `src/testing/redteam.ts`, which runs against fresh builds and asserts
+zero attacker wins:
+
+| Adversary move | Defense | Redteam stage |
+|---|---|---|
+| Identify the protection format | framing v3: no magic, randomized prologue | `format-identification` |
+| Recover cipher keys from embedded literals | seeds only behind per-build obfuscation; default manifests carry nothing | `seed-literal-recovery` |
+| Lift handlers via literal tests | rolling-key opcodes (stored values are position-dependent noise), polymorphic bodies, range-tree routers invisible to arm scanners | `opcode-mapping-recovery` |
+| Dump plaintext constants | wire-level payload masking + decrypt-on-access with cached-only plaintext | `constant-plaintext-scan` |
+| Strip integrity checks | shell ciphertext guard (pre-decode) + decoy ticks + CVW coupling: stripping ticks corrupts decryption | `integrity-inventory` |
+| Forge holder manifest for watermark recovery | spread-spectrum + CRC over wrong keys yields garbage | `watermark-extraction` |
+| Emulate/sandbox execution | 3-probe anti-emulation converging into poison+CVW | (runtime layer) |
+
+**Known, intentional limitations** (surfaced as advisory redteam stages):
+
+- **Split-jump shares sum without the key.** Share-splitting is record-shape
+  obfuscation, not encryption — the B1+B2 sum is operand-mask-independent by
+  construction. Jump confidentiality rests on opcode encoding.
+- **Operand whitening is a shift**, not strong crypto: it hides exact slot
+  values from naive dumps but not from statistical analysis.
+- **Env-keying is offline-fakeable in principle**: behavioral probes raise the
+  cost substantially but cannot make replication impossible.
+- **Tool branding comment** (`NEVAHEX-VM`) remains in artifacts by design;
+  the harness measures format identification via blob content only.
+
 ## Layout ↔ Spec Map
 
 ```
@@ -9,9 +37,11 @@ src/
 ├── cli.ts                        CLI: protect / extract / verify / metrics
 │                                 flags: --tier --seed --watermark --manifest
 │                                        --target lua51|luajit|luau|universal
-│                                        --env-keying --anti-emu
+│                                        --env-keying --anti-emu --emit-secrets
+│                                        --superops --layered --dyn-load
 ├── pipeline.ts                   orchestrator (Phase wiring only)
 ├── extract.ts                    watermark recovery protocol (holder-side)
+├── testing/redteam.ts            simulated devirtualization pipeline (Phase 7)
 ├── lang/
 │   ├── lexer.ts                  Lua 5.1 tokenizer
 │   ├── parser.ts                 recursive-descent parser
