@@ -34,6 +34,7 @@ const I = {
   float: (dst: number, str: number): number[] => [27, dst, str, 0],
   payload: (dst: number, ln: number): number[] => [25, dst, ln, 0],
   nonfinite: (dst: number, kind: number): number[] => [28, dst, kind, 0],
+};
 
 describe("microvm exec: control flow & arithmetic", () => {
   it("sums 1..10 with an explicit guard loop (result in R2 = 55)", () => {
@@ -48,7 +49,7 @@ describe("microvm exec: control flow & arithmetic", () => {
       ...I.add(1, 1, 4),
       ...I.jmp(4),       // back to loop test (instr index 4)
       ...I.halt(),
-    ];
+    ]);
     const res = execProgram(prog, new Uint8Array(0), {
       ...OPTS,
       debugRegs: [2],
@@ -64,7 +65,7 @@ describe("microvm exec: control flow & arithmetic", () => {
       ...I.jnez(2, 6),     // jump to instr 6
       ...I.err(7),         // must be skipped
       ...I.halt(),         // instr 6 → clean end
-    ];
+    ]);
     expect(() =>
       execProgram(prog, new Uint8Array(0), OPTS),
     ).not.toThrow();
@@ -80,7 +81,7 @@ describe("microvm exec: data-plane ops", () => {
       ...I.strfrom(21, 14),     // sstr
       ...I.float(17, 21),       // val
       ...I.halt(),
-    ];
+    ]);
     const res = execProgram(prog, D, { ...OPTS, debugRegs: [17] });
     expect(res.regsOut![17]).toBe(12.5);
     expect(res.pos).toBe(4);

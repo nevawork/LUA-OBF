@@ -36,7 +36,7 @@ function assembleDecodeProgram(): number[] {
   // outer loop: for pid = 1..np
   a.emit(OP.LDI, R.pid, 1);
   a.mark("top_test");
-  a.jumpTo(OP.JLT, 2, [R.np, R.pid], "top_end");
+  a.jumpLess(R.np, R.pid, "top_end");
 
   // ---- Phase: compute lrk = (RK0 + pid * astep) % 65536 ---
   // rolling-key chain: rk0, astep, ainc from preamble registers
@@ -45,13 +45,13 @@ function assembleDecodeProgram(): number[] {
   const scratch2 = [R.tmp, R.tmp2, R.x47, R.x48, R.x49].filter(r => r !== scratch)[0];
 
   // save pid in x48, then burn pid as loop counter
-  a.emit(OP.MOV, R.x48, R.pid);
+  a.mov(R.x48, R.pid);
   a.emit(OP.LDI, R.x49, 0);
   a.mark("mul_loop");
-  a.jumpTo(OP.JEQZ, 1, [R.pid], "mul_done");
+  a.jumpIfZero(R.pid, "mul_done");
   a.emit(OP.ADD, R.x49, R.x49, R.astep);
-  a.emit(OP.SUB, R.pid, R.pid, R.one);  // use R.one (==1) as decrement
-  a.jumpTo(OP.JMP, 0, [], "mul_loop");
+  a.emit(OP.SUB, R.pid, R.pid, R.one);
+  a.jumpAlways("mul_loop");
   a.mark("mul_done");
   // lrk = (RK0 + x49) % 65536
   a.emit(OP.ADD, R.lrk, R.rk0, R.x49);
@@ -65,7 +65,7 @@ function assembleDecodeProgram(): number[] {
 
   // increment pid and continue
   a.emit(OP.ADD, R.pid, R.pid, R.one);
-  a.jumpTo(OP.JMP, 0, [], "top_test");
+  a.jumpAlways("top_test");
   a.mark("top_end");
 
   // watermark tail

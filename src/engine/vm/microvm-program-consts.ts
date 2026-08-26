@@ -32,15 +32,16 @@ import { Asm } from "../microvm-asm";
 export function emitConstLoop(a: Asm): void {
   // nc = uvarint; budget guard
   a.emit(OP.RDUV, R.np); // R.np repurposed as nc in this scope
-  a.jumpTo(OP.JLT, 2, [R.maxC, R.np], "c_ok");
+  a.jumpLess(R.maxC, R.np, "nc_err");
+  a.jumpAlways("c_ok");
+  a.mark("nc_err");
   a.emit(OP.ERR, 1);
   a.mark("c_ok");
 
   a.emit(OP.LDI, R.i, 1);
   a.mark("c_test");
-  a.jumpTo(OP.JLT, 2, [R.np, R.i], "c_end");
+  a.jumpLess(R.np, R.i, "c_end");
 
-  // read tag, dispatch
   a.emit(OP.RDU8, R.tag);
 
   // chain: 7-way comparison using EQI (eq flag in R.flag) + JNEZ
@@ -52,34 +53,34 @@ export function emitConstLoop(a: Asm): void {
   eqBranch(a, 9, "kNeg");
   eqBranch(a, 5, "kNum");
   eqBranch(a, 6, "kStr");
-  a.jumpTo(OP.JMP, 0, [], "kNil");
+  a.jumpAlways("kNil");
 
   pushConst(a);
 
   a.mark("kTrue");
   a.emit(OP.LDI, R.val, 1);
   pushConst(a);
-  a.jumpTo(OP.JMP, 0, [], "c_next");
+  a.jumpAlways("c_next");
 
   a.mark("kFalse");
   a.emit(OP.LDI, R.val, 0);
   pushConst(a);
-  a.jumpTo(OP.JMP, 0, [], "c_next");
+  a.jumpAlways("c_next");
 
   a.mark("kNaN");
   a.emit(OP.NONFINITE, R.val, 0);
   pushConst(a);
-  a.jumpTo(OP.JMP, 0, [], "c_next");
+  a.jumpAlways("c_next");
 
   a.mark("kInf");
   a.emit(OP.NONFINITE, R.val, 1);
   pushConst(a);
-  a.jumpTo(OP.JMP, 0, [], "c_next");
+  a.jumpAlways("c_next");
 
   a.mark("kNeg");
   a.emit(OP.NONFINITE, R.val, 2);
   pushConst(a);
-  a.jumpTo(OP.JMP, 0, [], "c_next");
+  a.jumpAlways("c_next");
 
   a.mark("kNum");
   a.emit(OP.RDUV, R.ln);
@@ -87,23 +88,22 @@ export function emitConstLoop(a: Asm): void {
   a.emit(OP.STRFROM, R.sstr, R.bb);
   a.emit(OP.FLOAT, R.val, R.sstr);
   pushConst(a);
-  a.jumpTo(OP.JMP, 0, [], "c_next");
+  a.jumpAlways("c_next");
 
   a.mark("kStr");
   a.emit(OP.RDUV, R.ln);
   a.emit(OP.PAYLOAD, R.bb, R.ln);
   a.emit(OP.STRFROM, R.sstr, R.bb);
-  // for strings, PUSH the sstr itself (masked latin1 string) — not val
-  a.emit(OP.GETF, R.carr, R.skel, 4); // consts
+  a.emit(OP.GETF, R.carr, R.skel, 4);
   a.emit(OP.PUSH, R.carr, R.sstr);
-  a.jumpTo(OP.JMP, 0, [], "c_next");
+  a.jumpAlways("c_next");
 
   a.mark("kNil");
   a.emit(OP.LDNIL, R.val);
   pushConst(a);
 
   a.mark("c_next");
-  a.jumpTo(OP.JMP, 0, [], "c_test");
+  a.jumpAlways("c_test");
   a.mark("c_end");
 }
 
@@ -111,7 +111,7 @@ export function emitConstLoop(a: Asm): void {
 function eqBranch(a: Asm, tagVal: number, label: string): void {
   a.emit(OP.LDI, R.tmp, tagVal);
   a.emit(OP.EQI, R.tmp, tagVal, R.flag);
-  a.jumpTo(OP.JNEZ, 1, [R.flag], label);
+  a.jumpIfNotZero(R.flag, label);
 }
 
 /** GETF carr,skel,4 (consts array) then PUSH carr,val. */

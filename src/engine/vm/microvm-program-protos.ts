@@ -39,21 +39,21 @@ export function emitOneProto(a: Asm): void {
   a.emit(OP.EQI, R.tmp, 1, R.val);
   a.emit(OP.SETFS, R.skel, 1, R.val);
 
-  // nu = uvarint; uv loop: 0..nu-1 (i=1..nu, [NEWT, instack, idx, PUSH])
+  // nu = uvarint; uv loop
   a.emit(OP.RDUV, R.nu);
   a.emit(OP.LDI, R.i, 1);
   a.mark("proto_uv_test");
-  a.jumpTo(OP.JLT, 2, [R.nu, R.i], "proto_uv_end");
+  a.jumpLess(R.nu, R.i, "proto_uv_end");
   a.emit(OP.NEWT, R.rec);
   a.emit(OP.RDU8, R.tmp);
   a.emit(OP.EQI, R.tmp, 1, R.val);
-  a.emit(OP.SETFS, R.rec, 7, R.val); // STRS index 7 = "instack"
+  a.emit(OP.SETFS, R.rec, 7, R.val); // instack
   a.emit(OP.RDUV, R.tmp);
-  a.emit(OP.SETFS, R.rec, 8, R.tmp); // STRS index 8 = "idx"
-  a.emit(OP.GETF, R.uvarr, R.skel, 2); // STRS index 2 = "upvals"
+  a.emit(OP.SETFS, R.rec, 8, R.tmp); // idx
+  a.emit(OP.GETF, R.uvarr, R.skel, 2); // upvals
   a.emit(OP.PUSH, R.uvarr, R.rec);
-  a.emit(OP.ADD, R.i, R.i, R.tmp2);
-  a.jumpTo(OP.JMP, 0, [], "proto_uv_test");
+  a.emit(OP.ADD, R.i, R.i, R.one);
+  a.jumpAlways("proto_uv_test");
   a.mark("proto_uv_end");
 
   // numSlots: uvarint → SETFS skel,3,val (STRS index 3 = "numSlots")

@@ -23,12 +23,12 @@ export function emitWatermark(a: Asm): void {
   a.emit(OP.RDUV, R.ln);
   a.emit(OP.LDI, R.i, 1);
   a.mark("wm_test");
-  a.jumpTo(OP.JLT, 2, [R.ln, R.i], "wm_end");
+  a.jumpLess(R.ln, R.i, "wm_end");
   // wm[i] = RDU8
   a.emit(OP.RDU8, R.tmp);
   a.emit(OP.WMPUSH, R.tmp);
-  a.emit(OP.ADD, R.i, R.i, R.tmp2);
-  a.jumpTo(OP.JMP, 0, [], "wm_test");
+  a.emit(OP.ADD, R.i, R.i, R.one);
+  a.jumpAlways("wm_test");
   a.mark("wm_end");
   a.emit(OP.HALT);
 }
