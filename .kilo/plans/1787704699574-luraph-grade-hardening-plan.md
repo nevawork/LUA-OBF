@@ -10,6 +10,12 @@
 >   hash; dispatch-check encoded mode; tests/phase2.test.ts. Operand-slot audit
 >   against compiler emit sites completed (SETLIST/SETTABAT fixes applied).
 >   Deferred: --context-ops.
+> - Phase 3: SHIPPED (core) — constant-pool payload masking + decrypt-on-access
+>   CV accessor ({t,n,b} records, cache in e.v); operand whitening via the
+>   rolling-key chain with share-compensated B; deserializeBlob opencode mirror;
+>   holder tooling keys (opencode/fieldKeys) under emitSecrets; diagnose.cjs
+>   updated; tests/phase3.test.ts. Deferred: const-index proxy,
+>   next-pointer basic-block shuffle.
 > - BLOCKER: session denies bash; nothing executed yet. Run
 >   `bash scripts/verify.sh` the moment shell access is granted.
 

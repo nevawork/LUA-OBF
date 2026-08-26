@@ -110,7 +110,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     ctn: id(), pk: id(), ur: id(), envroot: id(), blob: id(), protos: id(),
     ch: id(), pos: id(), u8: id(), uvar: id(), svar: id(), np: id(),
     run: id(), pid2: id(), icv: id(), slices: id(), nic: id(), wm: id(), wmi: id(),
-    l1: id(), hdr: id(),
+    l1: id(), hdr: id(), cv: id(),
   };
   // anti-emulation calibration state: file-scope locals (per-build names),
   // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
@@ -122,6 +122,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const astepN = id();
   const aincN = id();
   const rkN = id();
+  // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
+  const ck0N = id();
   const F = {
     P0: id(), K: id(), C: id(), S: id(), cells: id(), sp: id(), mr: id(),
     pc: id(), VA: id(), i: id(), tc: id(), six: id(), poison: id(), PB: id(),
@@ -245,6 +247,20 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     `local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ` +
       `${aincN}=${obf(opts.opencode.ainc, rng)}`,
   );
+  // Phase 3: constant-pool mask root — normalized seeds[3]; per-proto streams
+  // derive as (CK0+pid*7919), mirroring serializer constSeed()
+  L.push(`local ${ck0N}=${obf(normSeed(opts.seeds[3]), rng)}`);
+  // decrypt-on-access constant accessor: wire/decoded tables hold masked
+  // payloads; plaintext exists only after first use (then cached in e.v)
+  L.push(`local function ${N.cv}(pID,e)`);
+  L.push(` if type(e)~='table' then return e end`);
+  L.push(` local v=e.v if v~=nil then return v end`);
+  L.push(` local kk=(${ck0N}+pID*7919)%2147483646 if kk<1 then kk=kk+2147483646 end`);
+  L.push(` local sv='' local g=kk`);
+  L.push(` for j=1,e.n do g=(g*48271)%2147483647 sv=sv..string.char((e.b[j]-(g%256)+256)%256) end`);
+  L.push(` if e.t==5 then v=tonumber(sv) else v=sv end`);
+  L.push(` e.v=v return v`);
+  L.push(`end`);
 
   // optional dynamic-load path (Phase 2 exception; opt-in, disabled for luau)
   if (opts.dynLoad && opts.envProfile !== "luau") {
@@ -330,23 +346,33 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  if nc>${budget.maxConsts} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.c={}`);
   L.push(`  for i=1,nc do`);
+  // Phase 3: payloads arrive MASKED — store opaque {t,n,b} records; the CV
+  // accessor decrypts on first access (plaintext never rests in pr.c)
   L.push(`   local tag=${N.u8}()`);
   L.push(`   if tag==1 then pr.c[i]=true`);
   L.push(`   elseif tag==2 then pr.c[i]=false`);
   L.push(`   elseif tag==5 or tag==6 then`);
   L.push(`    local ln=${N.uvar}()`);
-  L.push(`    local sv=""`);
-  L.push(`    for j=1,ln do ${N.pos}=${N.pos}+1 sv=sv..${N.ch}(D[${N.pos}-1]) end`);
-  L.push(`    if tag==5 then pr.c[i]=tonumber(sv) else pr.c[i]=sv end`);
+  L.push(`    local bb={}`);
+  L.push(`    for j=1,ln do ${N.pos}=${N.pos}+1 bb[j]=D[${N.pos}-1] end`);
+  L.push(`    pr.c[i]={t=tag,n=ln,b=bb}`);
   L.push(`   else pr.c[i]=nil end`);
   L.push(`  end`);
   L.push(`  local nk=${N.uvar}()`);
   L.push(`  if nk>${budget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.k={}`);
+  // per-proto rolling-key mirror for operand de-whitening (same chain the
+  // fetch loop uses for opE — independent simulation, identical sequence)
+  L.push(`  local lrk=(${rk0N}+${N.pid2}*${astepN})%65536`);
   L.push(`  for i=1,nk do`);
-  // wire v3.2: keyed instruction record — opE (uvarint, rolling-key encoded)
-  // + operands under random keys
-  L.push(`   pr.k[i]={[${keyNames.OP}]=${N.uvar}(),[${keyNames.A}]=${N.svar}(),[${keyNames.B1}]=${N.svar}(),[${keyNames.B2}]=${N.svar}(),[${keyNames.C}]=${N.svar}()}`);
+  L.push(`   local mm=math.floor(lrk/3)%256`);
+  L.push(`   local oe=${N.uvar}()`);
+  L.push(`   local aw=${N.svar}()-mm`);
+  L.push(`   local b1w=${N.svar}()-mm`);
+  L.push(`   local b2w=${N.svar}()+mm`);
+  L.push(`   local cw=${N.svar}()-mm`);
+  L.push(`   lrk=(lrk+${aincN})%65536`);
+  L.push(`   pr.k[i]={[${keyNames.OP}]=oe,[${keyNames.A}]=aw,[${keyNames.B1}]=b1w,[${keyNames.B2}]=b2w,[${keyNames.C}]=cw}`);
   L.push(`  end`);
   L.push(`  ${N.protos}[${N.pid2}]=pr`);
   L.push(` end`);

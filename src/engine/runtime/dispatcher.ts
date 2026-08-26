@@ -101,14 +101,15 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     ? pickVariant(rng, [
         () => [
           `do`,
-          `local ${F.v}=${F.C}[${fA()}]`,
+          // Phase 3: constants decrypt on access via CV(pid, rec)
+          `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
           `${F.sp}=${F.sp}+1`,
           `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=${F.v}+${F.PB} else ${F.S}[${F.sp}]=${F.v} end`,
           `end`,
         ],
         () => [
           `do`,
-          `local ${F.v}=${F.C}[${fA()}]`,
+          `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
           `${F.sp}=${F.sp}+1`,
           `if ${F.poison} and type(${F.v})=='number' then`,
           `${F.S}[${F.sp}]=${F.v}+${F.PB}`,
@@ -119,15 +120,15 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
         ],
       ])
     : pickVariant(rng, [
-        () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.C}[${fA()}]`],
-        () => [`local ${F.v}=${F.C}[${fA()}]`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
+        () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${N.cv}(${F.pid},${F.C}[${fA()}])`],
+        () => [`local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
       ]));
   add(Op.NIL, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=nil`]);
   add(Op.TRUE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=true`]);
   add(Op.FALSE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=false`]);
   add(Op.PUSHENV, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.env}`]);
-  add(Op.GGET, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.env}[${F.C}[${fA()}]]`]);
-  add(Op.GSET, [`${F.env}[${F.C}[${fA()}]]=${F.S}[${F.sp}]`, `${F.sp}=${F.sp}-1`]);
+  add(Op.GGET, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.env}[${N.cv}(${F.pid},${F.C}[${fA()}])]`]);
+  add(Op.GSET, [`${F.env}[${N.cv}(${F.pid},${F.C}[${fA()}])]=${F.S}[${F.sp}]`, `${F.sp}=${F.sp}-1`]);
   add(Op.UPVAL, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.upv}[${fA()}].v`]);
   add(Op.SETUPVAL, [`${F.upv}[${fA()}].v=${F.S}[${F.sp}]`, `${F.sp}=${F.sp}-1`]);
   add(Op.GETTAB, pickVariant(rng, [

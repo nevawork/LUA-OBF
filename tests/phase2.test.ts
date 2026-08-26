@@ -75,7 +75,7 @@ describe("phase 2: wire v3.2 serialization", () => {
     // compiler input must be untouched by serialization
     expect(JSON.stringify(root)).toBe(snapshot);
 
-    const dec = deserializeBlob(plain);
+    const dec = deserializeBlob(plain, { opencode });
     // five distinct in-range field keys survive the wire
     const ks = [keys.OP, keys.A, keys.B1, keys.B2, keys.C];
     expect(new Set(ks).size).toBe(5);

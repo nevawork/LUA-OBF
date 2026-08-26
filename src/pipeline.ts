@@ -93,6 +93,10 @@ export interface Manifest {
   pbias?: number;
   rootPid?: number;
   watermarkSeed?: number;
+  /** rolling-key opcode params [rk0, astep, ainc] — holder tooling only */
+  opencode?: number[];
+  /** instruction-record field keys [OP, A, B1, B2, C] — holder tooling only */
+  fieldKeys?: number[];
 }
 
 export interface ProtectResult {
@@ -184,7 +188,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const blob = encryptBlob(plain, encSeeds);
 
   // ---- integrity slices over decoded representation ----
-  const { flat } = deserializeBlob(decryptBlob(blob, encSeeds));
+  // mirror must reverse operand whitening ⇒ pass the build's rolling-key params
+  const { flat } = deserializeBlob(decryptBlob(blob, encSeeds), { opencode });
   const cappedIntegrity = planIntegritySlices(flat);
 
   // ---- emit runtime ----
@@ -267,6 +272,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     manifest.pbias = pbias;
     manifest.rootPid = 1;
     manifest.watermarkSeed = normSeed(seeds[2]);
+    // holder tooling keys (dispatch analysis / extraction support)
+    manifest.opencode = [opencode.rk0, opencode.astep, opencode.ainc];
+    manifest.fieldKeys = [fieldKeys.OP, fieldKeys.A, fieldKeys.B1, fieldKeys.B2, fieldKeys.C];
   }
 
   return {

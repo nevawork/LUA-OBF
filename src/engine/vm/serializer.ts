@@ -40,6 +40,12 @@ export interface SerializeCtx {
   jumpOps?: Set<number>;
   /** rolling-key opcode encoding params; omitted ⇒ raw opcodes (legacy/tests) */
   opencode?: OpenCodeParams;
+  /**
+   * normalized seeds[3] ("aux") — root of the per-proto constant-payload mask
+   * streams. Defaults to a fixed constant for legacy/tests; production builds
+   * always supply it so constant payloads never rest unmasked on the wire.
+   */
+  constKey?: number;
 }
 
 export function encryptBlob(plain: Uint8Array, seeds: Seeds): Buffer {
@@ -158,6 +164,7 @@ export function serializeProto(root: Proto, wmRegion?: Buffer, ctx?: SerializeCt
   const keys = drawKeys(rng);
   const jumpOps = ctx?.jumpOps;
   const oc = ctx?.opencode;
+  const constKey = ctx?.constKey ?? 2147483642;
 
   const buf: number[] = [];
   // ---- framing v3: no magic header, randomized prologue ----
@@ -169,7 +176,9 @@ export function serializeProto(root: Proto, wmRegion?: Buffer, ctx?: SerializeCt
   for (let i = 0; i < prologueLen; i++) buf.push(rng.int(256));
   buf.unshift(0x80 | prologueLen);
   putUvarint(buf, flat.length);
-  for (let pid = 0; pid < flat.length; pid++) writeProto(buf, flat[pid], pid + 1, keys, rng, jumpOps, oc);
+  for (let pid = 0; pid < flat.length; pid++) {
+    writeProto(buf, flat[pid], pid + 1, keys, rng, jumpOps, oc, constKey);
+  }
   if (wmRegion && wmRegion.length > 0) {
     putUvarint(buf, wmRegion.length);
     for (const b of wmRegion) buf.push(b);
@@ -177,6 +186,21 @@ export function serializeProto(root: Proto, wmRegion?: Buffer, ctx?: SerializeCt
     putUvarint(buf, 0);
   }
   return { plain: Buffer.from(buf), flat, rootPid: 1, keys };
+}
+
+/**
+ * Per-proto constant-payload mask seed. Mirrored EXACTLY by the runtime CV
+ * accessor (emitter): kk=(CK0+pid*7919)%2147483646, <1 ⇒ +2147483646, then a
+ * 48271-Lehmer stream whose low byte masks each payload byte additively.
+ */
+function constSeed(constKey: number, pid: number): number {
+  return normSeed(constKey + pid * 7919);
+}
+
+/** advance the const mask stream and return the mask byte for one payload byte */
+function constMaskByte(g: { v: number }): number {
+  g.v = (g.v * 48271) % M31;
+  return g.v % 256;
 }
 
 function writeProto(
@@ -187,6 +211,7 @@ function writeProto(
   rng: { int(n: number): number },
   jumpOps: Set<number> | undefined,
   oc: OpenCodeParams | undefined,
+  constKey: number,
 ): void {
   buf.push(p.params & 0xff);
   buf.push(p.isVararg ? 1 : 0);
@@ -202,6 +227,8 @@ function writeProto(
   putUvarint(buf, keys.B1);
   putUvarint(buf, keys.B2);
   putUvarint(buf, keys.C);
+  // ---- constants: payloads masked under the per-proto stream (Phase 3) ----
+  const g = { v: constSeed(constKey, pid) };
   putUvarint(buf, p.consts.length);
   for (const c of p.consts) {
     if (c === null) buf.push(0);
@@ -214,19 +241,26 @@ function writeProto(
       if (!isFinite(c)) s = Number.isNaN(c) ? "(0/0)" : c > 0 ? "1e999" : "-1e999";
       else s = String(c);
       putUvarint(buf, s.length);
-      for (let i = 0; i < s.length; i++) buf.push(s.charCodeAt(i));
+      for (let i = 0; i < s.length; i++) {
+        buf.push((s.charCodeAt(i) + constMaskByte(g)) & 0xff);
+      }
     } else {
       buf.push(6);
       const bytes = Buffer.from(c as string, "latin1");
       putUvarint(buf, bytes.length);
-      for (const byte of bytes) buf.push(byte);
+      for (const byte of bytes) {
+        buf.push((byte + constMaskByte(g)) & 0xff);
+      }
     }
   }
   putUvarint(buf, p.code.length);
-  // rolling key starts fresh per frame entry — mirrors runtime run(pid)
+  // rolling key starts fresh per frame entry — mirrors runtime run(pid).
+  // The SAME chain also whitens operands (Phase 3): each field is shifted by
+  // m=⌊rk/3⌋%256; split-jump shares counter-shift so B1+B2 stays invariant.
   let rk = oc ? initialRk(oc, pid) : 0;
   for (const ins of p.code) {
     const opE = oc ? encodeOp(ins[0], rk) : ins[0];
+    const m = oc ? Math.floor(rk / 3) % 256 : 0;
     rk = stepRk(oc ?? { rk0: 0, astep: 1, ainc: 1 }, rk);
     const isJump = jumpOps?.has(ins[0]) === true;
     let b1: number;
@@ -239,10 +273,10 @@ function writeProto(
       b2 = 0;
     }
     putUvarint(buf, opE);
-    putSvarint(buf, ins[1]);
-    putSvarint(buf, b1);
-    putSvarint(buf, b2);
-    putSvarint(buf, ins[3]);
+    putSvarint(buf, ins[1] + m);
+    putSvarint(buf, b1 + m);
+    putSvarint(buf, b2 - m);
+    putSvarint(buf, ins[3] + m);
   }
 }
 
@@ -253,8 +287,19 @@ export interface DeserializedBlob {
   keys: InstrFieldKeys;
 }
 
+export interface DeserializeOpts {
+  /**
+   * rolling-key params used at build time. When supplied, operand whitening
+   * is reversed (mirroring the runtime decode loop); when omitted, tuples
+   * carry RAW-MASKED operands — only valid for blobs serialized without
+   * opencode (legacy/tests). Constant payloads are NEVER decrypted here:
+   * the wire intentionally carries masked bytes (runtime decrypts on access).
+   */
+  opencode?: OpenCodeParams;
+}
+
 /** TS mirror of the runtime decoder — used for integrity hashing & extraction. */
-export function deserializeBlob(data: Uint8Array): DeserializedBlob {
+export function deserializeBlob(data: Uint8Array, opts?: DeserializeOpts): DeserializedBlob {
   const r = new Reader(data);
   // framing v3: high bit = format tag, low 7 bits = prologue length to skip
   const hdr = r.u8();
@@ -265,7 +310,7 @@ export function deserializeBlob(data: Uint8Array): DeserializedBlob {
   const flat: Proto[] = [];
   let keys: InstrFieldKeys | null = null;
   for (let i = 0; i < n; i++) {
-    const parsed = readProto(r);
+    const parsed = readProto(r, i + 1, opts?.opencode);
     flat.push(parsed.proto);
     if (i === 0) keys = parsed.keys;
   }
@@ -278,7 +323,10 @@ export function deserializeBlob(data: Uint8Array): DeserializedBlob {
   return { flat, wm, keys: keys ?? { OP: 0, A: 0, B1: 0, B2: 0, C: 0 } };
 }
 
-function readProto(r: Reader): { proto: Proto; keys: InstrFieldKeys } {
+function readProto(r: Reader, pid: number, oc: OpenCodeParams | undefined): {
+  proto: Proto;
+  keys: InstrFieldKeys;
+} {
   const params = r.u8();
   const isVararg = r.u8() === 1;
   const nu = r.uvarint();
@@ -296,6 +344,8 @@ function readProto(r: Reader): { proto: Proto; keys: InstrFieldKeys } {
     C: r.uvarint(),
   };
   void keys; // consumers access records via DeserializedBlob.keys
+  // NOTE: tag-5/6 payloads stay MASKED here by design — no TS consumer needs
+  // plaintext consts; the artifact decrypts on access via its CV accessor.
   const nc = r.uvarint();
   const consts: unknown[] = [];
   for (let i = 0; i < nc; i++) {
@@ -305,20 +355,25 @@ function readProto(r: Reader): { proto: Proto; keys: InstrFieldKeys } {
     else if (tag === 2) consts.push(false);
     else if (tag === 5) {
       const s = r.bytesStr(r.uvarint());
-      consts.push(parseFloat(s));
+      consts.push(parseFloat(s)); // masked bytes ⇒ garbage number, unused
     } else if (tag === 6) {
-      consts.push(r.bytesStr(r.uvarint()));
+      consts.push(r.bytesStr(r.uvarint())); // masked string, unused
     } else throw new Error(`bad const tag ${tag}`);
   }
   const nk = r.uvarint();
   const code: [number, number, number, number][] = [];
+  let lrk = oc ? initialRk(oc, pid) : 0;
   for (let i = 0; i < nk; i++) {
     const opE = r.uvarint();
-    const a = r.svarint();
-    const b1 = r.svarint();
-    const b2 = r.svarint();
-    const c = r.svarint();
-    code.push([opE, a, b1 + b2, c]);
+    const aw = r.svarint();
+    const b1w = r.svarint();
+    const b2w = r.svarint();
+    const cw = r.svarint();
+    const m = oc ? Math.floor(lrk / 3) % 256 : 0;
+    lrk = stepRk(oc ?? { rk0: 0, astep: 1, ainc: 1 }, lrk);
+    // reverse whitening: A/C shift back by m; shares counter-shifted so the
+    // SUM (b1-m)+(b2+m) restores the original offset exactly
+    code.push([opE, aw - m, b1w - m + (b2w + m), cw - m]);
   }
   return {
     proto: { params, isVararg, upvals, numSlots, consts: consts as Proto["consts"], code, protos: [] },

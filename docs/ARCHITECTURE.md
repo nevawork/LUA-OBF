@@ -99,6 +99,16 @@ engine modules, kept for import stability during migration.
 - **Handler polymorphism** — hot/simple ops draw semantic-equivalent bodies
   from per-build variant pools (MOVE/LOADK/arith/GETTAB/EQ-LT-LE/JF/DUP…);
   decoy arms share leaf syntax and route inside the tree.
+- **Constants never rest plaintext (Phase 3)** — string/number payloads are
+  masked on the wire under per-proto streams rooted at normalized seeds[3]
+  (`(CK0+pid*7919)`); the decoded table holds opaque `{t,n,b}` records and the
+  emitted CV accessor decrypts on first access, caching in `e.v`.
+- **Operand whitening (Phase 3)** — A/B/C fields ship shifted by
+  `m=⌊rk_i/3⌋%256` from the same rolling-key chain that encodes opcodes;
+  split-jump shares counter-shift so `B1+B2` stays invariant; the runtime
+  decode loop mirrors the chain to unmask into keyed records.
+- **Holder tooling keys** — manifests expose `opencode`/`fieldKeys` ONLY with
+  `--emit-secrets` (needed for dispatch analysis/extraction support).
 
 ## Verification Commands
 

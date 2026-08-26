@@ -21,7 +21,10 @@ function analyze(name, opts) {
     else { bytes.push(lit.charCodeAt(i)); i++; }
   }
   const plain = decryptBlob(Buffer.from(bytes), seeds);
-  const { flat } = deserializeBlob(plain);
+  const oc = r.manifest.opencode;
+  const { flat } = deserializeBlob(plain, oc ? {
+    opencode: { rk0: oc[0], astep: oc[1], ainc: oc[2] },
+  } : undefined);
 
   // physical ops actually used by the root proto
   const usedOps = new Set(flat[0].code.map((q) => q[0]));
