@@ -62,9 +62,9 @@ export function guardedLoop(
   a.mark(`gl_${counterReg}_end`);
 }
 
-/** Guard: if R[var] > R[limit], jump to errLbl. Used for budget checks. */
-export function guardLeq(a: Asm, limit: number, var: number, errLbl: string): void {
-  a.jumpTo(OP.JLT, 2, [limit, var], errLbl + "_ok");
+/** Guard: if R[varReg] > R[limit], jump to errLbl. Used for budget checks. */
+export function guardLeq(a: Asm, limit: number, varReg: number, errLbl: string): void {
+  a.jumpTo(OP.JLT, 2, [limit, varReg], errLbl + "_ok");
   a.emit(OP.ERR, 0);
   a.mark(errLbl + "_ok");
 }

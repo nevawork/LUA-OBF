@@ -208,8 +208,12 @@ export function protect(opts: ProtectOptions): ProtectResult {
       while (usedPhys.has(phys)) phys = 500 + rng.int(40000);
       usedPhys.add(phys);
       fusedForEmit.push({ phys, members: spec.members });
-    }
-  }
+/**
+   * APEX W1.1 stage-2: emit the inner deserializer VM + masked program
+   * instead of the flat decode loop. Behind --stage2 flag.
+   */
+  stage2?: boolean;
+}
 
   // ---- Phase 2 dispatch-hardening material ----
   // rolling-key opcode encoder + physical set of jump ops (their B operand
@@ -312,6 +316,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     blobSlices,
     mmTraps: opts.mmTraps === true,
     keylessPool,
+    stage2: opts.stage2 === true,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
