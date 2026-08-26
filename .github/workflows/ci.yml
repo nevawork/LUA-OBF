@@ -22,7 +22,9 @@ jobs:
         run: npm ci || npm install
 
       # Full gate: tsc -> e2e differential -> vitest (unit+fuzz+phases) ->
-      # determinism/isomorphism. Fails the job on ANY red.
+      # determinism/isomorphism. Fails the job on ANY red. verify.log is
+      # captured for downstream triage (fetched by the next gate0-report
+      # step) so the actual failure stream is never lost.
       - name: Verify (Gate 0)
         id: verify
         run: |
