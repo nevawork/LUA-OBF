@@ -13,7 +13,7 @@ import {
   preserveTaskLibrary, applyMbaPlus,
 } from "./transforms";
 import { BuildRng, randomNonce, sha256, hmacSha256 } from "./gen/prng";
-import { planIntegritySlices } from "./protection/antitamper";
+import { planIntegritySlices, planBlobSlices } from "./protection/antitamper";
 import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 import { verifyGeneratedDispatch } from "./testing/dispatch-check";
@@ -220,6 +220,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
   });
   const blob = encryptBlob(plain, encSeeds);
 
+  // ---- Phase 5: ciphertext-integrity windows over the ENCRYPTED blob ----
+  const blobSlices = tier !== "off" ? planBlobSlices(blob) : [];
+
   // ---- integrity slices over decoded representation ----
   // mirror must reverse operand whitening ⇒ pass the build's rolling-key params
   const { flat } = deserializeBlob(decryptBlob(blob, encSeeds), { opencode });
@@ -246,6 +249,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     fieldKeys,
     opencode,
     fused: fusedForEmit.length > 0 ? fusedForEmit : undefined,
+    blobSlices,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----

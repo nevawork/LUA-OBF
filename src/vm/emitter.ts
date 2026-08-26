@@ -14,6 +14,8 @@ import {
   buildHandlers, assembleChain, FieldKeyNames,
 } from "../engine/runtime/dispatcher";
 import { OpenCodeParams } from "../engine/runtime/opencode";
+import { emitCipherGuard } from "../engine/runtime/cipherguard";
+import { BlobSlice } from "../protection/antitamper";
 import { AntiEmulationConfig, emitAntiEmulationBlock } from "../protection/antiemulation";
 import { EnvProfile, emitEnvKeyingBlock } from "../protection/envkeying";
 import { ResourceBudget, DEFAULT_BUDGET } from "../protection/resources";
@@ -60,6 +62,8 @@ export interface EmitOptions {
   opencode: OpenCodeParams;
   /** Phase 4 superoperators (opt-in): fused specs with assigned phys values */
   fused?: Array<{ phys: number; members: Op[] }>;
+  /** Phase 5 ciphertext-integrity windows over the ENCRYPTED blob */
+  blobSlices?: BlobSlice[];
 }
 
 export interface EmitResult {
@@ -126,6 +130,9 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const rkN = id();
   // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
   const ck0N = id();
+  // Phase 5: cross-coupling flag — raised by silent-tier violations, shifts
+  // every subsequent constant-decryption stream
+  const cvwN = id();
   const F = {
     P0: id(), K: id(), C: id(), S: id(), cells: id(), sp: id(), mr: id(),
     pc: id(), VA: id(), i: id(), tc: id(), six: id(), poison: id(), PB: id(),
@@ -207,14 +214,14 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const tick: string[] = [];
   if (tier !== "off") {
     const response = tierViolationLines(tier, JSON.stringify(garbage(rng)), {
-      poisonVar: F.poison, pbVar: F.PB, biasLit: pbiasLit,
+      poisonVar: F.poison, pbVar: F.PB, biasLit: pbiasLit, cvwVar: cvwN,
     });
     tick.push(...emitIntegrityCheck(IN, response));
   }
   tick.push(...emitCarrierTouch({ wmVar: N.wm, wmiVar: N.wmi, sixVar: F.six, sinkVar: F.wmv }));
   // anti-emulation timing layer (os.clock required; caller disables for luau)
   const ae = emitAntiEmulationBlock(opts.antiEmulation ?? null, {
-    tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB, aeT0, aeOps,
+    tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB, aeT0, aeOps, cvwVar: cvwN,
   });
   if (ae) {
     tick.push(`if os and os.clock then`);
@@ -253,12 +260,16 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // Phase 3: constant-pool mask root — normalized seeds[3]; per-proto streams
   // derive as (CK0+pid*7919), mirroring serializer constSeed()
   L.push(`local ${ck0N}=${obf(normSeed(opts.seeds[3]), rng)}`);
+  // Phase 5 cross-coupling state + weight (shared root with the shell guard's
+  // sb delta so one per-build secret governs both corruption channels)
+  L.push(`local ${cvwN}=0`);
+  const cvwWeight = obf(normSeed(opts.pbias * 15485863 + 11), rng);
   // decrypt-on-access constant accessor: wire/decoded tables hold masked
   // payloads; plaintext exists only after first use (then cached in e.v)
   L.push(`local function ${N.cv}(pID,e)`);
   L.push(` if type(e)~='table' then return e end`);
   L.push(` local v=e.v if v~=nil then return v end`);
-  L.push(` local kk=(${ck0N}+pID*7919)%2147483646 if kk<1 then kk=kk+2147483646 end`);
+  L.push(` local kk=(${ck0N}+pID*7919+${cvwN}*${cvwWeight})%2147483646 if kk<1 then kk=kk+2147483646 end`);
   L.push(` local sv='' local g=kk`);
   L.push(` for j=1,e.n do g=(g*48271)%2147483647 sv=sv..string.char((e.b[j]-(g%256)+256)%256) end`);
   L.push(` if e.t==5 then v=tonumber(sv) else v=sv end`);
@@ -295,6 +306,25 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const budget = opts.budget ?? DEFAULT_BUDGET;
   L.push(` if bn>${budget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(` local sa=${obf(s0, rng)} sb=${obf(s1, rng)} MM=${M31}`);
+  // ---- Phase 5: ciphertext integrity guard (pre-decode) ----
+  // Verified BEFORE any keystream work: strict halts outright; silent shifts
+  // the seed registers themselves (decoding proceeds into structured garbage)
+  // and raises the CVW coupling flag so constants decrypt to garbage too.
+  if (tier !== "off" && opts.blobSlices && opts.blobSlices.length > 0) {
+    const tableLit = opts.blobSlices
+      .map((s) => `{p=${obf(s.p, rng)},a=${obf(s.a, rng)},h=${obf(s.h, rng)}}`)
+      .join(",");
+    const guardLines = emitCipherGuard(tier, opts.blobSlices, tableLit, {
+      blobVar: N.blob,
+      saVar: "sa",
+      sbVar: "sb",
+      cvwVar: cvwN,
+      garbageLit: JSON.stringify(garbage(rng)),
+      deltaSa: obf(normSeed(opts.pbias * 104729 + 29), rng),
+      deltaSb: obf(normSeed(opts.pbias * 15485863 + 11), rng),
+    });
+    if (guardLines) for (const gl of guardLines) L.push(` ${gl}`);
+  }
   // environmental keying (hardened derive-not-compare): mix fingerprint constant
   const envLines = emitEnvKeyingBlock(opts.envProfile ?? "universal", "sa", "sb");
   if (envLines) for (const el of envLines) L.push(` ${el}`);

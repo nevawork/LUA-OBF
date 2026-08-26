@@ -121,6 +121,21 @@ engine modules, kept for import stability during migration.
   `ctx.permMap[18]` on the pipeline path (permuted input) or logical 18 on
   direct/legacy paths; permutation is bijective so fused/NOP slots can never
   collide with it.
+- **Ciphertext integrity (Phase 5)** — sampled windows of the ENCRYPTED blob
+  are re-hashed by a shell-level guard BEFORE the decode loop (strict: cryptic
+  halt; silent: the seed registers themselves shift ⇒ structured garbage).
+  The decoded-table ticks remain deliberately as decoys.
+- **Cross-coupled silent response (Phase 5)** — any silent violation raises a
+  file-scope CVW flag that feeds the constant-decryption stream seed
+  (`(CK0+pid*7919+CVW*W)%…`): stripping ticks no longer restores clean
+  behavior, and copied-but-tampered runtimes decrypt garbage.
+- **Anti-emulation v2 (Phase 5)** — three independent workload probes
+  (dispatch rate, string.rep bandwidth, GC churn timing) converge on one
+  verdict point per tick; failures raise poison AND CVW. Probes abstain
+  gracefully when primitives are unavailable.
+- **Behavioral env-keying probes (Phase 5)** — version-stable invariants
+  (fmod sign, %.14g float repr, binary64 add identity, string.rep length)
+  fold into the entropy pool on both build (canonical) and runtime sides.
 
 ## Verification Commands
 

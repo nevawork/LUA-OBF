@@ -38,3 +38,47 @@ export function planIntegritySlices(flat: Proto[], window = 48, cap = 32): Integ
   }
   return all;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5: CIPHERTEXT integrity — hashes over the ENCRYPTED blob, verified by
+// the loader BEFORE the decode loop runs. Unlike the decoded-table ticks
+// (which remain as deliberate decoys), these checks cannot be bypassed by a
+// static lifter that never executes: tamper with any covered byte and the
+// artifact refuses to decrypt (strict) or poisons its own cipher seeds +
+// constant-decryption key (silent).
+// ---------------------------------------------------------------------------
+
+export interface BlobSlice {
+  /** 1-based start position inside the encrypted blob */
+  p: number;
+  /** window length in bytes (≤ maxLen) */
+  a: number;
+  /** expected range hash */
+  h: number;
+}
+
+/** byte-range FNV mirror; identical arithmetic is emitted in cipherguard.lua */
+export function rangeHash(buf: Uint8Array, p: number, len: number): number {
+  let h = 2166136261 % 1000000007;
+  for (let j = p - 1; j < p - 1 + len; j++) {
+    h = (h * 16777619 + buf[j]) % 1000000007;
+  }
+  return h;
+}
+
+/**
+ * Sample evenly-spaced windows over the encrypted blob. Deterministic given
+ * the blob (no rng): descriptors are literal-embeddable and recomputable at
+ * load time without any build-time state.
+ */
+export function planBlobSlices(blob: Uint8Array, count = 24, maxLen = 64): BlobSlice[] {
+  const n = Math.max(1, Math.min(count, Math.ceil(blob.length / maxLen) || 1));
+  const out: BlobSlice[] = [];
+  for (let k = 0; k < n; k++) {
+    const pos = Math.floor((k * blob.length) / n); // 0-based
+    const len = Math.min(maxLen, blob.length - pos);
+    if (len <= 0) break;
+    out.push({ p: pos + 1, a: len, h: rangeHash(blob, pos + 1, len) });
+  }
+  return out;
+}

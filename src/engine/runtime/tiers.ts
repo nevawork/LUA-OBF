@@ -33,13 +33,22 @@ export interface TierContext {
   pbVar: string;
   /** obfuscated literal for the bias constant */
   biasLit: string;
+  /**
+   * Phase 5 cross-coupling: file-scope flag consumed by the constant-
+   * decryption accessor. Raising it shifts every subsequent CV stream, so a
+   * silently-detected tamper corrupts ALL constants instead of merely biasing
+   * arithmetic — stripping the tick no longer restores clean behavior.
+   */
+  cvwVar?: string;
 }
 
 /** response lines when an integrity violation is detected */
 export function tierViolationLines(tier: Tier, garbageLiteral: string, ctx?: TierContext): string[] {
   if (tier === "strict") return [`error(${garbageLiteral})`];
   if (tier === "silent" && ctx) {
-    return [`${ctx.poisonVar}=true ${ctx.pbVar}=${ctx.biasLit}`];
+    const lines = [`${ctx.poisonVar}=true ${ctx.pbVar}=${ctx.biasLit}`];
+    if (ctx.cvwVar) lines[0] += ` ${ctx.cvwVar}=1`;
+    return lines;
   }
   // "off" never reaches a check; treat as no-op
   return [];

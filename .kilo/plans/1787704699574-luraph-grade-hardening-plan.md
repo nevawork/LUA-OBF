@@ -24,6 +24,11 @@
 >   logical constant — now keyed off ctx.permMap[18] (serializer) with
 >   pipeline passing its permutation. Deferred: operand-rich/mega fusion,
 >   slot-renaming mutation.
+> - Phase 5: SHIPPED — cipherguard.ts (pre-decode ciphertext windows; strict
+>   halt / silent seed-shift), CVW cross-coupling into the CV key stream,
+>   anti-emulation v2 (3-probe convergence, graceful abstain), behavioral
+>   env-keying probes both sides, decoded-table ticks retained as decoys;
+>   tests/phase5.test.ts.
 > - BLOCKER: session denies bash; nothing executed yet. Run
 >   `bash scripts/verify.sh` the moment shell access is granted.
 
