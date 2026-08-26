@@ -1,19 +1,7 @@
-// NEVAHEX-VM — Stage-2 inner deserializer VM (APEX W1.1)
-//
-// ISA specification module. Siblings:
-//   microvm-asm.ts   — Asm (label-resolving emitter) + program masking
-//   microvm-exec.ts  — reference interpreter (execProgram)
-//   microvm-program.ts — hand-compiled decode program (next increment)
-//
-// Design constraints honored by every sibling:
-//   • ALL wide constants (budgets, cipher multipliers, watermark seeds, field
-//     keys, opencode params) live in an interpreter-initialized PREAMBLE
-//     register bank (PRE below, regs 44–70) ⇒ every program word is a pure
-//     byte (0..255) ⇒ additive word masking is uniformly safe.
-//   • Registers live in a table keyed by integers — immune to Lua's
-//     200-local limit and invisible to local-scanner heuristics.
-//   • Instruction records are built with SETF (numeric keys 1..4); dynamic
-//     keys (SETDYN) exist for the future Lua-side variant.
+// NEVAHEX-VM — micro-VM ISA specification (APEX W1.1)
+// Sibling of microvm-exec.ts (interpreter) and microvm-program-*.ts
+// (per-phase emitters). op values are referenced via the OP enum; renumbering
+// any op requires updating ONLY the interpreter switch in microvm-exec.ts.
 
 export const OP = {
   HALT: 0,
@@ -21,31 +9,32 @@ export const OP = {
   RDUV: 2, //        [a]              R[a] = uvar()
   RDSV: 3, //        [a]              R[a] = svar()
   LDI: 4, //         [a], imm(b)      R[a] = b                  (0..255)
-  EQI: 5, //         [a], imm(b), [dst]  R[dst] = (R[a] === b)  boolean
-  MOV: 6, //         [a] <- [b]
-  ADD: 7, //         [a,b,c]
-  SUB: 8,
-  MUL: 9,
-  MOD: 10,
-  FLOORDIV: 11, //                  R[a] = floor(R[b]/R[c])
-  JMP: 12, //        addr(a)
-  JEQZ: 13, //       [a], addr(b)     if R[a]==false/0 → pc=b
-  JNEZ: 14, //       [a], addr(b)     if R[a]!=false/0 → pc=b
-  JLT: 15, //        [a,b], addr(c)   if R[a]<R[b] → pc=c
-  ERR: 16, //        errId(a)         throw MicroError(a)
-  NEWT: 17, //       [a]              R[a] = {}
-  PROTO_NEW: 18, //  [a]              fresh proto skeleton; becomes `cur`
-  SETF: 19, //       [t], key(b), [src]      R[t][b] = R[src]
-  SETFS: 20, //      [t], strIdx(b), [src]   R[t][STRS[b]] = R[src]
-  GETF: 21, //       [dst], [t], strIdx(b)   R[dst] = R[t][STRS[b]]
-  PUSH: 23, //       [t],[src]        R[t][#R[t]+1] = R[src]
-  PAYLOAD: 24, //    [dst],[ln]       collect R[ln] stream bytes → byte array
-  STRFROM: 25, //    [dst],[bytes]    latin1 string from byte array
-  FLOAT: 26, //      [dst],[str]      parseFloat(str)
-  NONFINITE: 27, //  [dst], kind(b)   0=NaN 1=+inf 2=-inf
-  LDNIL: 28, //      [a]              R[a] = nil (undefined)
-  COMMIT_PROTO: 29, //[pid]            flat[R[pid]-1] = cur
-  WMPUSH: 30, //     [src]            wm.push(R[src])
+  LDIW: 5, //        [a], lo(b), hi(c)  R[a] = b + c*256         (0..65535)
+  EQI: 6, //         [a], imm(b), [dst]  R[dst] = (R[a] === b)  boolean
+  MOV: 7, //         [a] <- [b]
+  ADD: 8, //         [a,b,c]
+  SUB: 9,
+  MUL: 10,
+  MOD: 11,
+  FLOORDIV: 12, //                  R[a] = floor(R[b]/R[c])
+  JMP: 13, //        addr(a)
+  JEQZ: 14, //       [a], addr(b)     if R[a]==false/0 → pc=b
+  JNEZ: 15, //       [a], addr(b)     if R[a]!=false/0 → pc=b
+  JLT: 16, //        [a,b], addr(c)   if R[a]<R[b] → pc=c
+  ERR: 17, //        errId(a)         throw MicroError(a)
+  NEWT: 18, //       [a]
+  PROTO_NEW: 19, //  [a]              fresh proto skeleton; becomes `cur`
+  SETF: 20, //       [t], key(b), [src]      R[t][b] = R[src]
+  SETFS: 21, //      [t], strIdx(b), [src]   R[t][STRS[b]] = R[src]
+  GETF: 22, //       [dst], [t], strIdx(b)   R[dst] = R[t][STRS[b]]
+  PUSH: 24, //       [t],[src]        R[t][#R[t]+1] = R[src]
+  PAYLOAD: 25, //    [dst],[ln]       collect R[ln] stream bytes
+  STRFROM: 26, //    [dst],[bytes]    latin1 string from byte array
+  FLOAT: 27, //      [dst],[str]      parseFloat(str)
+  NONFINITE: 28, //  [dst], kind(b)   0=NaN 1=+inf 2=-inf
+  LDNIL: 29, //      [a]              R[a] = nil (undefined)
+  COMMIT_PROTO: 30, //[pid]            flat[R[pid]-1] = cur
+  WMPUSH: 31, //     [src]            wm.push(R[src])
 } as const;
 
 /** string constant pool referenced by *_S ops */

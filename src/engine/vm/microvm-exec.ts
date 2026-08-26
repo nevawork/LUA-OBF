@@ -6,7 +6,7 @@
 // are pinned by unit tests on hand-written mini-programs here, and later by
 // the differential fuzz suite against deserializeBlob once
 // microvm-program.ts lands.
-import { MicroError, PRE, STRS } from "./microvm";
+import { MicroError, OP, PRE, STRS } from "./microvm";
 import { unmaskProgram } from "./microvm-asm";
 import type { ExecOptions, ExecResult, Proto } from "./microvm";
 
@@ -90,26 +90,27 @@ export function execProgram(
     const c = words[pc + 3];
     pc += 4;
     switch (op) {
-      case 1: R[a] = u8(); break;
-      case 2: R[a] = uvar(); break;
-      case 3: R[a] = svar(); break;
-      case 4: R[a] = b; break;
-      case 5: R[c] = R[a] === b; break; // EQI
-      case 6: R[a] = R[b]; break;
-      case 7: R[a] = (R[b] as number) + (R[c] as number); break;
-      case 8: R[a] = (R[b] as number) - (R[c] as number); break;
-      case 9: R[a] = (R[b] as number) * (R[c] as number); break;
-      case 10: R[a] = (R[b] as number) % (R[c] as number); break;
-      case 11: R[a] = Math.floor((R[b] as number) / (R[c] as number)); break;
-      case 12: pc = a * 4; break; // JMP
-      case 13: if (!R[a]) pc = b * 4; break; // JEQZ
-      case 14: if (R[a]) pc = b * 4; break; // JNEZ
-      case 15:
+      case 1: R[a] = u8(); break;                                     // RDU8
+      case 2: R[a] = uvar(); break;                                   // RDUV
+      case 3: R[a] = svar(); break;                                   // RDSV
+      case 4: R[a] = b; break;                                        // LDI
+      case 5: R[a] = b + c * 256; break;                              // LDIW
+      case 6: R[c] = R[a] === b; break;                                // EQI
+      case 7: R[a] = R[b]; break;                                     // MOV
+      case 8: R[a] = (R[b] as number) + (R[c] as number); break;      // ADD
+      case 9: R[a] = (R[b] as number) - (R[c] as number); break;      // SUB
+      case 10: R[a] = (R[b] as number) * (R[c] as number); break;     // MUL
+      case 11: R[a] = (R[b] as number) % (R[c] as number); break;      // MOD
+      case 12: R[a] = Math.floor((R[b] as number) / (R[c] as number)); break; // FLOORDIV
+      case 13: pc = a * 4; break;                                      // JMP
+      case 14: if (!R[a]) pc = b * 4; break;                           // JEQZ
+      case 15: if (R[a]) pc = b * 4; break;                            // JNEZ
+      case 16:
         if ((R[a] as number) < (R[b] as number)) pc = c * 4;
-        break; // JLT
-      case 16: throw new MicroError(a);
-      case 17: R[a] = {}; break;
-      case 18: { // PROTO_NEW
+        break;                                                          // JLT
+      case 17: throw new MicroError(a);                                // ERR
+      case 18: R[a] = {}; break;                                      // NEWT
+      case 19: {                                                       // PROTO_NEW
         const skel: Proto = {
           params: 0,
           isVararg: false,
@@ -123,32 +124,27 @@ export function execProgram(
         cur = skel;
         break;
       }
-      case 19: {
+      case 20: {                                                       // SETF
         const t = R[a] as Record<number, unknown>;
         t[b] = R[c];
         break;
       }
-      case 20: {
+      case 21: {                                                       // SETFS
         const t = R[a] as Record<string, unknown>;
         t[STRS[b]] = R[c];
         break;
       }
-      case 21: {
+      case 22: {                                                       // GETF
         const t = R[b] as Record<string, unknown>;
         R[a] = t[STRS[c]];
         break;
       }
-      case 22: {
-        const t = R[a] as Record<number | string, unknown>;
-        t[R[b] as number | string] = R[c];
-        break;
-      }
-      case 23: {
+      case 24: {                                                       // PUSH
         const t = R[a] as unknown[];
         t.push(R[b]);
         break;
       }
-      case 24: { // PAYLOAD dst,ln — collect ln bytes starting at pos
+      case 25: {                                                       // PAYLOAD
         const len = R[b] as number;
         const arr: number[] = [];
         for (let j = 1; j <= len; j++) {
@@ -158,7 +154,7 @@ export function execProgram(
         R[a] = arr;
         break;
       }
-      case 25: { // STRFROM — chunked to avoid spread-stack limits
+      case 26: {                                                       // STRFROM
         const bytes = R[a] as number[];
         let s = "";
         for (let j = 1; j < bytes.length; ) {
@@ -171,13 +167,13 @@ export function execProgram(
         R[a] = s;
         break;
       }
-      case 26: R[a] = parseFloat(R[b] as string); break;
-      case 27:
+      case 27: R[a] = parseFloat(R[b] as string); break;               // FLOAT
+      case 28:
         R[a] = b === 0 ? NaN : b === 1 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
-        break;
-      case 28: R[a] = undefined; break;
-      case 29: protos[(R[a] as number) - 1] = cur as Proto; break;
-      case 30: wm.push(R[a] as number); break;
+        break;                                                          // NONFINITE
+      case 29: R[a] = undefined; break;                                // LDNIL
+      case 30: protos[(R[a] as number) - 1] = cur as Proto; break;   // COMMIT_PROTO
+      case 31: wm.push(R[a] as number); break;                        // WMPUSH
       default:
         throw new Error(`microvm exec: bad opcode ${op} @${pc - 4}`);
     }
