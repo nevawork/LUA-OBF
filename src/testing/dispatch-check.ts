@@ -12,6 +12,12 @@
 //  4. Every perm value is covered by exactly one REAL arm (no lost/duplicated
 //     handlers).
 //
+// Phase 2 encoded mode (opts.encoded): bytecode opcodes are rolling-key
+// encoded (opE), so arm literals still compare against DECODED physical
+// values while the wire never contains them. Structural checks then also
+// require: the per-fetch decode/step lines (`…+65536)%65536`) and at least
+// one range router (`op<=<n>`) from the binary-search tree.
+//
 // Decoy classification (spec Phase 1, DPA defense): builds intentionally
 // append 2..5 synthesized never-matched DECOY arms whose literals lie outside
 // the physical opcode permutation space. After extracting all arms and
@@ -23,6 +29,11 @@
 export interface DispatchCheckResult {
   ok: boolean;
   problems: string[];
+}
+
+export interface DispatchCheckOptions {
+  /** wire v3.2: opcodes stored rolling-key encoded; verify structural markers */
+  encoded?: boolean;
 }
 
 function evalNum(expr: string): number | string {
@@ -43,6 +54,7 @@ export function verifyGeneratedDispatch(
   lua: string,
   perm: number[],
   usedPhysicalOps: Iterable<number>,
+  opts?: DispatchCheckOptions,
 ): DispatchCheckResult {
   const problems: string[] = [];
 
@@ -134,6 +146,23 @@ export function verifyGeneratedDispatch(
         problems.push(`gate '${body}' failed to evaluate at ${ctr}: ${String(e)}`);
         break;
       }
+    }
+  }
+
+  // ---- Phase 2 encoded-mode structural markers ----
+  if (opts?.encoded) {
+    // rolling-key lines: frame init, per-fetch decode, per-fetch step
+    const rkHits = (lua.match(/%65536/g) || []).length;
+    if (rkHits < 3) {
+      problems.push(
+        `encoded mode: expected ≥3 rolling-key expressions (init+decode+step), found ${rkHits}`,
+      );
+    }
+    if (!/if op<=\d+ then/.test(lua)) {
+      problems.push(`encoded mode: no range router found (binary-search tree missing?)`);
+    }
+    if (!/pr\.k\[i\]=\{\[/.test(lua)) {
+      problems.push(`encoded mode: keyed instruction-record construction missing`);
     }
   }
 

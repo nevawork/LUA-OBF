@@ -76,7 +76,7 @@ describe("phase 0: blob framing v3", () => {
   it("round-trips through the randomized prologue", () => {
     const root = compileChunk(parse("local t={1,2,3} return #t"));
     const rng = new BuildRng(sha256(Buffer.from("framing-test")));
-    const { plain } = serializeProto(root, undefined, rng);
+    const { plain } = serializeProto(root, undefined, { rng });
     const d = deserializeBlob(plain);
     expect(d.flat.length).toBeGreaterThan(0);
     expect(d.flat[0].code.length).toBe(root.code.length);
@@ -88,7 +88,7 @@ describe("phase 0: blob framing v3", () => {
       return serializeProto(
         root,
         undefined,
-        new BuildRng(sha256(Buffer.from(seedHex, "hex"))),
+        { rng: new BuildRng(sha256(Buffer.from(seedHex, "hex"))) },
       ).plain;
     };
     const pa = mk("aa".repeat(32));

@@ -5,12 +5,15 @@
 // bounded-resource budgets.
 import { BuildRng } from "../gen/prng";
 import { Op } from "./opcodes";
-import { Seeds, normSeed, wmSeeds } from "./serializer";
+import { Seeds, normSeed, wmSeeds, InstrFieldKeys } from "./serializer";
 import { IdAllocator } from "../engine/runtime/identifiers";
 import { Tier, tierViolationLines } from "../engine/runtime/tiers";
 import { emitIntegrityCheck, IntegrityNames } from "../engine/runtime/integrity";
 import { emitCarrierTouch } from "../engine/runtime/carriers";
-import { buildHandlers, assembleChain } from "../engine/runtime/dispatcher";
+import {
+  buildHandlers, assembleChain, FieldKeyNames,
+} from "../engine/runtime/dispatcher";
+import { OpenCodeParams } from "../engine/runtime/opencode";
 import { AntiEmulationConfig, emitAntiEmulationBlock } from "../protection/antiemulation";
 import { EnvProfile, emitEnvKeyingBlock } from "../protection/envkeying";
 import { ResourceBudget, DEFAULT_BUDGET } from "../protection/resources";
@@ -51,6 +54,10 @@ export interface EmitOptions {
    * opts.seeds[0]/[1] that encrypted the blob.
    */
   cipherLiterals?: [number, number] | null;
+  /** per-build instruction-record field keys (wire v3.2) */
+  fieldKeys: InstrFieldKeys;
+  /** rolling-key opcode encoding params (Phase 2); required */
+  opencode: OpenCodeParams;
 }
 
 export interface EmitResult {
@@ -109,6 +116,12 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
   const aeT0 = id();
   const aeOps = id();
+  // Phase 2: instruction-record field-key locals + rolling-key constants
+  const keyNames: FieldKeyNames = { OP: id(), A: id(), B1: id(), B2: id(), C: id() };
+  const rk0N = id();
+  const astepN = id();
+  const aincN = id();
+  const rkN = id();
   const F = {
     P0: id(), K: id(), C: id(), S: id(), cells: id(), sp: id(), mr: id(),
     pc: id(), VA: id(), i: id(), tc: id(), six: id(), poison: id(), PB: id(),
@@ -143,6 +156,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const handlers = buildHandlers({
     N: N as unknown as Record<string, string>,
     F: F as unknown as Record<string, string>,
+    keys: keyNames,
     rng,
     tier,
     lit,
@@ -180,7 +194,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // integrity tick names → dispatcher frame locals
   const IN: IntegrityNames = {
     icv: N.icv, slices: N.slices, nic: N.nic, six: F.six,
-    protos: N.protos, sl: F.sl, seg: F.seg, h: F.h, j: F.j, q: F.q, v: F.v,
+    protos: N.protos, keys: keyNames,
+    sl: F.sl, seg: F.seg, h: F.h, j: F.j, q: F.q, v: F.v,
   };
 
   // ---------- integrity + watermark tick (engine/runtime modules) ----------
@@ -219,6 +234,17 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   if (opts.antiEmulation) {
     L.push(`local ${aeT0},${aeOps}`);
   }
+  // Phase 2: instruction-record field keys + rolling-key opcode constants —
+  // file-scope locals captured by both the decoder closure and run() frames
+  L.push(
+    `local ${keyNames.OP}=${obf(opts.fieldKeys.OP, rng)} ${keyNames.A}=${obf(opts.fieldKeys.A, rng)} ` +
+      `${keyNames.B1}=${obf(opts.fieldKeys.B1, rng)} ${keyNames.B2}=${obf(opts.fieldKeys.B2, rng)} ` +
+      `${keyNames.C}=${obf(opts.fieldKeys.C, rng)}`,
+  );
+  L.push(
+    `local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ` +
+      `${aincN}=${obf(opts.opencode.ainc, rng)}`,
+  );
 
   // optional dynamic-load path (Phase 2 exception; opt-in, disabled for luau)
   if (opts.dynLoad && opts.envProfile !== "luau") {
@@ -318,7 +344,9 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  if nk>${budget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.k={}`);
   L.push(`  for i=1,nk do`);
-  L.push(`   pr.k[i]={${N.u8}(),${N.svar}(),${N.svar}(),${N.svar}()}`);
+  // wire v3.2: keyed instruction record — opE (uvarint, rolling-key encoded)
+  // + operands under random keys
+  L.push(`   pr.k[i]={[${keyNames.OP}]=${N.uvar}(),[${keyNames.A}]=${N.svar}(),[${keyNames.B1}]=${N.svar}(),[${keyNames.B2}]=${N.svar}(),[${keyNames.C}]=${N.svar}()}`);
   L.push(`  end`);
   L.push(`  ${N.protos}[${N.pid2}]=pr`);
   L.push(` end`);
@@ -372,15 +400,20 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(` for ${F.i}=1,${F.P0}.pn do ${F.cells}[${F.i}].v=${F.args}[${F.i}] end`);
   L.push(` local ${F.tc},${F.six}=37,1`);
   L.push(` local ${F.poison},${F.PB},${F.wmv}=false,nil,0`);
+  // Phase 2: per-frame rolling key — mirrors serializer's initialRk(pid)
+  L.push(` local ${rkN}=(${rk0N}+${F.pid}*${astepN})%65536`);
   L.push(` local ${F.rn},${F.narg},${F.so},${F.fpos},${F.fn}`);
   L.push(` local ${F.ins},${F.op}`);
   L.push(` while true do`);
   for (const cl of countdown) L.push(`  ${cl}`);
   if (process.env.NEVAHEX_DEBUG) {
-    L.push(`  do local _i=${F.K}[${F.pc}] print("DBG pc",${F.pc},"op",_i and _i[1]) end`);
+    L.push(`  do local _i=${F.K}[${F.pc}] print("DBG pc",${F.pc},"opE",_i and _i[${keyNames.OP}]) end`);
   }
   L.push(`  ${F.ins}=${F.K}[${F.pc}]`);
-  L.push(`  ${F.op}=${F.ins}[1]`);
+  // decode op under the rolling key, then advance it (build side simulates
+  // the identical chain — engine/runtime/opencode.ts)
+  L.push(`  ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
+  L.push(`  ${rkN}=(${rkN}+${aincN})%65536`);
   L.push(`  ${F.pc}=${F.pc}+1`);
   for (const cl of chainLines) L.push(`  ${cl}`);
   L.push(` end`);

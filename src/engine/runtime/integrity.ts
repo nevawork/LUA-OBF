@@ -1,7 +1,11 @@
 // NEVAHEX-VM — runtime module: integrity tick (anti-tamper weaving)
 // Consumed by the dispatcher cadence: every countdown expiry, verify the next
 // slice's hash against the ICV registry; mismatch routes to the tier policy.
+// Phase 2: instructions are keyed records — the hash walks the record through
+// the per-build field-key locals and re-sums split jump shares, exactly
+// mirroring protection/antitamper.ts sliceHash over [opE, a, b1+b2, c].
 import { IntegritySlice } from "../../protection/antitamper";
+import { FieldKeyNames } from "./dispatcher";
 
 export interface IntegrityNames {
   icv: string;    // file-scope expected-hash table
@@ -9,6 +13,7 @@ export interface IntegrityNames {
   nic: string;    // slice count
   six: string;    // rotating index local
   protos: string; // decoded proto registry
+  keys: FieldKeyNames;
   sl: string; seg: string; h: string; j: string; q: string; v: string;
 }
 
@@ -25,6 +30,7 @@ export function declareIntegrityTables(slices: IntegritySlice[], n: IntegrityNam
 }
 
 export function emitIntegrityCheck(n: IntegrityNames, responseLines: string[]): string[] {
+  const { OP, A, B1, B2, C } = n.keys;
   return [
     `if ${n.nic}>0 then`,
     `local ${n.sl}=${n.slices}[${n.six}]`,
@@ -35,7 +41,7 @@ export function emitIntegrityCheck(n: IntegrityNames, responseLines: string[]): 
     `local ${n.h}=(2166136261%1000000007)`,
     `for ${n.j}=${n.sl}.a,${n.sl}.b do`,
     `local ${n.q}=${n.seg}[${n.j}]`,
-    `if ${n.q} then ${n.h}=(${n.h}*16777619+${n.q}[1]*31+${n.q}[2]*7+${n.q}[3]*3+${n.q}[4])%1000000007 end`,
+    `if ${n.q} then ${n.h}=(${n.h}*16777619+${n.q}[${OP}]*31+${n.q}[${A}]*7+(${n.q}[${B1}]+${n.q}[${B2}])*3+${n.q}[${C}])%1000000007 end`,
     `end`,
     `if ${n.h}~=${n.icv}[${n.sl}.i] then`,
     ...responseLines,

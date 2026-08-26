@@ -1,5 +1,18 @@
 # NEVAHEX-VM v2.1 → Luraph-grade hardening plan
 
+> PROGRESS (session 2026-08-26)
+> - Phase 0: SHIPPED (manifest secrets opt-in + HMAC auth, blob framing v3,
+>   BuildRng string keys, per-build flatten names, anti-emu locals, token scrub).
+> - Phase 1 core: SHIPPED (cipher v3 4-stream feedback + emitter mirrors +
+>   wasmoon parity test). DEFERRED pending runnable tests: LZW, native ChaCha20.
+> - Phase 2: SHIPPED — opencode.ts rolling-key codec; wire v3.2 keyed records +
+>   split jumps; range-tree dispatch with polymorphic bodies; keyed integrity
+>   hash; dispatch-check encoded mode; tests/phase2.test.ts. Operand-slot audit
+>   against compiler emit sites completed (SETLIST/SETTABAT fixes applied).
+>   Deferred: --context-ops.
+> - BLOCKER: session denies bash; nothing executed yet. Run
+>   `bash scripts/verify.sh` the moment shell access is granted.
+
 ## Goal
 
 Close every weakness identified in the audit and add the layers that separate

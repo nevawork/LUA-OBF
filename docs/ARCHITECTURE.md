@@ -87,6 +87,18 @@ engine modules, kept for import stability during migration.
   keystream ⇒ cryptic decode failure; nothing to branch-patch.
 - **Bounded resources** — decoder refuses oversized blobs/protos/consts/code;
   integrity slices capped at 32/tick rotation.
+- **No raw opcodes at rest (Phase 2)** — instructions are stored rolling-key
+  encoded (`opE=(perm+rk)%65536`, per-frame chain init/step via embedded
+  constants); decoded records use five per-build random field keys
+  (`engine/runtime/opencode.ts`, wire v3.2 in serializer).
+- **Split jump offsets** — relative jumps ship as two random shares summed at
+  dispatch; only jump-class ops split (compiler patch site `[at][2]`).
+- **Range-tree dispatch** — balanced binary routers (`op<=bound`) over exact
+  gated leaves; per-node rng-biased splits make tree SHAPE build-specific;
+  every leaf carries its own cryptic fallback.
+- **Handler polymorphism** — hot/simple ops draw semantic-equivalent bodies
+  from per-build variant pools (MOVE/LOADK/arith/GETTAB/EQ-LT-LE/JF/DUP…);
+  decoy arms share leaf syntax and route inside the tree.
 
 ## Verification Commands
 

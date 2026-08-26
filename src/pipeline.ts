@@ -18,6 +18,7 @@ import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 import { verifyGeneratedDispatch } from "./testing/dispatch-check";
 import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
+import { makeOpenCodeParams } from "./engine/runtime/opencode";
 
 export interface ProtectOptions {
   source: string;
@@ -161,12 +162,25 @@ export function protect(opts: ProtectOptions): ProtectResult {
   };
   renumber(root);
 
+  // ---- Phase 2 dispatch-hardening material ----
+  // rolling-key opcode encoder + physical set of jump ops (their B operand
+  // is a relative offset and gets share-split on the wire)
+  const opencode = makeOpenCodeParams(rng);
+  const JUMPY_LOGICAL = [
+    Op.JMP, Op.JF, Op.JT, Op.FORPREP, Op.FORLOOP, Op.GFORPREP, Op.GFORLOOP,
+  ];
+  const jumpOps = new Set<number>(JUMPY_LOGICAL.map((op) => perm[op]));
+
   // ---- watermark carriers ----
   const wmPayload = opts.watermark ? Buffer.from(opts.watermark, "utf8") : null;
   const wmRegion = wmPayload ? spreadWatermark(wmPayload, seeds[2]) : null;
 
-  // ---- serialize & encrypt ----
-  const { plain } = serializeProto(root, wmRegion ?? undefined, rng);
+  // ---- serialize & encrypt (wire v3.2: keyed records, split jumps, opE) ----
+  const { plain, keys: fieldKeys } = serializeProto(root, wmRegion ?? undefined, {
+    rng,
+    jumpOps,
+    opencode,
+  });
   const blob = encryptBlob(plain, encSeeds);
 
   // ---- integrity slices over decoded representation ----
@@ -191,12 +205,16 @@ export function protect(opts: ProtectOptions): ProtectResult {
     cipherLiterals: embeddedCipherLits,
     dynLoad: opts.dynLoad === true && envProfile !== "luau",
     layered: opts.layered === true,
+    fieldKeys,
+    opencode,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
   const usedPhysicalOps = new Set<number>();
   for (const p of flat) for (const q of p.code) usedPhysicalOps.add(q[0]);
-  const check = verifyGeneratedDispatch(emitted.lua, perm, usedPhysicalOps);
+  const check = verifyGeneratedDispatch(emitted.lua, perm, usedPhysicalOps, {
+    encoded: true,
+  });
   if (!check.ok) {
     throw new Error(
       `NEVAHEX internal: generated dispatch failed self-check\n` +
