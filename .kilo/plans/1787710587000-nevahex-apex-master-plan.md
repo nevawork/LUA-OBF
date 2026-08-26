@@ -155,6 +155,22 @@ invariance + maskProgram round-trip):
 
 ### A1 implementation notes end
 
+PROGRESS (2026-08-26, latest): **A1 decomposed into four sibling files after
+two failed monolith attempts** — the decomposition is the fix:
+✅ `microvm.ts` — frozen ISA (+EQI op in free slot 5), PRE preamble bank,
+   MicroError, ExecOptions/ExecResult.
+✅ `microvm-asm.ts` — Asm (per-slot jump fixups, byte-lane masking guard:
+   program exceeds 256 instructions ⇒ build error) + mask/unmaskProgram.
+✅ `microvm-exec.ts` — complete reference interpreter (30-op switch,
+   chunked STRFROM, preamble register bank, debugRegs capture hook).
+✅ `tests/phase10-microvm.test.ts` — hand-written mini-program unit tests:
+   guard-loop arithmetic (sum 1..10), EQI/JEQZ/JNEZ branching, PAYLOAD+
+   STRFROM+FLOAT decimal reconstruction, NONFINITE trio, MicroError id
+   propagation, masking round-trip + masked-execution parity.
+⏳ NEXT (own turn): `microvm-program.ts` assembleDecodeProgram() per the
+   outline below → phase10 differential fuzz ×300 vs deserializeBlob →
+   Lua emission behind --stage2 → redteam `stage2-escape`.
+
 ## Part IV — Execution graph
 
 ```
