@@ -186,7 +186,6 @@ export function protect(opts: ProtectOptions): ProtectResult {
 
   // fused physical band: unique values ≥500, far above the base ISA and the
   // decoy band (100..~110), well inside the opcode ring (<65536)
-  const idToPhys = new Map<number, number>();
   const fusedForEmit: Array<{ phys: number; members: Op[] }> = [];
   if (fusedSpecs.length > 0) {
     const usedPhys = new Set<number>(perm);
@@ -194,7 +193,6 @@ export function protect(opts: ProtectOptions): ProtectResult {
       let phys = 500 + rng.int(40000);
       while (usedPhys.has(phys)) phys = 500 + rng.int(40000);
       usedPhys.add(phys);
-      idToPhys.set(spec.id, phys);
       fusedForEmit.push({ phys, members: spec.members });
     }
   }
@@ -247,6 +245,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     layered: opts.layered === true,
     fieldKeys,
     opencode,
+    fused: fusedForEmit.length > 0 ? fusedForEmit : undefined,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
@@ -254,6 +253,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   for (const p of flat) for (const q of p.code) usedPhysicalOps.add(q[0]);
   const check = verifyGeneratedDispatch(emitted.lua, perm, usedPhysicalOps, {
     encoded: true,
+    extraReal: fusedForEmit.map((s) => s.phys),
   });
   if (!check.ok) {
     throw new Error(

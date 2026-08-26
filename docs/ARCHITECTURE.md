@@ -109,6 +109,18 @@ engine modules, kept for import stability during migration.
   decode loop mirrors the chain to unmask into keyed records.
 - **Holder tooling keys** — manifests expose `opencode`/`fieldKeys` ONLY with
   `--emit-secrets` (needed for dispatch analysis/extraction support).
+- **Superoperators (Phase 4, opt-in `--superops`)** — windows of operand-free
+  opcodes (no A/B/C reads, no control transfer, no interior jump targets) fuse
+  into synthetic opcodes: verbatim member-body concatenation + pc-skip over
+  NOPed member slots; positions preserved so all jump offsets stay valid.
+  Fused heads live in logical space ≥1000, receive unique physical values in
+  the [500,40500) band, and join the dispatch tree/integrity/checks via
+  `extraReal`. The CLOSURE global-id remap keys off `permMap[CLOSURE]` when
+  code arrives permuted (fixes a latent seed-dependent remap bug).
+- **CLOSURE remap contract** — serializer recognizes CLOSURE by
+  `ctx.permMap[18]` on the pipeline path (permuted input) or logical 18 on
+  direct/legacy paths; permutation is bijective so fused/NOP slots can never
+  collide with it.
 
 ## Verification Commands
 

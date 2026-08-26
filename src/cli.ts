@@ -48,6 +48,7 @@ switch (cmd) {
       dynLoad: hasFlag("--dyn-load") && target !== "luau",
       layered: hasFlag("--layered"),
       emitSecrets: hasFlag("--emit-secrets"),
+      superops: hasFlag("--superops"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);
@@ -113,6 +114,8 @@ Usage:
       --dyn-load                optional string.dump+load path (non-luau)
       --emit-secrets            include nonce+seeds in the manifest (holder
                                 mode; default manifests carry NO key material)
+      --superops                enable superoperator fusion (Phase 4, opt-in
+                                until the runtime differential matrix runs)
   nevahex extract <protected.lua> --manifest <file>
   nevahex verify <input.lua>
   nevahex metrics --a <manifest1.json> --b <manifest2.json>`);

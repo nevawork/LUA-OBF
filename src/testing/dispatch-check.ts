@@ -34,6 +34,12 @@ export interface DispatchCheckResult {
 export interface DispatchCheckOptions {
   /** wire v3.2: opcodes stored rolling-key encoded; verify structural markers */
   encoded?: boolean;
+  /**
+   * Phase 4: physical values of fused superop arms — REAL arms living
+   * outside the base permutation space. Coverage/collision rules extend to
+   * them exactly as if they were perm values.
+   */
+  extraReal?: number[];
 }
 
 function evalNum(expr: string): number | string {
@@ -74,12 +80,14 @@ export function verifyGeneratedDispatch(
   }
 
   // ---- decoy classification ----
-  // REAL iff the evaluated literal is in the perm value set; else DECOY.
-  const permSet = new Set<number>(perm);
+  // REAL iff the evaluated literal is in the perm value set ∪ extraReal
+  // (fused superops); else DECOY.
+  const realSet = new Set<number>(perm);
+  for (const e of opts?.extraReal ?? []) realSet.add(e);
   const realArms: typeof arms = [];
   const decoyArms: typeof arms = [];
   for (const a of arms) {
-    if (typeof a.litVal === "number" && permSet.has(a.litVal)) realArms.push(a);
+    if (typeof a.litVal === "number" && realSet.has(a.litVal)) realArms.push(a);
     else decoyArms.push(a);
   }
   for (const a of decoyArms) {
@@ -88,7 +96,7 @@ export function verifyGeneratedDispatch(
     }
   }
 
-  // ---- coverage (a): every perm value covered by exactly one REAL arm ----
+  // ---- coverage (a): every base + fused value covered by exactly one REAL arm ----
   const covered = new Set<number>();
   const coverCount = new Map<number, number>();
   for (const a of realArms) {
@@ -99,7 +107,7 @@ export function verifyGeneratedDispatch(
   for (const [v, n] of coverCount) {
     if (n > 1) problems.push(`physical op ${v} covered by ${n} REAL arms`);
   }
-  for (const p of perm) {
+  for (const p of [...perm, ...(opts?.extraReal ?? [])]) {
     if (!covered.has(p)) problems.push(`perm value ${p} has no REAL arm`);
   }
 
@@ -116,7 +124,7 @@ export function verifyGeneratedDispatch(
   const seenDecoy = new Set<number>();
   for (const a of decoyArms) {
     if (typeof a.litVal !== "number") continue;
-    if (permSet.has(a.litVal)) {
+    if (realSet.has(a.litVal)) {
       problems.push(`decoy literal '${a.litRaw}' collides with physical op ${a.litVal}`);
     }
     if (seenDecoy.has(a.litVal)) {

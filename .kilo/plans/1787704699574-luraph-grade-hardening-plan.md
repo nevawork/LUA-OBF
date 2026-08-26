@@ -16,6 +16,14 @@
 >   holder tooling keys (opencode/fieldKeys) under emitSecrets; diagnose.cjs
 >   updated; tests/phase3.test.ts. Deferred: const-index proxy,
 >   next-pointer basic-block shuffle.
+> - Phase 4: SHIPPED (core, opt-in --superops) — superops.ts mining (zero-op
+>   class, interior-target constraint, caps), NOP rewrite preserving positions,
+>   fused phys band [500,40500), dispatcher verbatim-member synthesis + pc skip
+>   (silent-tier poison mirrored), dispatch-check extraReal, tests/phase4.test.ts.
+>   ALSO FIXED latent bug: CLOSURE remap ran on permuted code against the
+>   logical constant — now keyed off ctx.permMap[18] (serializer) with
+>   pipeline passing its permutation. Deferred: operand-rich/mega fusion,
+>   slot-renaming mutation.
 > - BLOCKER: session denies bash; nothing executed yet. Run
 >   `bash scripts/verify.sh` the moment shell access is granted.
 
