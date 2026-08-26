@@ -14,26 +14,26 @@ const OPTS = {
   wmSeeds: [111111, 222222] as [number, number],
 };
 
-// instruction helper: HALT=0 RDU8=1 RDUV=2 RDSV=3 LDI=4 EQI=5 MOV=6 ADD=7
-// SUB=8 MUL=9 MOD=10 FLOORDIV=11 JMP=12 JEQZ=13 JNEZ=14 JLT=15 ERR=16
-// NEWT=17 PROTO_NEW=18 SETF=19 SETFS=20 GETF=21 PUSH=23 PAYLOAD=24
-// STRFROM=25 FLOAT=26 NONFINITE=27 LDNIL=28 COMMIT=29 WMPUSH=30
+// instruction helper: HALT=0 RDU8=1 RDUV=2 RDSV=3 LDI=4 LDIW=5 EQI=6 MOV=7 ADD=8
+// SUB=9 MUL=10 MOD=11 FLOORDIV=12 JMP=13 JEQZ=14 JNEZ=15 JLT=16 ERR=17
+// NEWT=18 PROTO_NEW=19 SETF=20 SETFS=21 GETF=22 PUSH=24 PAYLOAD=25
+// STRFROM=26 FLOAT=27 NONFINITE=28 LDNIL=29 COMMIT=30 WMPUSH=31
 const I = {
   halt: (): number[] => [0, 0, 0, 0],
   ldi: (r: number, v: number): number[] => [4, r, v & 255, 0],
-  mov: (a: number, b: number): number[] => [6, a, b, 0],
-  add: (d: number, x: number, y: number): number[] => [7, d, x, y],
-  sub: (d: number, x: number, y: number): number[] => [8, d, x, y],
-  jmp: (addrInstr: number): number[] => [12, addrInstr, 0, 0],
-  jnez: (r: number, addrInstr: number): number[] => [14, r, addrInstr, 0],
-  jlt: (x: number, y: number, addrInstr: number): number[] => [15, x, y, addrInstr],
-  eqi: (r: number, imm: number, dst: number): number[] => [5, r, imm, dst],
-  err: (id: number): number[] => [16, id, 0, 0],
-  strfrom: (dst: number, bytes: number): number[] => [25, dst, bytes, 0],
-  float: (dst: number, str: number): number[] => [26, dst, str, 0],
-  payload: (dst: number, ln: number): number[] => [24, dst, ln, 0],
-  nonfinite: (dst: number, kind: number): number[] => [27, dst, kind, 0],
-};
+  ldiw: (r: number, v: number): number[] => [5, r, v & 255, (v >>> 8) & 255],
+  mov: (a: number, b: number): number[] => [7, a, b, 0],
+  add: (d: number, x: number, y: number): number[] => [8, d, x, y],
+  sub: (d: number, x: number, y: number): number[] => [9, d, x, y],
+  jmp: (addrInstr: number): number[] => [13, addrInstr, 0, 0],
+  jnez: (r: number, addrInstr: number): number[] => [15, r, addrInstr, 0],
+  jlt: (x: number, y: number, addrInstr: number): number[] => [16, x, y, addrInstr],
+  eqi: (r: number, imm: number, dst: number): number[] => [6, r, imm, dst],
+  err: (id: number): number[] => [17, id, 0, 0],
+  strfrom: (dst: number, bytes: number): number[] => [26, dst, bytes, 0],
+  float: (dst: number, str: number): number[] => [27, dst, str, 0],
+  payload: (dst: number, ln: number): number[] => [25, dst, ln, 0],
+  nonfinite: (dst: number, kind: number): number[] => [28, dst, kind, 0],
 
 describe("microvm exec: control flow & arithmetic", () => {
   it("sums 1..10 with an explicit guard loop (result in R2 = 55)", () => {

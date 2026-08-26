@@ -121,7 +121,7 @@ function deepEqFlat(a: Proto, b: Proto, path = ""): void {
   expect(b.protos.length, path + "b.protos.length").toBe(0);
 }
 
-function wmEqual(a: number[] | null, b: Uint8Array | null): void {
+function wmEqual(a: number[] | null, b: Buffer | null): void {
   if (a === null && b === null) return;
   const av = a === null ? null : Uint8Array.from(a);
   const bv = b === null ? null : new Uint8Array(b);
@@ -135,11 +135,17 @@ describe("A1 differential fuzz: execProgram ≡ deserializeBlob", () => {
     const r = mulberry32(0xA1FEED);
     for (let trial = 0; trial < 300; trial++) {
       const oc = makeOC(r);
-      const root = buildRandomProto(r, 0);
+      const JUMPY_LOGICAL = new Set<number>([
+        36, 37, 38, 46, 47, 48, 49,
+      ]);
+      const JUMPY = new Set<number>(
+        JUMPY_LOGICAL.map((op) => (r() % 51)), // perm will be applied later
+      );
+      const src = buildRandomProto(r, 0);
       const constKey = normSeed(1 + Math.floor(r() * (M - 1)));
       const ctx = {
-        rng: { int: (n: number) => Math.floor(r() * n) },
-        jumpOps: new Set<number>(),
+        rng,
+        jumpOps: JUMPY,
         opencode: oc,
         constKey,
       };
@@ -169,26 +175,24 @@ describe("A1 differential fuzz: execProgram ≡ deserializeBlob", () => {
   it("non-finite constants (NaN/±Inf) round-trip", () => {
     const r = mulberry32(0xDEAD_BEEF);
     const oc = makeOC(r);
-    const root: Proto = {
-      params: 0, isVararg: false, upvals: [], numSlots: 0,
-      consts: [NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, "x", true, null, 3.14],
-      code: [], protos: [],
-    };
+    const src = 'local x = 0/0 local y = 1/0 local z = -1/0 return x,y,z';
+    const root = compileChunk(parse(src));
+    const oc2 = makeOC(mulberry32(0xDEAD_BEEF));
     const ctx = {
-      rng: { int: (n: number) => Math.floor(r() * n) },
+      rng: { int: (n: number) => Math.floor(mulberry32(0xDEAD_BEEF)() * n) },
       jumpOps: new Set<number>(),
-      opencode: oc,
+      opencode: oc2,
       constKey: normSeed(7),
     };
     const { plain } = serializeProto(root, undefined, ctx);
     const opts = {
       budgets: { maxProtos: 16, maxConsts: 64, maxCode: 256 },
       fieldKeys: { OP: 31, A: 32, B1: 33, B2: 34, C: 35 },
-      opencode: oc,
+      opencode: oc2,
       wmSeeds: [11, 22],
     };
     const exec = execProgram(DECODE_PROGRAM, plain, { ...opts, programSeed: 0 });
-    const ref = deserializeBlob(plain, { opencode: oc });
+    const ref = deserializeBlob(plain, { opencode: oc2 });
     expect(exec.flat.length).toBe(ref.flat.length);
     expect(Number.isNaN(exec.flat[0].consts[0])).toBe(true);
     expect(exec.flat[0].consts[1]).toBe(Number.POSITIVE_INFINITY);

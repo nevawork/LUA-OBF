@@ -6,7 +6,7 @@
 // Post-conditions: the assembled program consumes the entire blob and HALTs.
 //
 // Register discipline for the pid-iteration multiply:
-//   We need lrk = (rk0 + pid * astep) % 65536 BEFORE calling emitOneProto.
+//   We need lrk = (RK0 + pid * astep) % 65536 BEFORE calling emitOneProto.
 //   emitOneProto does NOT read R.pid after we set it, so we can destroy it
 //   across the multiply if we save the loop counter elsewhere. Strategy:
 //   copy R.pid to R.x48 first, then burn R.pid for the mul countdown, then
@@ -23,21 +23,20 @@ export const DECODE_PROGRAM: number[] = assembleDecodeProgram();
 function assembleDecodeProgram(): number[] {
   const a = new Asm();
 
-  // boot: R.tmp = R.tmp2 = 1 (the increment constant for all loops)
+  // boot: R.tmp = R.tmp2 = 1 (used for `+ 1` increments throughout the program)
   a.emit(OP.LDI, R.tmp, 1);
   a.emit(OP.MOV, R.tmp2, R.tmp);
 
   // framing: skip prologue, read np
   emitFraming(a);
 
-  // outer loop: for pid = 1..np
+  // ---- outer proto loop: for pid = 1..np ----
   a.emit(OP.LDI, R.pid, 1);
   a.mark("top_test");
   a.jumpTo(OP.JLT, 2, [R.np, R.pid], "top_end");
 
-  // --- compute lrk = (rk0 + pid * astep) % 65536 ---
-  // R.x48 := pid (preserve for restoration), then R.pid counts down to 0
-  // accumulating R.astep into R.x49 (R.astep < 2^22 so sum stays well below 2^53).
+  // ---- Phase: compute lrk = (RK0 + pid * ASTEP) % 65536 ---
+  // Use R.x48 to save original pid, burn R.pid as loop counter.
   a.emit(OP.MOV, R.x48, R.pid);
   a.emit(OP.LDI, R.x49, 0);
   a.mark("mul_loop");
@@ -46,14 +45,14 @@ function assembleDecodeProgram(): number[] {
   a.emit(OP.SUB, R.pid, R.pid, R.tmp2);
   a.jumpTo(OP.JMP, 0, [], "mul_loop");
   a.mark("mul_done");
-  // R.lrk = (R.rk0 + R.x49) % 65536
+  // lrk = (RK0 + x49) % 65536
   a.emit(OP.ADD, R.lrk, R.rk0, R.x49);
   a.emit(OP.LDI, R.tmp, 65536);
   a.emit(OP.MOD, R.lrk, R.lrk, R.tmp);
   // restore pid for emitOneProto
   a.emit(OP.MOV, R.pid, R.x48);
 
-  // emit one proto (reads pid via COMMIT_PROTO, leaves cur=sentinel)
+  // emit one proto (reads pid via COMMIT_PROTO)
   emitOneProto(a);
 
   // increment pid and continue
