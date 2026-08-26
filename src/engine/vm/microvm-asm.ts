@@ -1,11 +1,20 @@
-// NEVAHEX-VM — micro-VM assembler + program masking (APEX W1.1)
-// Sibling of microvm.ts (ISA). See that file for design constraints.
+// NEVAHEX-VM — runtime module: assembler with label resolution
 //
-// Asm emits 4-word instructions and resolves label fixups. Address slots:
-//   JMP  → word a (slot 0)      JEQZ/JNEZ → word b (slot 1)
-//   JLT  → word c (slot 2)
+// Emits 4-word instructions: [op, a, b, c] where:
+//   word 0 = opcode
+//   word 1 = a (register or immediate)
+//   word 2 = b (register or address for JEQZ/JNEZ)
+//   word 3 = c (register or address for JLT)
+//
+// The `addrSlot` parameter in jumpTo indicates which word (1, 2, or 3)
+// receives the resolved address:
+//   JMP  → slot 1 (word 1, a-field)
+//   JEQZ/JNEZ → slot 2 (word 2, b-field)
+//   JLT → slot 3 (word 3, c-field)
+//
 // All operands are bytes; addresses are instruction indices (<256 for the
 // fixed decode program), which is what makes byte-lane masking safe.
+import { OP } from "./microvm";
 
 type Fixup = { wordIndex: number; label: string };
 
@@ -22,18 +31,60 @@ export class Asm {
     this.labels.set(label, this.words.length);
   }
 
-  jumpTo(op: number, slot: 0 | 1 | 2, a: number, b: number, label: string): void {
-    if (slot < 0 || slot > 3) throw new Error("microvm asm: bad slot");
-    this.fixups.push({ wordIndex: this.words.length + slot, label });
-    this.emit(op, a, b, 0);
+  /**
+   * Emit a jump/branch instruction with a label reference.
+   * @param op - the jump opcode (JMP, JEQZ, JNEZ, JLT)
+   * @param addrSlot - which word receives the address (1=a, 2=b, 3=c)
+   * @param regA - register for a-field (or 0 for JMP)
+   * @param regB - register for b-field (for JLT, the second compare register)
+   * @param label - label to resolve
+   */
+  jumpTo(
+    op: number,
+    addrSlot: 1 | 2 | 3,
+    regA: number,
+    regB: number,
+    label: string,
+  ): void {
+    if (op === OP.JMP) {
+      // JMP: address in slot 1 (a-field), no registers used
+      this.fixups.push({ wordIndex: this.words.length + 1, label });
+      this.emit(OP.JMP, 0, 0, 0);
+    } else if (op === OP.JEQZ || op === OP.JNEZ) {
+      // JEQZ/JNEZ: [op, reg, addr, 0] - address in word 2 (b-field)
+      this.fixups.push({ wordIndex: this.words.length + 2, label });
+      this.emit(OP.JEQZ, 1, 0, 0); // placeholder reg, addr patched later
+    } else if (op === OP.JLT) {
+      // JLT: [op, regA, regB, addr] - address in word 3 (c-field)
+      this.fixups.push({ wordIndex: this.words.length + 3, label });
+      this.emit(OP.JLT, 0, 0, 0);
+    } else {
+      throw new Error("microvm asm: unsupported jump opcode");
+    }
+  }
+
+  // Convenience helpers for common jump patterns
+  jumpIfZero(reg: number, label: string): void {
+    this.jumpTo(OP.JEQZ, 2, reg, 0, label);
+  }
+  jumpIfNotZero(reg: number, label: string): void {
+    this.jumpTo(OP.JNEZ, 2, reg, 0, label);
+  }
+  jumpLess(regA: number, regB: number, label: string): void {
+    this.jumpTo(OP.JLT, 3, regA, regB, label);
+  }
+  jumpAlways(label: string): void {
+    this.jumpTo(OP.JMP, 1, 0, 0, label);
+  }
+
+  mark(label: string): void {
+    this.labels.set(label, this.words.length);
   }
 
   resolve(): number[] {
     for (const f of this.fixups) {
       const instrIndex = this.labels.get(f.label);
-      if (instrIndex === undefined) {
-        throw new Error(`microvm asm: unresolved label "${f.label}"`);
-      }
+      if (instrIndex === undefined) throw new Error(`microvm asm: unresolved label ${f.label}`);
       const addr = Math.floor(instrIndex / 4);
       if (addr > 255) throw new Error("microvm asm: program exceeds 256 instructions");
       this.words[f.wordIndex] = addr;
@@ -42,24 +93,7 @@ export class Asm {
   }
 }
 
-/**
- * Doctrine D2 storage form: additive Lehmer stream, one mask byte per word.
- * seed = 0 ⇒ plaintext passthrough (tests).
- */
-export function maskProgram(words: number[], seed: number): number[] {
-  if (!seed) return words.slice();
-  let s = seed;
-  return words.map((w) => {
-    s = (s * 48271) % 2147483647;
-    return (w + (s % 251)) % 256;
-  });
-}
-
-export function unmaskProgram(words: number[], seed: number): number[] {
-  if (!seed) return words.slice();
-  let s = seed;
-  return words.map((w) => {
-    s = (s * 48271) % 2147483647;
-    return (((w - (s % 251)) % 256) + 256) % 256;
-  });
+export interface Fixup {
+  wordIndex: number;
+  label: string;
 }

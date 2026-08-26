@@ -2,7 +2,9 @@
 //
 // Composes the five per-phase emitters (frames, protos, consts, code, wm)
 // into the full decode program. Pre-conditions:
-//   • R.tmp2 = 1 (loaded by boot() before the loop, used for `+ 1`)
+//   • R.one = R.tmp = R.tmp2 = 1 (loaded by boot() before the loop,
+//     used for `+ 1` increments throughout the program)
+//   • R.tmp, R.tmp2, R.x47, R.x48, R.x49 are unused free scratch
 // Post-conditions: the assembled program consumes the entire blob and HALTs.
 //
 // Register discipline for the pid-iteration multiply:
@@ -23,31 +25,37 @@ export const DECODE_PROGRAM: number[] = assembleDecodeProgram();
 function assembleDecodeProgram(): number[] {
   const a = new Asm();
 
-  // boot: R.tmp = R.tmp2 = 1 (used for `+ 1` increments throughout the program)
+  // boot: R.tmp = R.tmp2 = R.one = 1 (used for `+ 1` increments throughout)
   a.emit(OP.LDI, R.tmp, 1);
   a.emit(OP.MOV, R.tmp2, R.tmp);
+  a.emit(OP.MOV, R.one, R.tmp);
 
-  // framing: skip prologue, read np
+  // framing
   emitFraming(a);
 
-  // ---- outer proto loop: for pid = 1..np ----
+  // outer loop: for pid = 1..np
   a.emit(OP.LDI, R.pid, 1);
   a.mark("top_test");
   a.jumpTo(OP.JLT, 2, [R.np, R.pid], "top_end");
 
-  // ---- Phase: compute lrk = (RK0 + pid * ASTEP) % 65536 ---
-  // Use R.x48 to save original pid, burn R.pid as loop counter.
+  // ---- Phase: compute lrk = (RK0 + pid * astep) % 65536 ---
+  // rolling-key chain: rk0, astep, ainc from preamble registers
+  const used = new Set<number>([R.pid, R.x49, R.rk0, R.astep]);
+  const scratch = [R.tmp, R.tmp2, R.x47, R.x48, R.x49].find(r => !used.has(r))!;
+  const scratch2 = [R.tmp, R.tmp2, R.x47, R.x48, R.x49].filter(r => r !== scratch)[0];
+
+  // save pid in x48, then burn pid as loop counter
   a.emit(OP.MOV, R.x48, R.pid);
   a.emit(OP.LDI, R.x49, 0);
   a.mark("mul_loop");
   a.jumpTo(OP.JEQZ, 1, [R.pid], "mul_done");
   a.emit(OP.ADD, R.x49, R.x49, R.astep);
-  a.emit(OP.SUB, R.pid, R.pid, R.tmp2);
+  a.emit(OP.SUB, R.pid, R.pid, R.one);  // use R.one (==1) as decrement
   a.jumpTo(OP.JMP, 0, [], "mul_loop");
   a.mark("mul_done");
   // lrk = (RK0 + x49) % 65536
   a.emit(OP.ADD, R.lrk, R.rk0, R.x49);
-  a.emit(OP.LDI, R.tmp, 65536);
+  a.emit(OP.LDIW, R.tmp, 0, 1);  // 65536 = 0x00010000 → lo=0, hi=1
   a.emit(OP.MOD, R.lrk, R.lrk, R.tmp);
   // restore pid for emitOneProto
   a.emit(OP.MOV, R.pid, R.x48);
@@ -56,7 +64,7 @@ function assembleDecodeProgram(): number[] {
   emitOneProto(a);
 
   // increment pid and continue
-  a.emit(OP.ADD, R.pid, R.pid, R.tmp2);
+  a.emit(OP.ADD, R.pid, R.pid, R.one);
   a.jumpTo(OP.JMP, 0, [], "top_test");
   a.mark("top_end");
 
