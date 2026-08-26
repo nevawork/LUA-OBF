@@ -74,3 +74,5 @@ export function emitCodeLoop(a: Asm): void {
   a.emit(OP.ADD, R.i, R.i, R.one);
   a.jumpAlways("k_test");
   a.mark("k_end");
+}
+}
