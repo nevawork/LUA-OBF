@@ -47,13 +47,23 @@ function luaUnescape(lit: string): Buffer {
   return Buffer.from(out);
 }
 
-export function extractWatermark(luaPath: string, manifestPath: string): ExtractResult {
-  const lua = readFileSync(luaPath, "utf8");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
+/**
+ * In-memory extraction core — also the attack surface probed by
+ * src/testing/redteam.ts (forged-manifest stage).
+ */
+export function extractWatermarkBytes(lua: string, manifest: Manifest): ExtractResult {
   if (manifest.format !== "nevahex-manifest") throw new Error("not a nevahex manifest");
 
   const wmLen = manifest.watermark.len;
   if (!wmLen) throw new Error("artifact carries no watermark");
+
+  if (!manifest.seeds || manifest.seeds.length !== 4) {
+    throw new Error(
+      "manifest lacks holder secrets — this artifact was built without " +
+        "--emit-secrets; re-protect with --emit-secrets (or supply the " +
+        "secrets-bearing manifest) to enable extraction",
+    );
+  }
 
   const seeds = manifest.seeds as [number, number, number, number];
 
@@ -91,4 +101,10 @@ export function extractWatermark(luaPath: string, manifestPath: string): Extract
     }
   }
   throw new Error(`extraction failed: no candidate literal matched (${errors.slice(0, 3).join("; ")})`);
+}
+
+export function extractWatermark(luaPath: string, manifestPath: string): ExtractResult {
+  const lua = readFileSync(luaPath, "utf8");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
+  return extractWatermarkBytes(lua, manifest);
 }

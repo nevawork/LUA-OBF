@@ -22,7 +22,13 @@ import { EnvProfile } from "./envkeying";
 export type SignalKind =
   | { kind: "global_present"; name: string }
   | { kind: "version_is"; expect: string }
-  | { kind: "math_fingerprint"; name: string };
+  | { kind: "math_fingerprint"; name: string }
+  /**
+   * Phase 5: behavioral probes — expressions whose outcome is IDENTICAL on
+   * every genuine target of any profile but must be REPLICATED by a spoofed
+   * environment. `expect` is the feed value for the genuine outcome.
+   */
+  | { kind: "behavioral"; expect: number };
 
 export interface PoolSignal {
   id: string;
@@ -58,6 +64,15 @@ export function poolSignals(profile: EnvProfile): PoolSignal[] {
   }
   sigs.push({ id: "m_pi", sig: { kind: "math_fingerprint", name: "pi" } });
   sigs.push({ id: "m_huge", sig: { kind: "math_fingerprint", name: "huge" } });
+  // Phase 5 behavioral probes — outcomes stable across lua51/luajit/luau:
+  //   fmod truncates toward zero (C semantics) ⇒ -1
+  //   %.14g formatting of 0.1 ⇒ exactly "0.1"
+  //   binary64 addition ⇒ 0.1+0.2 ~= 0.3
+  //   string.rep identity length
+  sigs.push({ id: "b_fmod", sig: { kind: "behavioral", expect: 23 } });
+  sigs.push({ id: "b_repr", sig: { kind: "behavioral", expect: 29 } });
+  sigs.push({ id: "b_add", sig: { kind: "behavioral", expect: 31 } });
+  sigs.push({ id: "b_rep", sig: { kind: "behavioral", expect: 37 } });
   return sigs;
 }
 
@@ -74,6 +89,7 @@ export function canonicalMix(profile: EnvProfile): number {
   for (const s of poolSignals(profile)) {
     if (s.sig.kind === "global_present") feed(present.has(s.sig.name) ? 11 : 13);
     else if (s.sig.kind === "math_fingerprint") feed(17); // agree on all real targets
+    else if (s.sig.kind === "behavioral") feed(s.sig.expect); // genuine outcome
   }
   void h === h;
   return ((h % 2147483646) + 2147483646) % 2147483646 + 1 || 1;
@@ -101,6 +117,11 @@ export function emitEntropyPoolBlock(
     lines.push(`  feed(rawget(_G or _ENV or {}, "${g}")~=nil and 11 or 13)`);
   }
   lines.push(`  feed(17) feed(17)`); // math fingerprints (pi,huge)
+  // Phase 5 behavioral probes: genuine targets always take the first branch
+  lines.push(`  feed(math.fmod(-6,5)==-1 and 23 or 24)`);
+  lines.push(`  feed(tostring(0.1)=="0.1" and 29 or 30)`);
+  lines.push(`  feed((0.1+0.2)==0.3 and 31 or 32)`);
+  lines.push(`  feed(#("a"..string.rep("b",255))==256 and 37 or 38)`);
   lines.push(`  acc=acc%2147483646+1`);
   lines.push(`  ${saVar}=(${saVar}+acc)%2147483647 if ${saVar}<1 then ${saVar}=${saVar}+2147483646 end`);
   lines.push(`  ${sbVar}=(${sbVar}+acc*7)%2147483647 if ${sbVar}<1 then ${sbVar}=${sbVar}+2147483646 end`);

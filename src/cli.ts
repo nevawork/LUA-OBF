@@ -24,7 +24,7 @@ function hasFlag(name: string): boolean {
 switch (cmd) {
   case "protect": {
     const input = args[0];
-    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu] [--no-mba] [--dyn-load]");
+    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu] [--no-mba] [--dyn-load] [--emit-secrets]");
     let source: string;
     try {
       source = readFileSync(input, "utf8");
@@ -47,6 +47,11 @@ switch (cmd) {
       mbaPlus: !hasFlag("--no-mba"),
       dynLoad: hasFlag("--dyn-load") && target !== "luau",
       layered: hasFlag("--layered"),
+      emitSecrets: hasFlag("--emit-secrets"),
+      superops: hasFlag("--superops"),
+      mmTraps: hasFlag("--mm-traps"),
+      keyless: hasFlag("--keyless"),
+      stage2: hasFlag("--stage2"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);
@@ -110,6 +115,16 @@ Usage:
       --anti-emu                enable timing-based anti-emulation (non-luau)
       --no-mba                  disable MBA+ algebra rewrites (on by default)
       --dyn-load                optional string.dump+load path (non-luau)
+      --emit-secrets            include nonce+seeds in the manifest (holder
+                                mode; default manifests carry NO key material)
+      --superops                enable superoperator fusion (Phase 4, opt-in
+                                until the runtime differential matrix runs)
+      --mm-traps                hide the root invoke behind a randomized
+                                metamethod trap (APEX W1.3; depth-budgeted)
+      --keyless                 split cipher registers into prologue+pool
+                                shares; no seed literal ships (APEX W1.2)
+      --stage2                  emit the inner deserializer VM + masked program
+                                instead of the flat decode loop (APEX W1.1)
   nevahex extract <protected.lua> --manifest <file>
   nevahex verify <input.lua>
   nevahex metrics --a <manifest1.json> --b <manifest2.json>`);

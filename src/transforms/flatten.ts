@@ -55,6 +55,12 @@ export function flattenControlFlow(block: Block, ctx?: FlatCtx): void {
 }
 
 function buildMachine(run: Stat[], nextKey: () => number): Stat {
+  // Per-machine generated state names. The historical fixed identifiers
+  // __st/__d0/__d1 were a stable static signature across every build.
+  const stN = `s${uid()}st`;
+  const d0N = `s${uid()}d0`;
+  const d1N = `s${uid()}d1`;
+
   const bodyStats: Stat[] = [];
   for (const s of run) {
     if (s.kind === "Break") bodyStats.push({ kind: "Break" });
@@ -78,14 +84,14 @@ function buildMachine(run: Stat[], nextKey: () => number): Stat {
     if (idx < bodyStats.length - 1) {
       body.stats.push({
         kind: "Assign",
-        targets: [{ kind: "Name", name: "__st" }],
+        targets: [{ kind: "Name", name: stN }],
         exprs: [{ kind: "Number", value: realKeys[idx + 1], raw: "" }],
       });
     }
     clauses.push({
       cond: {
         kind: "Binop", op: "==",
-        left: { kind: "Name", name: "__st" },
+        left: { kind: "Name", name: stN },
         right: { kind: "Number", value: realKeys[idx], raw: "" },
       },
       body,
@@ -100,7 +106,7 @@ function buildMachine(run: Stat[], nextKey: () => number): Stat {
     clauses.push({
       cond: {
         kind: "Binop", op: "==",
-        left: { kind: "Name", name: "__st" },
+        left: { kind: "Name", name: stN },
         right: { kind: "Number", value: dk, raw: "" },
       },
       body: {
@@ -131,7 +137,7 @@ function buildMachine(run: Stat[], nextKey: () => number): Stat {
           },
           {
             kind: "Assign",
-            targets: [{ kind: "Name", name: "__st" }],
+            targets: [{ kind: "Name", name: stN }],
             exprs: [{ kind: "Nil" }],
           },
         ],
@@ -140,14 +146,13 @@ function buildMachine(run: Stat[], nextKey: () => number): Stat {
     });
   }
 
-  void uid;
   return {
     kind: "Do",
     body: {
       stats: [
         {
           kind: "LocalDecl",
-          names: ["__st", "__d0", "__d1"],
+          names: [stN, d0N, d1N],
           exprs: [
             { kind: "Number", value: realKeys[0], raw: "" },
             { kind: "Number", value: 7, raw: "" },
