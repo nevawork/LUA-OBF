@@ -2,9 +2,15 @@
 //
 // Composes the five per-phase emitters (frames, protos, consts, code, wm)
 // into the full decode program. Pre-conditions:
-//   • R.tmp2 = 1 (loaded by boot() before the loop)
-//   • R.tmp, R.x47, R.x48, R.x49 are unused free scratch
+//   • R.tmp2 = 1 (loaded by boot() before the loop, used for `+ 1`)
 // Post-conditions: the assembled program consumes the entire blob and HALTs.
+//
+// Register discipline for the pid-iteration multiply:
+//   We need lrk = (rk0 + pid * astep) % 65536 BEFORE calling emitOneProto.
+//   emitOneProto does NOT read R.pid after we set it, so we can destroy it
+//   across the multiply if we save the loop counter elsewhere. Strategy:
+//   copy R.pid to R.x48 first, then burn R.pid for the mul countdown, then
+//   restore R.pid from R.x48 before emitOneProto.
 import { OP } from "./microvm";
 import { R } from "./microvm-builders";
 import { Asm } from "./microvm-asm";
@@ -17,21 +23,22 @@ export const DECODE_PROGRAM: number[] = assembleDecodeProgram();
 function assembleDecodeProgram(): number[] {
   const a = new Asm();
 
-  // boot: R.tmp = 1 (used for `+ 1` increments throughout the program)
+  // boot: R.tmp = R.tmp2 = 1 (the increment constant for all loops)
   a.emit(OP.LDI, R.tmp, 1);
-  // R.tmp2 = 1: kept across the program; R.tmp2 holds the increment constant
   a.emit(OP.MOV, R.tmp2, R.tmp);
 
-  // framing
+  // framing: skip prologue, read np
   emitFraming(a);
 
-  // loop: for pid = 1..np, compute lrk and emit one proto
+  // outer loop: for pid = 1..np
   a.emit(OP.LDI, R.pid, 1);
-  a.mark("top_loop_test");
-  a.jumpTo(OP.JLT, 2, [R.np, R.pid], "top_loop_end");
+  a.mark("top_test");
+  a.jumpTo(OP.JLT, 2, [R.np, R.pid], "top_end");
 
-  // lrk = (R.rk0 + pid * R.astep) % 65536
-  // pid-iteration: R.x49 = pid * astep via countdown ADD loop
+  // --- compute lrk = (rk0 + pid * astep) % 65536 ---
+  // R.x48 := pid (preserve for restoration), then R.pid counts down to 0
+  // accumulating R.astep into R.x49 (R.astep < 2^22 so sum stays well below 2^53).
+  a.emit(OP.MOV, R.x48, R.pid);
   a.emit(OP.LDI, R.x49, 0);
   a.mark("mul_loop");
   a.jumpTo(OP.JEQZ, 1, [R.pid], "mul_done");
@@ -39,18 +46,22 @@ function assembleDecodeProgram(): number[] {
   a.emit(OP.SUB, R.pid, R.pid, R.tmp2);
   a.jumpTo(OP.JMP, 0, [], "mul_loop");
   a.mark("mul_done");
-  // R.pid is now 0; we need the loop counter for the outer loop, so restore
-  // it. We saved the original value in R.acc2 (R.x48) at loop entry above —
-  // wait, we didn't. Refactor: copy pid BEFORE the mul loop.
-  //
-  // (NOTE: see below — we do this in the corrected version.)
-  a.jumpTo(OP.JMP, 0, [], "fix_counted_top"); // placeholder, replaced below
-  a.mark("fix_counted_top");
+  // R.lrk = (R.rk0 + R.x49) % 65536
+  a.emit(OP.ADD, R.lrk, R.rk0, R.x49);
+  a.emit(OP.LDI, R.tmp, 65536);
+  a.emit(OP.MOD, R.lrk, R.lrk, R.tmp);
+  // restore pid for emitOneProto
+  a.emit(OP.MOV, R.pid, R.x48);
 
-  // <placeholder: actually emitOneProto + restore pid — done in corrected
-  // version below>
+  // emit one proto (reads pid via COMMIT_PROTO, leaves cur=sentinel)
+  emitOneProto(a);
 
-  a.mark("top_loop_end");
+  // increment pid and continue
+  a.emit(OP.ADD, R.pid, R.pid, R.tmp2);
+  a.jumpTo(OP.JMP, 0, [], "top_test");
+  a.mark("top_end");
+
+  // watermark tail
   emitWatermark(a);
   return a.resolve();
 }

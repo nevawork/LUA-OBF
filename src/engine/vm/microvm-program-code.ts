@@ -65,12 +65,13 @@ export function emitCodeLoop(a: Asm): void {
   // sum = b1 + b2
   a.emit(OP.ADD, R.sum, R.b1, R.b2);
 
-  // rec2 = {}; SETF 1,oe 2,aw 3,sum 4,cw
+  // rec2 = {}; SETF 0,oe 1,aw 2,sum 3,cw (1-based keys 0..3 so the record
+  // matches the reference TS array indexing exactly)
   a.emit(OP.NEWT, R.rec2);
-  a.emit(OP.SETF, R.rec2, 1, R.oe);
-  a.emit(OP.SETF, R.rec2, 2, R.aw);
-  a.emit(OP.SETF, R.rec2, 3, R.sum);
-  a.emit(OP.SETF, R.rec2, 4, R.cw);
+  a.emit(OP.SETF, R.rec2, 0, R.oe);
+  a.emit(OP.SETF, R.rec2, 1, R.aw);
+  a.emit(OP.SETF, R.rec2, 2, R.sum);
+  a.emit(OP.SETF, R.rec2, 3, R.cw);
 
   // PUSH carr,rec2 (carr = skel.code via STRS index 5)
   a.emit(OP.GETF, R.carr, R.skel, 5);
