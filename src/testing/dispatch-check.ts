@@ -166,7 +166,7 @@ export function verifyGeneratedDispatch(
         `encoded mode: expected ≥3 rolling-key expressions (init+decode+step), found ${rkHits}`,
       );
     }
-    if (!/if op<=\d+ then/.test(lua)) {
+    if (!/if \w+<=\d+ then/.test(lua)) {
       problems.push(`encoded mode: no range router found (binary-search tree missing?)`);
     }
     if (!/pr\.k\[i\]=\{\[/.test(lua)) {

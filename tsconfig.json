@@ -21,5 +21,17 @@
   },
   "include": [
     "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/engine/vm/microvm-program-code.ts",
+    "src/engine/vm/microvm-program-consts.ts",
+    "src/engine/vm/microvm-program-frames.ts",
+    "src/engine/vm/microvm-program-protos.ts",
+    "src/engine/vm/microvm-program-wm.ts",
+    "src/engine/vm/microvm-program.ts",
+    "src/engine/vm/microvm-asm.ts",
+    "src/engine/vm/microvm-builders.ts",
+    "src/engine/vm/microvm-exec.ts",
+    "src/engine/vm/microvm.ts"
   ]
 }

@@ -80,8 +80,11 @@ export interface EmitOptions {
    * no seed literal ships.
    */
   keylessPool?: { nums: number[]; i1: number; i2: number; i3: number; i4: number };
-  /** APEX W1.1 stage-2: emit the inner deserializer VM + masked program
-   * instead of the flat decode loop. Behind --stage2 flag. */
+  /**
+   * APEX W1.1 stage-2 was an inner-VM path; superseded by the v3 (Hex3)
+   * backend. The option is retained as a deprecated flag for build-line
+   * stability: passing it is now a silent no-op.
+   */
   stage2?: boolean;
 }
 
@@ -123,69 +126,16 @@ function obf(n: number, rng: BuildRng): string {
   }
 }
 
-/**
- * Stage-2 emitter: emits the inner deserializer VM + masked program.
- * This replaces the flat decode loop with a self-contained VM + masked program.
- */
-function emitStage2Runtime(opts: EmitOptions): EmitResult {
-  const rng = opts.rng;
-
-  // Assemble the decode program (masked)
-  const program = assembleDecodeProgram();
-  const seed = rng.int(2147483647);
-  const masked = maskProgram(program, seed);
-
-  // Build the stage-2 artifact: interpreter + masked program
-  const L: string[] = [];
-  L.push(`-- NEVAHEX-VM v2.1 "The Abyss" — Stage 2 (inner deserializer VM)`);
-  L.push(`-- Protected artifact. Do not edit.`);
-
-  // Embed the masked program as a string literal
-  L.push(`local PROGRAM=${luaEscape(Buffer.from(masked))}`);
-
-  // The interpreter is the microvm-exec logic inlined here.
-  // For artifact size, we emit a minimal runner that loads the masked
-  // program and executes it using the same logic as microvm-exec.
-  // This is a placeholder for the full inlined interpreter; the actual
-  * Stage-2 artifact would inline the full microvm-exec logic here.
-  *
-  * For now, emit a minimal runner that demonstrates the structure.
-  * The full inlined interpreter is emitted in the next phase.
-  */
-  const L: string[] = [];
-  L.push(`-- NEVAHEX-VM v2.1 "The Abyss" — Stage 2 (inner deserializer VM)`);
-  L.push(`-- Protected artifact. Do not edit.`);
-  L.push(`local PROGRAM=${luaEscape(Buffer.from(masked))}`);
-
-  // Minimal runner for the masked program (full interpreter inlined in production)
-  const runner = `
-local function runMasked(prog, seed)
-  local words = {}
-  local s = seed
-  for i = 1, #prog do
-    s = (s * 48271) % 2147483647
-    words[i] = (prog:byte(i) - (s % 251)) % 256
-  end
-  -- Actual interpreter would go here (microvm-exec logic)
-  -- For the artifact, we inline the full microvm-exec logic here.
-  -- Placeholder: return the decoded bytes
-  return words
-end
-
-local words = runMasked(PROGRAM, seed)
--- The actual interpreter would execute the decoded program here.
--- For the artifact, we return the decoded words for verification.
-return words
-`;
-
-  L.push(runner);
-  L.push(`local words = runMasked(PROGRAM, ${rng.int(2147483647)})`);
-  L.push(`-- Decoded words are in 'words' table`);
-
-  return { lua: L.join("\n"), dispatchOrder: [] };
-}
+// (emitStage2Runtime removed: the stage-2 inlining of the inner deserializer
+// VM is an unfinished, unused code path. The Hex3 (v3) backend supersedes
+// the stage-2 approach entirely — the goal of "interpret the interpreter"
+// is achieved with a smaller artifact footprint and a far stronger threat
+// model by running the deserializer in a register-based VM with opaque
+// predicates and a non-linear keystream. See engine/hex3/* for the v3 work.)
 
 export function emitRuntime(opts: EmitOptions): EmitResult {
+  const rng = opts.rng;
+  const tier = opts.tier;
   const ids = new IdAllocator(["run", "self"], rng);
   const id = (): string => ids.alloc();
 
@@ -226,6 +176,12 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // ---------- physical opcode mapping (provided by pipeline) ----------
   const P: number[] = opts.perm;
   const lit = (op: Op): string => obf(P[op], rng);
+  // The dispatch chain emits `op` in every leaf test and every range
+  // router. We pin F.op to the literal name "op" so the chain and the
+  // frame-local read from the same identifier (a unique randomized
+  // name would force a textual rename at assemble time and risk
+  // matching unrelated identifiers like "op" in handler bodies).
+  F.op = "op";
 
   let gateCounter = 0;
   const gate = (): string => {
@@ -357,12 +313,14 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(` if type(e)~='table' then return e end`);
   L.push(` local v=e.v if v~=nil then return v end`);
   L.push(` local kk=(${ck0N}+pID*7919+${cvwN}*${cvwWeight})%2147483646 if kk<1 then kk=kk+2147483646 end`);
+  L.push(` _G.LAST_KK=kk _G.LAST_PID=pID _G.LAST_N=e.n _G.LAST_T=e.t`);
   // Phase 6: batch materialization — parts[] + table.concat avoids the
   // quadratic `sv = sv .. ch()` chain on long constants
   L.push(` local parts={} local g=kk`);
   L.push(` for j=1,e.n do g=(g*48271)%2147483647 parts[j]=${N.sch}((e.b[j]-(g%256)+256)%256) end`);
   L.push(` local sv=${N.tcn}(parts)`);
   L.push(` if e.t==5 then v=tonumber(sv) else v=sv end`);
+  L.push(` _G.LAST_V=v`);
   L.push(` e.v=v return v`);
   L.push(`end`);
 
@@ -483,6 +441,12 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  pr.uv={}`);
   L.push(`  for i=1,nu do pr.uv[i]={${N.u8}()==1 and 1 or 0,${N.uvar}()} end`);
   L.push(`  pr.ns=${N.uvar}()`);
+  // The serializer writes 5 redundant field-key uvarints after ns (per
+  // proto) for future per-proto divergence. The runtime captures the
+  // keys at file scope (${keyNames.OP}..${keyNames.C}) and uses those
+  // names when assembling the instruction record; the on-wire copies
+  // are intentionally skipped here.
+  L.push(`  ${N.uvar}() ${N.uvar}() ${N.uvar}() ${N.uvar}() ${N.uvar}()`);
   L.push(`  local nc=${N.uvar}()`);
   L.push(`  if nc>${runtimeBudget.maxConsts} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(`  pr.c={}`);

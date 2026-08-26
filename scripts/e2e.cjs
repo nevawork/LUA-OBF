@@ -16,7 +16,7 @@ async function runCase(name, source, expected, opts) {
   const lua = await factory.createEngine();
   try {
     await lua.doString(r.lua);
-    const got = lua.global.getTable("EXPECTED");
+    const got = lua.global.get("EXPECTED");
     const ok = JSON.stringify(got) === JSON.stringify(expected);
     console.log((ok ? "PASS " : "FAIL ") + name + (ok ? "" : " got=" + JSON.stringify(got) + " want=" + JSON.stringify(expected)));
     if (!ok && process.env.VERBOSE) fs.writeFileSync("/tmp/kilo/" + name + ".fail.lua", r.lua);

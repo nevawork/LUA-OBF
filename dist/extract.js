@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.extractWatermarkBytes = extractWatermarkBytes;
 exports.extractWatermark = extractWatermark;
 // NEVAHEX-VM — watermark extraction protocol
 // Recovery requires the build manifest (holder-side keys). The extractor scans
@@ -40,14 +41,21 @@ function luaUnescape(lit) {
     }
     return Buffer.from(out);
 }
-function extractWatermark(luaPath, manifestPath) {
-    const lua = (0, fs_1.readFileSync)(luaPath, "utf8");
-    const manifest = JSON.parse((0, fs_1.readFileSync)(manifestPath, "utf8"));
+/**
+ * In-memory extraction core — also the attack surface probed by
+ * src/testing/redteam.ts (forged-manifest stage).
+ */
+function extractWatermarkBytes(lua, manifest) {
     if (manifest.format !== "nevahex-manifest")
         throw new Error("not a nevahex manifest");
     const wmLen = manifest.watermark.len;
     if (!wmLen)
         throw new Error("artifact carries no watermark");
+    if (!manifest.seeds || manifest.seeds.length !== 4) {
+        throw new Error("manifest lacks holder secrets — this artifact was built without " +
+            "--emit-secrets; re-protect with --emit-secrets (or supply the " +
+            "secrets-bearing manifest) to enable extraction");
+    }
     const seeds = manifest.seeds;
     // scan every long string literal; try each as the encrypted blob
     const literalRe = /"((?:[^"\\]|\\[0-9]{3}|\\.)*)"/g;
@@ -86,4 +94,9 @@ function extractWatermark(luaPath, manifestPath) {
         }
     }
     throw new Error(`extraction failed: no candidate literal matched (${errors.slice(0, 3).join("; ")})`);
+}
+function extractWatermark(luaPath, manifestPath) {
+    const lua = (0, fs_1.readFileSync)(luaPath, "utf8");
+    const manifest = JSON.parse((0, fs_1.readFileSync)(manifestPath, "utf8"));
+    return extractWatermarkBytes(lua, manifest);
 }
