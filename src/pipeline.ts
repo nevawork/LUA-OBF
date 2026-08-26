@@ -53,6 +53,13 @@ export interface ProtectOptions {
    */
   mmTraps?: boolean;
   /**
+   * APEX W1.2 keyless schedule: cipher registers are NEVER emitted as
+   * evaluable literals. They are split into additive shares carried by (a)
+   * two big-endian components inside the encrypted prologue filler and (b)
+   * a decoy number pool with rng-chosen indices. Default OFF; --keyless.
+   */
+  keyless?: boolean;
+  /**
    * holder mode: include the nonce + cipher seeds in the manifest so watermark
    * extraction can run. Default OFF — artifacts must never ship their own key
    * material, and the historical default wrote both to every manifest.
@@ -217,6 +224,51 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const wmPayload = opts.watermark ? Buffer.from(opts.watermark, "utf8") : null;
   const wmRegion = wmPayload ? spreadWatermark(wmPayload, seeds[2]) : null;
 
+  // ---- W1.2 keyless share schedule (opt-in --keyless) ----
+  // s0 ≡ B + G1 − X1 (mod M31), s1 ≡ E + G2 − X2 (mod M31):
+  //   B,E ride the encrypted prologue filler (big-endian uint32 pairs);
+  //   G1,G2,X1,X2 hide inside a decoy number pool at rng-chosen indices.
+  // No seed literal is ever emitted; recovery requires emulating the
+  // prologue layout + pool cross-reference instead of evaluating two parens.
+  let prologueShares: [number, number] | undefined;
+  let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number } | undefined;
+  if (opts.keyless === true) {
+    const u32 = (): number => {
+      const v =
+        rng.int(256) * 16777216 +
+        rng.int(256) * 65536 +
+        rng.int(256) * 256 +
+        rng.int(256);
+      return v >>> 0;
+    };
+    const M = 2147483647;
+    const norm = (v: number): number => {
+      const r = ((v % (M - 1)) + (M - 1)) % (M - 1);
+      return r === 0 ? 1 : r;
+    };
+    const B = u32();
+    const E = u32();
+    prologueShares = [B, E];
+    const Bn = norm(B);
+    const En = norm(E);
+    const G1 = norm(rng.int(2147483646) + 1);
+    const X1 = norm(G1 - seeds[0] + Bn);
+    const G2 = norm(rng.int(2147483646) + 1);
+    const X2 = norm(G2 - seeds[1] + En);
+    // pool: four meaningful entries + eight random fillers, shuffled position
+    // assignment happens via the indices below (values stay indistinguishable)
+    const nums = [G1, X1, G2, X2];
+    for (let k = 0; k < 8; k++) nums.push(norm(rng.int(2147483646) + 1));
+    const idx = rng.shuffle([0, 1, 2, 3]);
+    keylessPool = {
+      nums,
+      i1: idx[0] + 1,
+      i2: idx[1] + 1,
+      i3: idx[2] + 1,
+      i4: idx[3] + 1,
+    };
+  }
+
   // ---- serialize & encrypt (wire v3.2: keyed records, split jumps, opE) ----
   const { plain, keys: fieldKeys } = serializeProto(root, wmRegion ?? undefined, {
     rng,
@@ -224,6 +276,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     opencode,
     constKey: normSeed(seeds[3]),
     permMap: perm,
+    prologueShares,
   });
   const blob = encryptBlob(plain, encSeeds);
 
@@ -258,6 +311,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     fused: fusedForEmit.length > 0 ? fusedForEmit : undefined,
     blobSlices,
     mmTraps: opts.mmTraps === true,
+    keylessPool,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----

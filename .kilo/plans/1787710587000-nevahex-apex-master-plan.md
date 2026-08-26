@@ -178,6 +178,10 @@ Gate-0 summary + artifacts (`scripts/gate0-report.cjs`). Landed since APEX
 was written: E3 NaN/±Inf tags · E1/E2 budget governor
 (`localbudget.ts`, fail-loud in emitter) · E5 COMPATIBILITY.md · E6
 conventions · **W1.3 mm-traps** (`--mm-traps`, one-shot prologue form,
-E4-budgeted, redteam `metamethod-trace`+`depth-budget` advisory stages).
-Next: push to GitHub to execute Gate 0 remotely; then A1 inner VM, A2
-keyless shares.
+E4-budgeted, redteam `metamethod-trace`+`depth-budget` advisory stages) ·
+**W1.2 keyless schedule** (`--keyless`: registers split into prologue-BE
+uint32 pairs + 12-entry decoy pool at shuffled indices; modulus M31−1
+end-to-end; redteam S2 flips to genuinely-held on keyless profiles;
+MoonSec-rule `automated-pipeline-sim` requirement recorded in Definition §1.6
+and Appendix B NEVER-list audit). Next: push to GitHub to execute Gate 0
+remotely; then **A1 inner deserializer VM** (last Wave-A item).

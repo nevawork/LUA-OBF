@@ -53,6 +53,14 @@ export interface SerializeCtx {
    * path). Legacy/direct callers omit it and remap against logical 18.
    */
   permMap?: number[];
+  /**
+   * APEX W1.2 keyless schedule: two uint32 share components embedded into
+   * the prologue filler (big-endian) at filler offsets 3..6 and 7..10.
+   * The loader reassembles the cipher registers from these bytes plus decoy
+   * pool entries — no seed literal ships in cleartext form. Requires
+   * prologueLen ≥ 12 (guaranteed: minimum is 16).
+   */
+  prologueShares?: [number, number];
 }
 
 export function encryptBlob(plain: Uint8Array, seeds: Seeds): Buffer {
@@ -185,7 +193,22 @@ export function serializeProto(root: Proto, wmRegion?: Buffer, ctx?: SerializeCt
   // The old "NVX\x02" magic gave any attacker a free known-plaintext crib at
   // offset 0; the prologue denies them any stable prefix.
   const prologueLen = 16 + rng.int(49);
-  for (let i = 0; i < prologueLen; i++) buf.push(rng.int(256));
+  const filler: number[] = [];
+  for (let i = 0; i < prologueLen; i++) filler.push(rng.int(256));
+  // W1.2: embed the two share components big-endian at filler offsets 3..6
+  // and 7..10 (0-based). Plaintext layout after the hdr byte is
+  // D[2 .. 1+prologueLen], so the loader reads D[5..8] and D[9..12].
+  const shares = ctx?.prologueShares;
+  if (shares) {
+    for (let pair = 0; pair < 2; pair++) {
+      let v = shares[pair] >>> 0;
+      for (let b = 3; b >= 0; b--) {
+        filler[3 + pair * 4 + b] = v & 0xff;
+        v = Math.floor(v / 256);
+      }
+    }
+  }
+  for (let i = 0; i < prologueLen; i++) buf.push(filler[i]);
   buf.unshift(0x80 | prologueLen);
   putUvarint(buf, flat.length);
   for (let pid = 0; pid < flat.length; pid++) {

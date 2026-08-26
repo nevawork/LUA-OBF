@@ -73,6 +73,13 @@ export interface EmitOptions {
   blobSlices?: BlobSlice[];
   /** APEX W1.3: root invocation hidden behind a randomized metamethod trap */
   mmTraps?: boolean;
+  /**
+   * APEX W1.2 keyless schedule payload: decoy number pool (12 entries, four
+   * meaningful) + the four rng-shuffled indices. When present the seed
+   * registers are reassembled from decrypted prologue bytes + pool entries;
+   * no seed literal ships.
+   */
+  keylessPool?: { nums: number[]; i1: number; i2: number; i3: number; i4: number };
 }
 
 export interface EmitResult {
@@ -325,7 +332,25 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // bounded-resource guard: refuse absurd blobs outright
   const budget = opts.budget ?? DEFAULT_BUDGET;
   L.push(` if bn>${budget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
-  L.push(` local sa=${obf(s0, rng)} sb=${obf(s1, rng)} MM=${M31}`);
+  // W1.2 keyless: registers reassemble from decrypted prologue bytes + decoy
+  // pool entries (modulus M31-1 everywhere, mirroring pipeline norm()).
+  // Legacy builds keep the obfuscated register literals.
+  const gpN = id();
+  if (opts.keylessPool) {
+    L.push(` local MM=${M31}`);
+    const kp = opts.keylessPool;
+    L.push(` local ${gpN}={${kp.nums.join(",")}}`);
+    L.push(
+      ` local sa=(D[5]*16777216+D[6]*65536+D[7]*256+D[8]+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
+        ` if sa<1 then sa=sa+2147483646 end`,
+    );
+    L.push(
+      ` local sb=(D[9]*16777216+D[10]*65536+D[11]*256+D[12]+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
+        ` if sb<1 then sb=sb+2147483646 end`,
+    );
+  } else {
+    L.push(` local sa=${obf(s0, rng)} sb=${obf(s1, rng)} MM=${M31}`);
+  }
   // ---- Phase 5: ciphertext integrity guard (pre-decode) ----
   // Verified BEFORE any keystream work: strict halts outright; silent shifts
   // the seed registers themselves (decoding proceeds into structured garbage)

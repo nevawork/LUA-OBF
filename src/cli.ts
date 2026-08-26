@@ -50,6 +50,7 @@ switch (cmd) {
       emitSecrets: hasFlag("--emit-secrets"),
       superops: hasFlag("--superops"),
       mmTraps: hasFlag("--mm-traps"),
+      keyless: hasFlag("--keyless"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);
@@ -119,6 +120,8 @@ Usage:
                                 until the runtime differential matrix runs)
       --mm-traps                hide the root invoke behind a randomized
                                 metamethod trap (APEX W1.3; depth-budgeted)
+      --keyless                 split cipher registers into prologue+pool
+                                shares; no seed literal ships (APEX W1.2)
   nevahex extract <protected.lua> --manifest <file>
   nevahex verify <input.lua>
   nevahex metrics --a <manifest1.json> --b <manifest2.json>`);
