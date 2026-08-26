@@ -8,8 +8,11 @@ import {
   spreadWatermark, crc16, normSeed,
 } from "./vm/serializer";
 import { emitRuntime, Tier } from "./vm/emitter";
-import { encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter, preserveTaskLibrary, applyMbaPlus } from "./transforms";
-import { BuildRng, randomNonce, sha256 } from "./gen/prng";
+import {
+  encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter,
+  preserveTaskLibrary, applyMbaPlus,
+} from "./transforms";
+import { BuildRng, randomNonce, sha256, hmacSha256 } from "./gen/prng";
 import { planIntegritySlices } from "./protection/antitamper";
 import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
@@ -35,24 +38,60 @@ export interface ProtectOptions {
   dynLoad?: boolean;
   /** enforce Triple-VM closure boundaries in the artifact (Phase 3) */
   layered?: boolean;
+  /**
+   * holder mode: include the nonce + cipher seeds in the manifest so watermark
+   * extraction can run. Default OFF — artifacts must never ship their own key
+   * material, and the historical default wrote both to every manifest.
+   */
+  emitSecrets?: boolean;
+}
+
+/** public manifest fields covered by the authenticity tag */
+interface ManifestAuthPayload {
+  format: string;
+  version: number;
+  tier: Tier;
+  envProfile: EnvProfile;
+  integritySlices: number;
+  fingerprint: { perm: number[]; dispatchOrder: number[] };
+  layerSeals: LayerSeals;
+  watermarkLen: number;
+  watermarkCrc16: number;
+}
+
+/** stable canonical JSON (sorted object keys) for tagging; exported for verifier tooling */
+export function canonicalManifestJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonicalManifestJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canonicalManifestJson(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v);
 }
 
 export interface Manifest {
   format: "nevahex-manifest";
   version: number;
-  nonce: string;
-  seeds: number[];
-  pbias: number;
-  rootPid: number;
   tier: Tier;
   envProfile: EnvProfile;
   integritySlices: number;
-  watermark: { seed: number; len: number; crc16: number };
+  watermark: { len: number; crc16: number };
   /** per-build layout fingerprint (handler-diversity metric, spec Phase 1) */
   fingerprint: { perm: number[]; dispatchOrder: number[] };
   /** Triple-VM boundary seals (spec Phase 3) */
   layerSeals: LayerSeals;
+  /**
+   * HMAC-SHA256(nonce, canonical public fields) hex — proves a manifest
+   * belongs to a genuine build without disclosing any key material.
+   */
+  auth: string;
   createdAt: string;
+  // ---- holder-side secrets, present ONLY when built with emitSecrets ----
+  nonce?: string;
+  seeds?: number[];
+  pbias?: number;
+  rootPid?: number;
+  watermarkSeed?: number;
 }
 
 export interface ProtectResult {
@@ -84,7 +123,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // ---- Phase T: source transforms (all randomness from the build rng) ----
   resetCounter();
   preserveTaskLibrary(chunk); // spec Phase 2: task as _G[...] (no-op if unused)
-  encryptStrings(chunk);
+  encryptStrings(chunk, rng);
   if (opts.flatten !== false)
     flattenControlFlow(chunk, { keys: () => 1 + rng.int(100000) });
   injectOpaqueJunk(chunk, opts.junkDensity ?? 0.12, rng);
@@ -127,7 +166,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const wmRegion = wmPayload ? spreadWatermark(wmPayload, seeds[2]) : null;
 
   // ---- serialize & encrypt ----
-  const { plain } = serializeProto(root, wmRegion ?? undefined);
+  const { plain } = serializeProto(root, wmRegion ?? undefined, rng);
   const blob = encryptBlob(plain, encSeeds);
 
   // ---- integrity slices over decoded representation ----
@@ -168,25 +207,49 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // ---- Triple-VM boundary seals (Phase 3 contracts) ----
   const layerSeals = computeLayerSeals(emitted.lua);
 
-  const manifest: Manifest = {
+  // ---- manifest: public fields + authenticity tag; secrets opt-in only ----
+  // The historical default shipped the nonce AND all four cipher seeds in
+  // every manifest — handing attackers the complete key schedule. Holders who
+  // need extraction pass --emit-secrets; everyone else gets an HMAC tag that
+  // proves provenance without disclosing keys.
+  const emitSecrets = opts.emitSecrets === true;
+  const wmLen = wmPayload ? wmPayload.length : 0;
+  const wmCrc = wmPayload ? crc16(wmPayload) : 0;
+  const authPayload: ManifestAuthPayload = {
     format: "nevahex-manifest",
-    version: 2,
-    nonce: nonce.toString("hex"),
-    seeds: seeds.map(normSeed),
-    pbias,
-    rootPid: 1,
+    version: 3,
     tier,
     envProfile,
     integritySlices: cappedIntegrity.length,
     fingerprint: { perm, dispatchOrder: emitted.dispatchOrder },
     layerSeals,
-    watermark: {
-      seed: normSeed(seeds[2]),
-      len: wmPayload ? wmPayload.length : 0,
-      crc16: wmPayload ? crc16(wmPayload) : 0,
-    },
+    watermarkLen: wmLen,
+    watermarkCrc16: wmCrc,
+  };
+  const auth = hmacSha256(
+    nonce,
+    Buffer.from(canonicalManifestJson(authPayload), "utf8"),
+  ).toString("hex");
+
+  const manifest: Manifest = {
+    format: "nevahex-manifest",
+    version: 3,
+    tier,
+    envProfile,
+    integritySlices: cappedIntegrity.length,
+    fingerprint: authPayload.fingerprint,
+    layerSeals,
+    watermark: { len: wmLen, crc16: wmCrc },
+    auth,
     createdAt: new Date().toISOString(),
   };
+  if (emitSecrets) {
+    manifest.nonce = nonce.toString("hex");
+    manifest.seeds = seeds.map(normSeed);
+    manifest.pbias = pbias;
+    manifest.rootPid = 1;
+    manifest.watermarkSeed = normSeed(seeds[2]);
+  }
 
   return {
     lua: emitted.lua,

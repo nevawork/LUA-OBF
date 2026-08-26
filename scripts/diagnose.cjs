@@ -77,8 +77,8 @@ function analyze(name, opts) {
   return r;
 }
 
-analyze("tier-off", { source: "EXPECTED={2+3}", tier: "off", seedHex: "11".repeat(32) });
-analyze("tier-silent", { source: "EXPECTED={2+3}", tier: "silent", seedHex: "11".repeat(32) });
+analyze("tier-off", { source: "EXPECTED={2+3}", tier: "off", seedHex: "11".repeat(32), emitSecrets: true });
+analyze("tier-silent", { source: "EXPECTED={2+3}", tier: "silent", seedHex: "11".repeat(32), emitSecrets: true });
 
 // runtime probe: does tier-off execute?
 async function probe() {

@@ -55,6 +55,14 @@ export function extractWatermark(luaPath: string, manifestPath: string): Extract
   const wmLen = manifest.watermark.len;
   if (!wmLen) throw new Error("artifact carries no watermark");
 
+  if (!manifest.seeds || manifest.seeds.length !== 4) {
+    throw new Error(
+      "manifest lacks holder secrets — this artifact was built without " +
+        "--emit-secrets; re-protect with --emit-secrets (or supply the " +
+        "secrets-bearing manifest) to enable extraction",
+    );
+  }
+
   const seeds = manifest.seeds as [number, number, number, number];
 
   // scan every long string literal; try each as the encrypted blob

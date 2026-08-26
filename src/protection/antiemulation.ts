@@ -28,30 +28,35 @@ export const DEFAULT_ANTI_EMULATION: AntiEmulationConfig = {
  * Emit the Lua preamble + per-tick check lines.
  * Returns null when the layer is disabled for this target.
  *
- * @param v named runtime locals: { tc, six, ins, op } etc are provided by the
- *        dispatcher; we only need the countdown variable name to piggyback on
- *        the existing tick cadence, plus a sink for the tier response.
+ * Calibration state persists across frames via two FILE-SCOPE LOCALS supplied
+ * by the emitter (per-build generated names). The historical implementation
+ * used `__ae_t0`/`__ae_ops` globals — a stable, greppable signature; locals
+ * bound as upvalues give the same lifetime without shipping fixed names.
+ *
+ * @param names runtime names: tcVar/poisonVar/pbVar come from the dispatcher
+ *        frame; aeT0/aeOps are the file-scope calibration locals.
  */
 export function emitAntiEmulationBlock(
   cfg: AntiEmulationConfig | null,
-  names: { tcVar: string; poisonVar: string; pbVar: string; biasLit?: string },
+  names: { tcVar: string; poisonVar: string; pbVar: string; biasLit?: string; aeT0: string; aeOps: string },
 ): string[] | null {
   if (!cfg) return null;
-  const { tcVar, poisonVar, pbVar } = names;
+  const { tcVar, poisonVar, pbVar, aeT0, aeOps } = names;
+  void tcVar;
   const minIps = Math.max(1000, Math.floor(cfg.minOpsPerSecond));
   const tick = Math.max(1000, Math.floor(cfg.tickOps));
   return [
-    // one-time calibration state (closure-level upvalues via globals-in-file scope)
-    `__ae_t0=__ae_t0 or os.clock()`,
-    `__ae_ops=(__ae_ops or 0)+${tick}`,
+    // one-time calibration state (file-scope upvalues shared by all frames)
+    `${aeT0}=${aeT0} or os.clock()`,
+    `${aeOps}=(${aeOps} or 0)+${tick}`,
     `do`,
-    `  local dt=os.clock()-__ae_t0`,
+    `  local dt=os.clock()-${aeT0}`,
     `  if dt>0 then`,
-    `    local ips=__ae_ops/dt`,
+    `    local ips=${aeOps}/dt`,
     // warm-up grace: only judge after at least 3 ticks
-    `    if __ae_ops>=${tick * 3} and ips<${minIps} then`,
+    `    if ${aeOps}>=${tick * 3} and ips<${minIps} then`,
     `      ${poisonVar}=true ${pbVar}=${"1"}`,
-    `      __ae_t0=os.clock() __ae_ops=0`,
+    `      ${aeT0}=os.clock() ${aeOps}=0`,
     `    end`,
     `  end`,
     `end`,

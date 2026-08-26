@@ -76,7 +76,7 @@ export interface SerializedBlob {
   rootPid: number;
 }
 
-export function serializeProto(root: Proto, wmRegion?: Buffer): SerializedBlob {
+export function serializeProto(root: Proto, wmRegion?: Buffer, rng?: { int(n: number): number }): SerializedBlob {
   // flatten tree & remap CLOSURE operands to global 1-based proto ids
   // (compiler emits CLOSURE with the 1-based index into the parent's protos)
   const flat: Proto[] = [];
@@ -98,8 +98,25 @@ export function serializeProto(root: Proto, wmRegion?: Buffer): SerializedBlob {
     }
   }
   const buf: number[] = [];
-  buf.push(0x4e, 0x56, 0x58); // "NVX"
-  buf.push(0x02);
+  // ---- framing v3: no magic header, randomized prologue ----
+  // byte0 = 0x80 | prologueLen  (format tag in the high bit, length in low 7)
+  // bytes 1..prologueLen = high-entropy filler drawn from the build rng
+  // (or a content-derived pattern when no rng is supplied). The old
+  // "NVX\x02" magic gave any attacker a free known-plaintext crib at
+  // offset 0; the prologue denies them any stable prefix.
+  let prologueLen = 16 + (rng ? rng.int(49) : 0);
+  if (!rng) {
+    // deterministic filler seed derived from content shape (no rng builds)
+    let s = (flat.length * 2654435761) % 2147483647;
+    if (s === 0) s = 1;
+    for (let i = 0; i < prologueLen; i++) {
+      s = (s * 48271) % 2147483647;
+      buf.push(s & 0xff);
+    }
+  } else {
+    for (let i = 0; i < prologueLen; i++) buf.push(rng.int(256));
+  }
+  buf.unshift(0x80 | prologueLen);
   putUvarint(buf, flat.length);
   for (const p of flat) writeProto(buf, p);
   if (wmRegion && wmRegion.length > 0) {
@@ -157,8 +174,11 @@ export interface DeserializedBlob {
 /** TS mirror of the runtime decoder — used for integrity hashing & extraction. */
 export function deserializeBlob(data: Uint8Array): DeserializedBlob {
   const r = new Reader(data);
-  if (r.u8() !== 0x4e || r.u8() !== 0x56 || r.u8() !== 0x58) throw new Error("bad blob marker");
-  if (r.u8() !== 0x02) throw new Error("unsupported blob version");
+  // framing v3: high bit = format tag, low 7 bits = prologue length to skip
+  const hdr = r.u8();
+  if (!(hdr & 0x80)) throw new Error("unsupported blob format (pre-v3)");
+  const prologueLen = hdr & 0x7f;
+  for (let i = 0; i < prologueLen; i++) r.u8();
   const n = r.uvarint();
   const flat: Proto[] = [];
   for (let i = 0; i < n; i++) flat.push(readProto(r));

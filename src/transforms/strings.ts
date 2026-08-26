@@ -12,7 +12,7 @@ export function resetStringsCounter(): void {
   counter = 0;
 }
 
-export function encryptStrings(chunk: Chunk): void {
+export function encryptStrings(chunk: Chunk, rng?: { int(n: number): number }): void {
   const fnName = uid();
   let count = 0;
 
@@ -28,10 +28,25 @@ export function encryptStrings(chunk: Chunk): void {
     return out.toString("latin1");
   };
 
+  // Per-literal key source. The historical counter sequence
+  // ((n*0x9e3779b1+0x51ed270b)>>>3)|1 was IDENTICAL across builds — the same
+  // literal at the same position produced the same ciphertext in every
+  // artifact, contradicting per-build isomorphism and enabling positional
+  // correlation attacks. Builds now draw keys from the build CSPRNG stream;
+  // the counter path remains only as a deterministic fallback for callers
+  // that supply no rng (legacy/tests).
+  const nextKey = (): number => {
+    if (rng) {
+      const k = 1 + rng.int(2147483645);
+      return k | 1; // odd, matches decryptor's % behavior expectations
+    }
+    return ((count++ * 0x9e3779b1 + 0x51ed270b) >>> 3) | 1;
+  };
+
   const rewriteExpr = (e: Expr): Expr => {
     switch (e.kind) {
       case "String": {
-        const key = ((count++ * 0x9e3779b1 + 0x51ed270b) >>> 3) | 1;
+        const key = nextKey();
         return {
           kind: "Call",
           fn: { kind: "Name", name: fnName },

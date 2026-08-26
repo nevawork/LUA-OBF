@@ -24,7 +24,7 @@ function hasFlag(name: string): boolean {
 switch (cmd) {
   case "protect": {
     const input = args[0];
-    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu] [--no-mba] [--dyn-load]");
+    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu] [--no-mba] [--dyn-load] [--emit-secrets]");
     let source: string;
     try {
       source = readFileSync(input, "utf8");
@@ -47,6 +47,7 @@ switch (cmd) {
       mbaPlus: !hasFlag("--no-mba"),
       dynLoad: hasFlag("--dyn-load") && target !== "luau",
       layered: hasFlag("--layered"),
+      emitSecrets: hasFlag("--emit-secrets"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);
@@ -110,6 +111,8 @@ Usage:
       --anti-emu                enable timing-based anti-emulation (non-luau)
       --no-mba                  disable MBA+ algebra rewrites (on by default)
       --dyn-load                optional string.dump+load path (non-luau)
+      --emit-secrets            include nonce+seeds in the manifest (holder
+                                mode; default manifests carry NO key material)
   nevahex extract <protected.lua> --manifest <file>
   nevahex verify <input.lua>
   nevahex metrics --a <manifest1.json> --b <manifest2.json>`);

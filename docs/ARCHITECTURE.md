@@ -66,9 +66,21 @@ engine modules, kept for import stability during migration.
 ## Invariants
 
 - **No loadstring/load at runtime** — output is literal closures over a custom ISA.
-- **Bit-op free cipher** — identical JS/Lua keystream (doubles stay < 2^53).
+- **Cipher v3 (bit-op free)** — four-stream Lehmer core with output-feedback
+  and cross-mixing; only two seed registers ship per artifact, the second
+  pair is derived at load; every intermediate stays < 2^53 so JS/Lua agree
+  bit-for-bit (`engine/crypto/cipher.ts` ↔ emitter decode loops, pinned by
+  `tests/cipher-v3.test.ts` wasmoon parity).
+- **No known-plaintext framing** — blob v3 replaces the `"NVX"` magic with a
+  randomized prologue (length byte = `0x80|len`); plaintext never starts
+  with attacker-known bytes.
+- **Manifests ship zero key material** — nonce/seeds appear only when built
+  with `--emit-secrets` (holder mode); public manifests carry an HMAC-SHA256
+  authenticity tag over canonical fields instead.
 - **Deterministic builds** — every decision draws from BuildRng seeded by the
-  CSPRNG nonce; transform counters reset per build.
+  CSPRNG nonce; transform counters reset per build. String-encryption keys,
+  flattening state names and anti-emulation calibration locals are all drawn
+  from that stream (no fixed identifiers like `__st`, no `__ae_*` globals).
 - **Per-build isomorphism** — opcode permutation, dispatch order, identifiers,
   garbage strings, poison bias all derive from the same rng stream.
 - **Env keying is derivation, not comparison** — wrong environment ⇒ wrong

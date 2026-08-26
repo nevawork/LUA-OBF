@@ -103,8 +103,12 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     ctn: id(), pk: id(), ur: id(), envroot: id(), blob: id(), protos: id(),
     ch: id(), pos: id(), u8: id(), uvar: id(), svar: id(), np: id(),
     run: id(), pid2: id(), icv: id(), slices: id(), nic: id(), wm: id(), wmi: id(),
-    l1: id(),
+    l1: id(), hdr: id(),
   };
+  // anti-emulation calibration state: file-scope locals (per-build names),
+  // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
+  const aeT0 = id();
+  const aeOps = id();
   const F = {
     P0: id(), K: id(), C: id(), S: id(), cells: id(), sp: id(), mr: id(),
     pc: id(), VA: id(), i: id(), tc: id(), six: id(), poison: id(), PB: id(),
@@ -190,7 +194,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   tick.push(...emitCarrierTouch({ wmVar: N.wm, wmiVar: N.wmi, sixVar: F.six, sinkVar: F.wmv }));
   // anti-emulation timing layer (os.clock required; caller disables for luau)
   const ae = emitAntiEmulationBlock(opts.antiEmulation ?? null, {
-    tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB,
+    tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB, aeT0, aeOps,
   });
   if (ae) {
     tick.push(`if os and os.clock then`);
@@ -210,6 +214,11 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
   L.push(`local function ${N.ur}(t,i,j) if i>j then return end return t[i],${N.ur}(t,i+1,j) end`);
   L.push(`local ${N.envroot}=_G or _ENV`);
+  // anti-emulation calibration state lives in file-scope locals (upvalues of
+  // the frame closures below), never in named globals
+  if (opts.antiEmulation) {
+    L.push(`local ${aeT0},${aeOps}`);
+  }
 
   // optional dynamic-load path (Phase 2 exception; opt-in, disabled for luau)
   if (opts.dynLoad && opts.envProfile !== "luau") {
@@ -249,9 +258,15 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     const pool = emitEntropyPoolBlock(opts.envProfile ?? "universal", "sa", "sb");
     if (pool) for (const pl of pool) L.push(` ${pl}`);
   }
+  // cipher v3: derive the hidden second pair from the shipped registers AFTER
+  // environmental mixing, then run the 4-stream cross-mixed feedback core.
+  // Line-for-line mirror of engine/crypto/cipher.ts step() (doubles < 2^53).
+  L.push(` local sc=(sa*31+sb)%MM local sd=(sb*17+sa)%MM local pv=0`);
   L.push(` for i=1,bn do`);
-  L.push(`  sa=(sa*48271)%MM sb=(sb*69621)%MM`);
-  L.push(`  D[i]=(string.byte(${N.blob},i)-((math.floor(sa/65536)+math.floor(sb/65536))%256)+512)%256`);
+  L.push(`  sa=(sa*48271)%MM sb=(sb*69621)%MM sc=(sc*2994349)%MM sd=(sd*4050403)%MM`);
+  L.push(`  sb=(sb+pv)%MM sc=(sc+sa)%MM`);
+  L.push(`  pv=(math.floor(sa/65536)*31+math.floor(sb/2048)*17+math.floor(sc/1024)*7+math.floor(sd/256)*3+pv)%256`);
+  L.push(`  D[i]=(string.byte(${N.blob},i)-pv+256)%256`);
   L.push(` end`);
   if (process.env.NEVAHEX_DEBUG) {
     L.push(` GD=D GB=bn GS=sa GS2=sb`);
@@ -271,8 +286,10 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  if u%2==1 then return -(u+1)/2 end`);
   L.push(`  return u/2`);
   L.push(` end`);
-  // skip header: marker(3) + version(1)
-  L.push(` local _mh1,_mh2,_mh3,_mv=${N.u8}(),${N.u8}(),${N.u8}(),${N.u8}()`);
+  // framing v3: high bit = format tag, low 7 bits = randomized prologue length
+  L.push(` local ${N.hdr}=${N.u8}()`);
+  L.push(` if ${N.hdr}<128 then error(${JSON.stringify(garbage(rng))}) end`);
+  L.push(` for i=1,${N.hdr}-128 do ${N.u8}() end`);
   L.push(` local ${N.np}=${N.uvar}()`);
   L.push(` if ${N.np}>${budget.maxProtos} then error(${JSON.stringify(garbage(rng))}) end`);
   L.push(` for ${N.pid2}=1,${N.np} do`);
@@ -305,13 +322,16 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`  end`);
   L.push(`  ${N.protos}[${N.pid2}]=pr`);
   L.push(` end`);
-  // watermark tail section
+  // watermark tail section (same cipher v3 core, wm seed registers)
   L.push(` local wln=${N.uvar}()`);
   const [wsa, wsb] = wmSeeds(opts.seeds[2]);
   L.push(` local wa=${obf(normSeed(wsa), rng)} wb=${obf(normSeed(wsb), rng)} MM2=${M31}`);
+  L.push(` local wc=(wa*31+wb)%MM2 local wd=(wb*17+wa)%MM2 local pv2=0`);
   L.push(` for i=1,wln do`);
-  L.push(`  wa=(wa*48271)%MM2 wb=(wb*69621)%MM2`);
-  L.push(`  ${N.wm}[i]=(D[${N.pos}]-((math.floor(wa/65536)+math.floor(wb/65536))%256)+512)%256`);
+  L.push(`  wa=(wa*48271)%MM2 wb=(wb*69621)%MM2 wc=(wc*2994349)%MM2 wd=(wd*4050403)%MM2`);
+  L.push(`  wb=(wb+pv2)%MM2 wc=(wc+wa)%MM2`);
+  L.push(`  pv2=(math.floor(wa/65536)*31+math.floor(wb/2048)*17+math.floor(wc/1024)*7+math.floor(wd/256)*3+pv2)%256`);
+  L.push(`  ${N.wm}[i]=(D[${N.pos}]-pv2+256)%256`);
   L.push(`  ${N.pos}=${N.pos}+1`);
   L.push(` end`);
   if (layered) {
