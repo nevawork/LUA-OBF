@@ -170,3 +170,14 @@ redesign beyond v2.1 re-keying · DRM against legitimate purchasers.
 3. Land E3 (NaN bugfix) → E1/E2 budgets → E5/E6.
 4. Flip LZW + native ChaCha20 behind their differential suites.
 5. Start Lane A1 (inner VM) — the single highest-leverage build item.
+
+PROGRESS (2026-08-26, later session): shell still denied locally ⇒ **GitHub
+Actions adopted as the execution shell** per user directive:
+`.github/workflows/ci.yml` runs the full gate on every push and renders a
+Gate-0 summary + artifacts (`scripts/gate0-report.cjs`). Landed since APEX
+was written: E3 NaN/±Inf tags · E1/E2 budget governor
+(`localbudget.ts`, fail-loud in emitter) · E5 COMPATIBILITY.md · E6
+conventions · **W1.3 mm-traps** (`--mm-traps`, one-shot prologue form,
+E4-budgeted, redteam `metamethod-trace`+`depth-budget` advisory stages).
+Next: push to GitHub to execute Gate 0 remotely; then A1 inner VM, A2
+keyless shares.

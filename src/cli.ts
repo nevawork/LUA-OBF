@@ -49,6 +49,7 @@ switch (cmd) {
       layered: hasFlag("--layered"),
       emitSecrets: hasFlag("--emit-secrets"),
       superops: hasFlag("--superops"),
+      mmTraps: hasFlag("--mm-traps"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);
@@ -116,6 +117,8 @@ Usage:
                                 mode; default manifests carry NO key material)
       --superops                enable superoperator fusion (Phase 4, opt-in
                                 until the runtime differential matrix runs)
+      --mm-traps                hide the root invoke behind a randomized
+                                metamethod trap (APEX W1.3; depth-budgeted)
   nevahex extract <protected.lua> --manifest <file>
   nevahex verify <input.lua>
   nevahex metrics --a <manifest1.json> --b <manifest2.json>`);

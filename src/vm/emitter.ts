@@ -71,6 +71,8 @@ export interface EmitOptions {
   fused?: Array<{ phys: number; members: Op[] }>;
   /** Phase 5 ciphertext-integrity windows over the ENCRYPTED blob */
   blobSlices?: BlobSlice[];
+  /** APEX W1.3: root invocation hidden behind a randomized metamethod trap */
+  mmTraps?: boolean;
 }
 
 export interface EmitResult {
@@ -505,10 +507,28 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const runEndLine = L.length; // E1/E2: run() body slice ends here
   L.push(`do`);
   L.push(` local ${F.A}=${N.pk}(...)`);
-  if (layered) {
-    L.push(` ${N.run}(${N.l1},${opts.rootPid},${N.envroot},{},${F.A},nil)`);
+  // W1.3: one-shot metamethod trap — the root invoke hides behind a
+  // per-build random arithmetic metamethod on a table we own. Net call depth
+  // ≤ +1 (single handler, prologue-only) per the E4 budget; plain tables
+  // only, so Roblox's protected string metatable is irrelevant. The handler
+  // returns run()'s result table; the trigger operand is discarded.
+  if (opts.mmTraps) {
+    const mmOps = ["__add", "__sub", "__mul", "__mod"] as const;
+    const op = mmOps[rng.int(mmOps.length)];
+    const trig = [0, -7, 3][rng.int(3)];
+    const mt = id();
+    const rs = id();
+    const args =
+      `(${layered ? N.l1 + "," : ""}${opts.rootPid},${N.envroot},{},${F.A},nil)`;
+    L.push(` local ${mt}=setmetatable({}, {${op}=function() return ${N.run}${args} end})`);
+    L.push(` local ${rs}=${mt} * ${trig}`);
+    void rs;
   } else {
-    L.push(` ${N.run}(${opts.rootPid},${N.envroot},{},${F.A},nil)`);
+    if (layered) {
+      L.push(` ${N.run}(${N.l1},${opts.rootPid},${N.envroot},{},${F.A},nil)`);
+    } else {
+      L.push(` ${N.run}(${opts.rootPid},${N.envroot},{},${F.A},nil)`);
+    }
   }
   L.push(`end`);
 

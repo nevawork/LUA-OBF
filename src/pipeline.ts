@@ -46,6 +46,13 @@ export interface ProtectOptions {
    */
   superops?: boolean;
   /**
+   * APEX W1.3: route the root invocation through a per-build randomized
+   * metamethod (__add/__sub/__mul/__mod) so the entry point hides behind a
+   * table trap. One-shot prologue form ⇒ net call depth ≤ +1 on every
+   * target including Lua 5.1's ~200-call budget. Default OFF; --mm-traps.
+   */
+  mmTraps?: boolean;
+  /**
    * holder mode: include the nonce + cipher seeds in the manifest so watermark
    * extraction can run. Default OFF — artifacts must never ship their own key
    * material, and the historical default wrote both to every manifest.
@@ -250,6 +257,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     opencode,
     fused: fusedForEmit.length > 0 ? fusedForEmit : undefined,
     blobSlices,
+    mmTraps: opts.mmTraps === true,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----

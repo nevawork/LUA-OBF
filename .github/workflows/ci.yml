@@ -1,98 +1,51 @@
-name: ci
+name: nevanex-ci-gate
+
 on:
   push:
     branches: ["**"]
   pull_request:
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  verify:
+  gate0:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Install
-        run: npm install --no-audit --no-fund
+        run: npm ci || npm install
 
-      - name: Typecheck
-        run: npx tsc
+      # Full gate: tsc -> e2e differential -> vitest (unit+fuzz+phases) ->
+      # determinism/isomorphism. Fails the job on ANY red.
+      - name: Verify (Gate 0)
+        id: verify
+        run: |
+          set -o pipefail
+          bash scripts/verify.sh 2>&1 | tee verify.log
+          exit ${PIPESTATUS[0]}
 
-      - name: E2E differential suite (Lua 5.4 WASM)
-        run: node scripts/e2e.cjs
-
-      - name: Dispatch diagnostics (always)
+      # Gate-0 report: budgets, entropy, similarity, red-team zero-wins,
+      # performance baselines -> rendered into the run summary + artifact.
+      - name: Gate-0 report
         if: always()
         run: |
-          node scripts/diagnose.cjs || true
+          npx tsc || true
+          node scripts/gate0-report.cjs > gate0-summary.md || true
+          cat gate0-summary.md >> "$GITHUB_STEP_SUMMARY" || true
 
-      - name: Debug probe (NEVAHEX_DEBUG trace)
+      - name: Upload reports
         if: always()
-        run: |
-          NEVAHEX_DEBUG=1 node -e "
-          const {protect} = require('./dist/pipeline.js');
-          const {LuaFactory} = require('wasmoon');
-          (async () => {
-            const r = protect({source:'EXPECTED={2+3}', tier:'silent', seedHex:'11'.repeat(32)});
-            const lua = await new LuaFactory().createEngine();
-            try { await lua.doString(r.lua); console.log('DEBUG RUN OK'); }
-            catch(e){ console.log('DEBUG ERR:', String(e.message).split('\n')[0]); }
-            finally { lua.global.close(); }
-          })();
-          " || true
-
-      - name: Persist diagnostics into branch
-        if: always()
-        run: |
-          set +e
-          node scripts/e2e.cjs > diag-e2e.txt 2>&1
-          node scripts/diagnose.cjs > diag-dispatch.txt 2>&1
-          NEVAHEX_DEBUG=1 node -e "
-          const {protect}=require('./dist/pipeline.js');
-          const {LuaFactory}=require('wasmoon');
-          (async()=>{const r=protect({source:'EXPECTED={2+3}',tier:'silent',seedHex:'11'.repeat(32)});
-          const lua=await new LuaFactory().createEngine();
-          try{await lua.doString(r.lua);console.log('DEBUG RUN OK',JSON.stringify(lua.global.getTable('EXPECTED')));}
-          catch(e){console.log('DEBUG ERR:',String(e.message).split('\n')[0]);}
-          finally{lua.global.close();}})();" > dbg-probe.txt 2>&1
-          git config user.name "kiloconnect[bot]"
-          git config user.email "240665456+kiloconnect[bot]@users.noreply.github.com"
-          git add -f diag-e2e.txt diag-dispatch.txt dbg-probe.txt
-          git commit -m "chore(ci): persist diagnostics [skip ci]" || true
-          git push origin HEAD:session/agent_6d4208be-13aa-43a3-a5ad-1d5cc2a855f1 || true
-
-      - name: Unit + fuzz suites
-        run: npx vitest run
-
-      - name: Determinism / isomorphism / diversity metric
-        run: |
-          node -e "
-          const {protect} = require('./dist/pipeline.js');
-          const {layoutSimilarity} = require('./dist/testing/metrics.js');
-          const a = protect({source:'return 1', tier:'silent', seedHex:'ab'.repeat(32)});
-          const b = protect({source:'return 1', tier:'silent', seedHex:'ab'.repeat(32)});
-          const c = protect({source:'return 1', tier:'silent', seedHex:'cd'.repeat(32)});
-          if (a.lua !== b.lua) throw new Error('FAIL determinism');
-          if (a.lua === c.lua) throw new Error('FAIL per-build isomorphism');
-          const simAB = layoutSimilarity(a.manifest.fingerprint, b.manifest.fingerprint);
-          const simAC = layoutSimilarity(a.manifest.fingerprint, c.manifest.fingerprint);
-          console.log('same-seed similarity:', simAB.toFixed(4));
-          console.log('diff-seed similarity:', simAC.toFixed(4));
-          if (simAC >= 0.15) throw new Error('FAIL diversity target (<0.15)');
-          console.log('OK');
-          "
-
-      - name: Watermark extraction round-trip
-        run: |
-          npx tsx src/cli.ts protect fixtures/smoke.lua -o /tmp/out.lua \
-            --watermark "ci-license-42" --seed 1111111111111111111111111111111111111111111111111111111111111111
-          npx tsx src/cli.ts extract /tmp/out.lua --manifest /tmp/out.lua.manifest.json | grep -q "ci-license-42"
-
-      - name: Cleanup stray scratch files
-        run: rm -f scripts/noop*.cjs scripts/.keep.cjs scripts/.placeholder.cjs scripts/.gitkeep scripts/run-all.cjs scripts/dbg*.cjs
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate0-reports
+          path: |
+            verify.log
+            gate0-summary.md
+            .gate0/report.json
+          if-no-files-found: ignore

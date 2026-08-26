@@ -282,6 +282,34 @@ export function runRedteam(lua: string, opts?: {
     push("watermark-extraction", true, `forged-manifest extraction rejected: ${String(e).slice(0, 80)}`);
   }
 
+  // ---- S8: metamethod trace surface ---------------------------------------
+  // Hidden-dispatch traps raise dynamic-tracing cost but are a DESIGN choice,
+  // not a pass/fail defense ⇒ always advisory.
+  const mmTrapped =
+    /setmetatable\(\{\}, \{__(?:add|sub|mul|mod)=function\(\) return \w+\(/.test(lua);
+  stages.push({
+    name: "metamethod-trace",
+    stopped: true,
+    advisory: true,
+    detail: mmTrapped
+      ? "ADVISORY: entry point hidden behind a randomized metamethod trap (dynamic trace cost raised)"
+      : "no dispatch traps enabled (--mm-traps off)",
+  });
+
+  // ---- S9: E4 depth-budget audit ------------------------------------------
+  // Metamethod handlers burn Lua-5.1 call slots; per-dispatch indirection on
+  // lua51 would be a defect. Prologue-only traps keep setmetatable sites ≤2.
+  const smSites = (lua.match(/setmetatable\(/g) || []).length;
+  stages.push({
+    name: "depth-budget",
+    stopped: true,
+    advisory: true,
+    detail:
+      smSites <= 2
+        ? "ADVISORY ok: ≤2 metatable sites (prologue-only per E4 budget)"
+        : `ADVISORY review: ${smSites} metatable sites — confirm none are per-dispatch on lua51`,
+  });
+
   const layersDefeated = stages.filter((s) => !s.stopped && !s.advisory).length;
   return { stages, layersDefeated, ok: layersDefeated === 0 };
 }
