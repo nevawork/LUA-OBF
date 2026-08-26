@@ -29,6 +29,10 @@
 >   anti-emulation v2 (3-probe convergence, graceful abstain), behavioral
 >   env-keying probes both sides, decoded-table ticks retained as decoys;
 >   tests/phase5.test.ts.
+> - Phase 6: SHIPPED — unpack/table.unpack fast path (ur), table.concat batched
+>   CV decryption, string.byte hoist in blob decode, dead N.ch removal,
+>   docs/PERFORMANCE.md (methodology + pending baseline). Remaining Phase 6
+>   item: fill baseline table from first verify.sh run.
 > - BLOCKER: session denies bash; nothing executed yet. Run
 >   `bash scripts/verify.sh` the moment shell access is granted.
 

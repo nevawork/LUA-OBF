@@ -116,7 +116,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     ctn: id(), pk: id(), ur: id(), envroot: id(), blob: id(), protos: id(),
     ch: id(), pos: id(), u8: id(), uvar: id(), svar: id(), np: id(),
     run: id(), pid2: id(), icv: id(), slices: id(), nic: id(), wm: id(), wmi: id(),
-    l1: id(), hdr: id(), cv: id(),
+    l1: id(), hdr: id(), cv: id(), uup: id(), sch: id(), tcn: id(),
   };
   // anti-emulation calibration state: file-scope locals (per-build names),
   // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
@@ -239,7 +239,14 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`-- NEVAHEX-VM v2.1 "The Abyss". Protected artifact. Do not edit.`);
   L.push(`local ${N.ctn}=setmetatable({},{__mode="k"})`);
   L.push(`local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
-  L.push(`local function ${N.ur}(t,i,j) if i>j then return end return t[i],${N.ur}(t,i+1,j) end`);
+  // Phase 6: argument spreading — native unpack for wide ranges, recursive
+  // fallback otherwise (identical semantics, no deep-call cost on big spans)
+  L.push(`local ${N.uup}=unpack or (table and table.unpack)`);
+  L.push(`local function ${N.ur}(t,i,j)`);
+  L.push(` if i>j then return end`);
+  L.push(` if ${N.uup} and j-i>15 then return ${N.uup}(t,i,j) end`);
+  L.push(` return t[i],${N.ur}(t,i+1,j)`);
+  L.push(`end`);
   L.push(`local ${N.envroot}=_G or _ENV`);
   // anti-emulation calibration state lives in file-scope locals (upvalues of
   // the frame closures below), never in named globals
@@ -264,14 +271,20 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // sb delta so one per-build secret governs both corruption channels)
   L.push(`local ${cvwN}=0`);
   const cvwWeight = obf(normSeed(opts.pbias * 15485863 + 11), rng);
+  // Phase 6: hoisted string primitives (one global lookup per BUILD, not per
+  // byte) — used by the CV accessor and the blob decode loop
+  L.push(`local ${N.sch}=string.char local ${N.tcn}=table.concat`);
   // decrypt-on-access constant accessor: wire/decoded tables hold masked
   // payloads; plaintext exists only after first use (then cached in e.v)
   L.push(`local function ${N.cv}(pID,e)`);
   L.push(` if type(e)~='table' then return e end`);
   L.push(` local v=e.v if v~=nil then return v end`);
   L.push(` local kk=(${ck0N}+pID*7919+${cvwN}*${cvwWeight})%2147483646 if kk<1 then kk=kk+2147483646 end`);
-  L.push(` local sv='' local g=kk`);
-  L.push(` for j=1,e.n do g=(g*48271)%2147483647 sv=sv..string.char((e.b[j]-(g%256)+256)%256) end`);
+  // Phase 6: batch materialization — parts[] + table.concat avoids the
+  // quadratic `sv = sv .. ch()` chain on long constants
+  L.push(` local parts={} local g=kk`);
+  L.push(` for j=1,e.n do g=(g*48271)%2147483647 parts[j]=${N.sch}((e.b[j]-(g%256)+256)%256) end`);
+  L.push(` local sv=${N.tcn}(parts)`);
   L.push(` if e.t==5 then v=tonumber(sv) else v=sv end`);
   L.push(` e.v=v return v`);
   L.push(`end`);
@@ -291,13 +304,11 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
     L.push(`local ${N.protos}={}`);
     L.push(`local ${N.wm}={}`);
-    L.push(`local ${N.ch}=string.char`);
     L.push(`do`);
   } else {
     L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
     L.push(`local ${N.protos}={}`);
     L.push(`local ${N.wm}={}`);
-    L.push(`local ${N.ch}=string.char`);
     L.push(`do`);
   }
   L.push(` local ${N.pos}=1`);
@@ -336,12 +347,14 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // cipher v3: derive the hidden second pair from the shipped registers AFTER
   // environmental mixing, then run the 4-stream cross-mixed feedback core.
   // Line-for-line mirror of engine/crypto/cipher.ts step() (doubles < 2^53).
+  // Phase 6: sbyte hoist — one global lookup instead of one per byte.
+  L.push(` local sbyte=string.byte`);
   L.push(` local sc=(sa*31+sb)%MM local sd=(sb*17+sa)%MM local pv=0`);
   L.push(` for i=1,bn do`);
   L.push(`  sa=(sa*48271)%MM sb=(sb*69621)%MM sc=(sc*2994349)%MM sd=(sd*4050403)%MM`);
   L.push(`  sb=(sb+pv)%MM sc=(sc+sa)%MM`);
   L.push(`  pv=(math.floor(sa/65536)*31+math.floor(sb/2048)*17+math.floor(sc/1024)*7+math.floor(sd/256)*3+pv)%256`);
-  L.push(`  D[i]=(string.byte(${N.blob},i)-pv+256)%256`);
+  L.push(`  D[i]=(sbyte(${N.blob},i)-pv+256)%256`);
   L.push(` end`);
   if (process.env.NEVAHEX_DEBUG) {
     L.push(` GD=D GB=bn GS=sa GS2=sb`);

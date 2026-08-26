@@ -136,6 +136,10 @@ engine modules, kept for import stability during migration.
 - **Behavioral env-keying probes (Phase 5)** — version-stable invariants
   (fmod sign, %.14g float repr, binary64 add identity, string.rep length)
   fold into the entropy pool on both build (canonical) and runtime sides.
+- **Hot-path engineering (Phase 6)** — native `unpack` fast path for wide
+  argument spans; constant decryption batches through `table.concat` (no
+  quadratic concatenation); `string.byte` hoisted to a block local in the
+  blob decode loop. Budgets and methodology: docs/PERFORMANCE.md.
 
 ## Verification Commands
 
