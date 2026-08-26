@@ -46,6 +46,13 @@ export interface SerializeCtx {
    * always supply it so constant payloads never rest unmasked on the wire.
    */
   constKey?: number;
+  /**
+   * logical→physical opcode mapping. When supplied, the CLOSURE global-id
+   * remap keys off the PHYSICAL value perm[CLOSURE] instead of the logical
+   * constant — REQUIRED whenever code arrives already permuted (pipeline
+   * path). Legacy/direct callers omit it and remap against logical 18.
+   */
+  permMap?: number[];
 }
 
 export function encryptBlob(plain: Uint8Array, seeds: Seeds): Buffer {
@@ -153,9 +160,14 @@ export function serializeProto(root: Proto, wmRegion?: Buffer, ctx?: SerializeCt
     return id;
   };
   assign(root);
+  // CLOSURE global-id remap. Under the pipeline the tree is ALREADY permuted,
+  // so CLOSURE must be recognized by its PHYSICAL value; direct/legacy calls
+  // (unpermuted code) match the logical constant. Fused superop ids (≥1000)
+  // and NOPed members can never collide: permutation is bijective over 0..50.
+  const closurePhys = ctx?.permMap ? ctx.permMap[18 /* Op.CLOSURE */] : 18;
   for (const p of flat) {
     for (const ins of p.code) {
-      if (ins[0] === 18 /* Op.CLOSURE */) {
+      if (ins[0] === closurePhys) {
         ins[1] = idMap.get(p.protos[ins[1] - 1])!;
       }
     }

@@ -58,6 +58,8 @@ export interface EmitOptions {
   fieldKeys: InstrFieldKeys;
   /** rolling-key opcode encoding params (Phase 2); required */
   opencode: OpenCodeParams;
+  /** Phase 4 superoperators (opt-in): fused specs with assigned phys values */
+  fused?: Array<{ phys: number; members: Op[] }>;
 }
 
 export interface EmitResult {
@@ -166,6 +168,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     gate,
     escapeGarbageLit: JSON.stringify(garbage(rng)),
     synthCount: 2 + rng.int(4),
+    fused: opts.fused,
   });
   const { chainLines, dispatchOrder } = assembleChain(
     handlers,

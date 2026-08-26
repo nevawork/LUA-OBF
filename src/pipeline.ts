@@ -19,6 +19,7 @@ import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 import { verifyGeneratedDispatch } from "./testing/dispatch-check";
 import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
 import { makeOpenCodeParams } from "./engine/runtime/opencode";
+import { fuseSuperOps, FUSED_ID_BASE, FusedSpec } from "./engine/vm/superops";
 
 export interface ProtectOptions {
   source: string;
@@ -39,6 +40,11 @@ export interface ProtectOptions {
   dynLoad?: boolean;
   /** enforce Triple-VM closure boundaries in the artifact (Phase 3) */
   layered?: boolean;
+  /**
+   * Phase 4 superoperator fusion (operand-free class). Default OFF until the
+   * runtime differential matrix can run; enable with --superops.
+   */
+  superops?: boolean;
   /**
    * holder mode: include the nonce + cipher seeds in the manifest so watermark
    * extraction can run. Default OFF — artifacts must never ship their own key
@@ -138,6 +144,14 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // ---- Phase V: compile to VM bytecode ----
   const root = compileChunk(chunk);
 
+  // ---- Phase 4 superoperator fusion (logical space, pre-permutation) ----
+  // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
+  // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
+  let fusedSpecs: FusedSpec[] = [];
+  if (opts.superops === true) {
+    fusedSpecs = fuseSuperOps(root, rng);
+  }
+
   const seeds: Seeds = [
     normSeed(rng.int(2147483646) + 1),
     normSeed(rng.int(2147483646) + 1),
@@ -161,10 +175,29 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const logicalCount = Object.keys(Op).filter((x) => isNaN(Number(x))).length;
   const perm = rng.shuffle(Array.from({ length: logicalCount }, (_, i) => i));
   const renumber = (p: import("./vm/opcodes").Proto): void => {
-    for (const ins of p.code) ins[0] = perm[ins[0]];
+    for (const ins of p.code) {
+      // fused superop heads (≥ FUSED_ID_BASE) keep their logical ids here;
+      // they receive dedicated physical values from a separate band below
+      if (ins[0] < FUSED_ID_BASE) ins[0] = perm[ins[0]];
+    }
     p.protos.forEach(renumber);
   };
   renumber(root);
+
+  // fused physical band: unique values ≥500, far above the base ISA and the
+  // decoy band (100..~110), well inside the opcode ring (<65536)
+  const idToPhys = new Map<number, number>();
+  const fusedForEmit: Array<{ phys: number; members: Op[] }> = [];
+  if (fusedSpecs.length > 0) {
+    const usedPhys = new Set<number>(perm);
+    for (const spec of fusedSpecs) {
+      let phys = 500 + rng.int(40000);
+      while (usedPhys.has(phys)) phys = 500 + rng.int(40000);
+      usedPhys.add(phys);
+      idToPhys.set(spec.id, phys);
+      fusedForEmit.push({ phys, members: spec.members });
+    }
+  }
 
   // ---- Phase 2 dispatch-hardening material ----
   // rolling-key opcode encoder + physical set of jump ops (their B operand
@@ -184,6 +217,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
     rng,
     jumpOps,
     opencode,
+    constKey: normSeed(seeds[3]),
+    permMap: perm,
   });
   const blob = encryptBlob(plain, encSeeds);
 

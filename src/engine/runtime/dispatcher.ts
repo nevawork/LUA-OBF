@@ -54,6 +54,12 @@ export interface DispatchCtx {
   escapeGarbageLit: string;
   /** per-build handler synthesis: number of never-matched decoy arms */
   synthCount?: number;
+  /**
+   * Phase 4 superoperators: synthetic opcodes whose handlers concatenate the
+   * member bodies verbatim (operand-free class only) and skip the NOPed
+   * member slots afterwards.
+   */
+  fused?: Array<{ phys: number; members: Op[] }>;
 }
 
 /** logical ops whose B operand is a relative jump offset (shares summed) */
@@ -462,7 +468,102 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     });
   }
 
+  // ---- Phase 4: superoperator handlers (operand-free class) ----
+  // Member bodies are VERBATIM copies of the base arms' primary variants
+  // (cross-ref the add() sites above); they consume no instruction operands,
+  // so one fused record serves the whole sequence. The trailing line skips
+  // the NOPed member slots; no member is a control transfer by construction.
+  if (ctx.fused) {
+    for (const spec of ctx.fused) {
+      const body: string[] = [];
+      for (const m of spec.members) {
+        body.push(...zeroOpBody(F, N as unknown as Record<string, string>, tier, m));
+      }
+      body.push(`${F.pc}=${F.pc}+${spec.members.length - 1}`);
+      hs.push({
+        op: Op.MOVE, // placeholder logical tag; phys carries identity
+        phys: spec.phys,
+        test: `op==${spec.phys}${gate()}`,
+        body,
+      });
+    }
+  }
+
   return hs;
+}
+
+/**
+ * Canonical operand-free handler bodies for superoperator members.
+ * Keep in lockstep with the primary variants inside buildHandlers above
+ * (these are the first variant of each corresponding add() call). Silent-
+ * tier poison applies to exactly the arithmetic ops the base arms poison.
+ */
+function zeroOpBody(
+  F: Record<string, string>,
+  N: Record<string, string>,
+  tier: Tier,
+  op: Op,
+): string[] {
+  const sp = F.sp;
+  const S = F.S;
+  const x = F.x;
+  const y = F.y;
+  const t = F.t;
+  const k = F.k;
+  const pb = tier === "silent" ? `+${F.PB}` : "";
+  switch (op) {
+    case Op.NIL: return [`${sp}=${sp}+1`, `${S}[${sp}]=nil`];
+    case Op.TRUE: return [`${sp}=${sp}+1`, `${S}[${sp}]=true`];
+    case Op.FALSE: return [`${sp}=${sp}+1`, `${S}[${sp}]=false`];
+    case Op.PUSHENV: return [`${sp}=${sp}+1`, `${S}[${sp}]=${F.env}`];
+    case Op.GETTAB:
+      return [
+        `do`,
+        `local ${k}=${S}[${sp}] local ${t}=${S}[${sp}-1]`,
+        `${S}[${sp}-1]=${t}[${k}]`,
+        `${sp}=${sp}-1`,
+        `end`,
+      ];
+    case Op.SETTAB:
+      return [
+        `do`,
+        `local ${F.v}=${S}[${sp}] local ${k}=${S}[${sp}-1] local ${t}=${S}[${sp}-2]`,
+        `${t}[${k}]=${F.v}`,
+        `${sp}=${sp}-3`,
+        `end`,
+      ];
+    case Op.ADD: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, pb ? `${S}[${sp}]=(${x}+${y})${pb}` : `${S}[${sp}]=${x}+${y}`, `end`];
+    case Op.SUB: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, pb ? `${S}[${sp}]=(${x}-${y})${pb}` : `${S}[${sp}]=${x}-${y}`, `end`];
+    case Op.MUL: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, pb ? `${S}[${sp}]=(${x}*${y})${pb}` : `${S}[${sp}]=${x}*${y}`, `end`];
+    case Op.DIV: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, `${S}[${sp}]=${x}/${y}`, `end`];
+    case Op.MOD: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, `${S}[${sp}]=${x}%${y}`, `end`];
+    case Op.POW: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, `${S}[${sp}]=${x}^${y}`, `end`];
+    case Op.EQ: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, `${S}[${sp}]=${x}==${y}`, `end`];
+    case Op.LT: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, `${S}[${sp}]=${x}<${y}`, `end`];
+    case Op.LE: return [`do`, `local ${y}=${S}[${sp}]`, `local ${x}=${S}[${sp}-1]`, `${sp}=${sp}-1`, `${S}[${sp}]=${x}<=${y}`, `end`];
+    case Op.NOT: return [`${S}[${sp}]=not ${S}[${sp}]`];
+    case Op.LEN: return [`${S}[${sp}]=#${S}[${sp}]`];
+    case Op.NEG: return [`${S}[${sp}]=-${S}[${sp}]`];
+    case Op.SWAP:
+    case Op.DUP_ROT:
+      return [
+        `local ${t}=${S}[${sp}]`,
+        `${S}[${sp}]=${S}[${sp}-1]`,
+        `${S}[${sp}-1]=${t}`,
+      ];
+    case Op.DUP: return [`${sp}=${sp}+1`, `${S}[${sp}]=${S}[${sp}-1]`];
+    case Op.NEWTABLE:
+      return [
+        `${sp}=${sp}+1`,
+        `local ${t}={}`,
+        `${N.ctn}[${t}]=0`,
+        `${S}[${sp}]=${t}`,
+      ];
+    case Op.ADJUST_ONE:
+      return [`if ${F.mr}>1 then ${sp}=${sp}-${F.mr}+1 end`, `${F.mr}=-1`];
+    default:
+      throw new Error(`zeroOpBody: unhandled op ${op}`);
+  }
 }
 
 /**
