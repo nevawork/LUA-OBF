@@ -14,6 +14,11 @@
 //
 // Handler bodies are frame-local Lua referencing the name maps owned by the
 // emitter.
+//
+// E6 CONVENTION (binding): every compound arithmetic expression emitted into
+// any body is FULLY parenthesized — operator-precedence mistakes in generated
+// code are a classic obfuscator failure mode, and mixed-precedence output is
+// also harder to verify mechanically. Never rely on Lua precedence here.
 import { BuildRng } from "../crypto/prng";
 import { Op } from "../vm/opcodes";
 import { Tier } from "./tiers";

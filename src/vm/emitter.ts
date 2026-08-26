@@ -3,6 +3,12 @@
 // carriers, dispatcher. Protection layers wired here: anti-tamper (integrity
 // ticks), watermark carriers, optional anti-emulation, environmental keying,
 // bounded-resource budgets.
+//
+// E6 CONVENTION (binding): every compound arithmetic expression emitted into
+// the artifact is FULLY parenthesized. Never rely on Lua operator precedence
+// in generated text — precedence bugs are a classic generator failure mode.
+// E1/E2: the assembled artifact is budget-checked (locals/upvalues) before
+// emitRuntime returns; breaches throw with a named report.
 import { BuildRng } from "../gen/prng";
 import { Op } from "./opcodes";
 import { Seeds, normSeed, wmSeeds, InstrFieldKeys } from "./serializer";
@@ -16,6 +22,7 @@ import {
 import { OpenCodeParams } from "../engine/runtime/opencode";
 import { emitCipherGuard } from "../engine/runtime/cipherguard";
 import { BlobSlice } from "../protection/antitamper";
+import { checkBudgets, DECODE_BLOCK_LOCALS } from "../engine/runtime/localbudget";
 import { AntiEmulationConfig, emitAntiEmulationBlock } from "../protection/antiemulation";
 import { EnvProfile, emitEnvKeyingBlock } from "../protection/envkeying";
 import { ResourceBudget, DEFAULT_BUDGET } from "../protection/resources";
@@ -397,6 +404,10 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   L.push(`   local tag=${N.u8}()`);
   L.push(`   if tag==1 then pr.c[i]=true`);
   L.push(`   elseif tag==2 then pr.c[i]=false`);
+  // E3: dedicated non-finite tags — computed at runtime, no payload bytes
+  L.push(`   elseif tag==7 then pr.c[i]=(0/0)`);
+  L.push(`   elseif tag==8 then pr.c[i]=math.huge`);
+  L.push(`   elseif tag==9 then pr.c[i]=-math.huge`);
   L.push(`   elseif tag==5 or tag==6 then`);
   L.push(`    local ln=${N.uvar}()`);
   L.push(`    local bb={}`);
@@ -455,6 +466,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     L.push(`local ${N.icv}={} local ${N.slices}={}`);
   }
   L.push(`--[L2_VM] core VM: dispatcher + integrity ticks + tier policy`);
+  const runStartLine = L.length; // E1/E2: budget regions measured from here
   if (layered) {
     L.push(`local function ${N.run}(l1,${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
     L.push(` local ${N.protos},${N.wm},${N.wmi}=l1.P,l1.WM,l1.WMI`);
@@ -490,6 +502,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   for (const cl of chainLines) L.push(`  ${cl}`);
   L.push(` end`);
   L.push(`end`);
+  const runEndLine = L.length; // E1/E2: run() body slice ends here
   L.push(`do`);
   L.push(` local ${F.A}=${N.pk}(...)`);
   if (layered) {
@@ -498,6 +511,25 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     L.push(` ${N.run}(${opts.rootPid},${N.envroot},{},${F.A},nil)`);
   }
   L.push(`end`);
+
+  // ---- E1/E2: local & upvalue budgets — fail the BUILD, not the load ----
+  const fileScopeNames = [
+    ...Object.values(N),
+    aeT0, aeOps,
+    keyNames.OP, keyNames.A, keyNames.B1, keyNames.B2, keyNames.C,
+    rk0N, astepN, aincN, ck0N, cvwN,
+  ];
+  const budget = checkBudgets(
+    L.join("\n"),
+    L.slice(runStartLine, runEndLine).join("\n"),
+    fileScopeNames.filter((n) => !DECODE_BLOCK_LOCALS.has(n)),
+  );
+  if (!budget.ok) {
+    throw new Error(
+      `NEVAHEX internal: emitted-code budget exceeded\n  ` +
+        budget.problems.join("\n  "),
+    );
+  }
 
   return { lua: L.join("\n"), dispatchOrder };
 }

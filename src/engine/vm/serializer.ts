@@ -247,14 +247,22 @@ function writeProto(
     else if (c === true) buf.push(1);
     else if (c === false) buf.push(2);
     else if (typeof c === "number") {
-      // decimal round-trip (shortest exact repr guarantees double recovery)
-      buf.push(5);
-      let s: string;
-      if (!isFinite(c)) s = Number.isNaN(c) ? "(0/0)" : c > 0 ? "1e999" : "-1e999";
-      else s = String(c);
-      putUvarint(buf, s.length);
-      for (let i = 0; i < s.length; i++) {
-        buf.push((s.charCodeAt(i) + constMaskByte(g)) & 0xff);
+      // E3: non-finite constants use dedicated single-byte tags. The old text
+      // encodings were broken ("(0/0)" → tonumber()=nil on standard Lua) and
+      // version-sensitive ("1e999" overflow parsing). Tags carry no payload;
+      // the runtime maps them to 0/0 and math.huge directly.
+      if (Number.isNaN(c)) buf.push(7);
+      else if (c === Number.POSITIVE_INFINITY) buf.push(8);
+      else if (c === Number.NEGATIVE_INFINITY) buf.push(9);
+      else {
+        // finite: decimal round-trip (JS shortest exact repr guarantees
+        // double recovery via strtod on every target)
+        buf.push(5);
+        const s = String(c);
+        putUvarint(buf, s.length);
+        for (let i = 0; i < s.length; i++) {
+          buf.push((s.charCodeAt(i) + constMaskByte(g)) & 0xff);
+        }
       }
     } else {
       buf.push(6);
@@ -365,6 +373,9 @@ function readProto(r: Reader, pid: number, oc: OpenCodeParams | undefined): {
     if (tag === 0) consts.push(null);
     else if (tag === 1) consts.push(true);
     else if (tag === 2) consts.push(false);
+    else if (tag === 7) consts.push(Number.NaN); // E3: dedicated non-finite tags
+    else if (tag === 8) consts.push(Number.POSITIVE_INFINITY);
+    else if (tag === 9) consts.push(Number.NEGATIVE_INFINITY);
     else if (tag === 5) {
       const s = r.bytesStr(r.uvarint());
       consts.push(parseFloat(s)); // masked bytes ⇒ garbage number, unused
