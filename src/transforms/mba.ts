@@ -41,7 +41,7 @@ function binop(op: string, left: Expr, right: Expr): Binop {
   return { kind: "Binop", op, left, right };
 }
 
-function unop(op: string, operand: Expr): Expr {
+function unop(op: "-" | "not" | "#", operand: Expr): Expr {
   return { kind: "Unop", op, operand };
 }
 
@@ -174,16 +174,20 @@ export function mbaRewriteNode(e: Binop, ctx: MbaCtx, depth: number = 0): Expr |
       if (!roll()) return null;
       const variant = pick(3);
       switch (variant) {
-        case 0:
+        case 0: {
           const flip: Record<string, string> = { "<": ">", ">": "<", "<=": ">=", ">=": "<=" };
           return binop(flip[e.op], e.right, e.left);
-        case 1:
+        }
+        case 1: {
           const modA: Binop = binop("%", e.left, numLit(1000));
           const modB: Binop = binop("%", e.right, numLit(1000));
+          const flip: Record<string, string> = { "<": ">", ">": "<", "<=": ">=", ">=": "<=" };
           return binop(flip[e.op], modA, modB);
-        default:
+        }
+        default: {
           const diff: Binop = binop("-", e.left, e.right);
-          return diff.op === "<" ? diff : unop("not", diff);
+          return diff.op === "<" ? diff : unop("not", diff as Expr);
+        }
       }
     }
     case "/": {

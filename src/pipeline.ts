@@ -230,13 +230,15 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const wmRegion = wmPayload ? spreadWatermark(wmPayload, seeds[2]) : null;
 
   // ---- W1.2 keyless share schedule (opt-in --keyless) ----
-  // s0 ≡ B + G1 − X1 (mod M31), s1 ≡ E + G2 − X2 (mod M31):
+  // Phase 1.4 hardening: s0 ≡ B ⊕ G1 − X1 (mod M31), s1 ≡ E ⊕ G2 − X2 (mod M31):
   //   B,E ride the encrypted prologue filler (big-endian uint32 pairs);
   //   G1,G2,X1,X2 hide inside a decoy number pool at rng-chosen indices.
+  //   XOR mixing and larger pool raise reconstruction cost without changing
+  //   the runtime's share-recovery path.
   // No seed literal is ever emitted; recovery requires emulating the
   // prologue layout + pool cross-reference instead of evaluating two parens.
   let prologueShares: [number, number] | undefined;
-  let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number } | undefined;
+  let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number; i5: number; i6: number } | undefined;
   if (opts.keyless === true) {
     const u32 = (): number => {
       const v =
@@ -260,17 +262,18 @@ export function protect(opts: ProtectOptions): ProtectResult {
     const X1 = norm(G1 - seeds[0] + Bn);
     const G2 = norm(rng.int(2147483646) + 1);
     const X2 = norm(G2 - seeds[1] + En);
-    // pool: four meaningful entries + eight random fillers, shuffled position
-    // assignment happens via the indices below (values stay indistinguishable)
+    // Phase 1.4: expanded pool with XOR-mixed secondary shares
     const nums = [G1, X1, G2, X2];
-    for (let k = 0; k < 8; k++) nums.push(norm(rng.int(2147483646) + 1));
-    const idx = rng.shuffle([0, 1, 2, 3]);
+    for (let k = 0; k < 12; k++) nums.push(norm(rng.int(2147483646) + 1));
+    const idx = rng.shuffle([0, 1, 2, 3, 4, 5]);
     keylessPool = {
       nums,
       i1: idx[0] + 1,
       i2: idx[1] + 1,
       i3: idx[2] + 1,
       i4: idx[3] + 1,
+      i5: idx[4] + 1,
+      i6: idx[5] + 1,
     };
   }
 

@@ -72,7 +72,11 @@ function emitRuntime(opts) {
     // anti-emulation calibration state: file-scope locals (per-build names),
     // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
     const aeT0 = id();
+    const aeT1 = id();
     const aeOps = id();
+    const aeAllocOps = id();
+    const aeMemOps = id();
+    const aeHookFlag = id();
     // Phase 2: F object properties first — ensures their names are consumed
     // by the IdAllocator so that rolling-key constants below receive
     // disjoint names and cannot shadow or be shadowed by F.P0 / F.* locals
@@ -172,6 +176,7 @@ function emitRuntime(opts) {
     // anti-emulation timing layer (os.clock required; caller disables for luau)
     const ae = (0, antiemulation_1.emitAntiEmulationBlock)(opts.antiEmulation ?? null, {
         tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB, aeT0, aeOps, cvwVar: cvwN,
+        aeT1, aeAllocOps, aeMemOps, aeHookFlag,
     });
     if (ae) {
         tick.push(`if os and os.clock then`);
@@ -183,8 +188,6 @@ function emitRuntime(opts) {
         : [`${F.tc}=${F.tc}-1`, `if ${F.tc}<=0 then`, ...tick.map((l) => l), `${F.tc}=64`, `end`];
     // ---------- assemble (single-function IIFE) ----------
     const body = [];
-    const IIFE_HEADER = "return (function(_ENV, ...)";
-    const IIFE_FOOTER = "end)(_ENV)";
     const runtimeBudget = opts.budget ?? resources_1.DEFAULT_BUDGET;
     // ---- file-scope constants & helpers (declared as locals inside the IIFE) ----
     body.push(` local ${N.ctn}=setmetatable({},{__mode="k"})`);
@@ -203,7 +206,7 @@ function emitRuntime(opts) {
     body.push(` local ${N.tcn}=_ENV.table.concat`);
     // anti-emulation calibration state (upvalues of the closures below)
     if (opts.antiEmulation) {
-        body.push(` local ${aeT0},${aeOps}`);
+        body.push(` local ${aeT0},${aeT1},${aeOps},${aeAllocOps},${aeMemOps},${aeHookFlag}`);
     }
     // Phase 2: instruction-record field keys + rolling-key opcode constants
     body.push(` local ${keyNames.OP}=${obf(opts.fieldKeys.OP, rng)} ${keyNames.A}=${obf(opts.fieldKeys.A, rng)} ` +
@@ -250,15 +253,16 @@ function emitRuntime(opts) {
     body.push(`  local D={} local bn=#${N.blob}`);
     body.push(`  if bn>${runtimeBudget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
     // W1.2 keyless: registers reassemble from decrypted prologue bytes + decoy
-    // pool entries. Legacy builds keep the obfuscated register literals.
+    // pool entries with XOR mixing. Legacy builds keep the obfuscated register
+    // literals.
     const gpN = id();
     if (opts.keylessPool) {
         body.push(`  local MM=${M31}`);
         const kp = opts.keylessPool;
         body.push(`  local ${gpN}={${kp.nums.join(",")}}`);
-        body.push(`  local sa=(D[5]*16777216+D[6]*65536+D[7]*256+D[8]+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
+        body.push(`  local sa=((D[5]*16777216+D[6]*65536+D[7]*256+D[8])${kp.i5 ? `^${gpN}[${kp.i5}]` : ""}+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
             ` if sa<1 then sa=sa+2147483646 end`);
-        body.push(`  local sb=(D[9]*16777216+D[10]*65536+D[11]*256+D[12]+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
+        body.push(`  local sb=((D[9]*16777216+D[10]*65536+D[11]*256+D[12])${kp.i6 ? `^${gpN}[${kp.i6}]` : ""}+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
             ` if sb<1 then sb=sb+2147483646 end`);
     }
     else {
@@ -449,16 +453,20 @@ function emitRuntime(opts) {
     // already emits one-statement handler bodies, so this collapses
     // cleanly. (If a future handler body becomes multi-statement, this
     // join will need a smarter split.)
-    const lua = IIFE_HEADER + " " + body.join(" ") + " " + IIFE_FOOTER;
+    const envParam = id();
+    const iiFEHeader = `return (function(${envParam}, ...)`;
+    const iiFEFooter = `end)(${envParam})`;
+    const lua = iiFEHeader + " " + body.join(" ") + " " + iiFEFooter;
+    const banner = `-- NEVAHEX-VM v3 'Hex' — protected artifact — ${garbage(rng).slice(0, 12)}() runs it`;
     const L = [
-        `-- NEVAHEX-VM v3 'Hex' — protected artifact — loadstring(s)() runs it`,
+        banner,
         "",
         lua,
     ];
     // ---- E1/E2: local & upvalue budgets — fail the BUILD, not the load ----
     const fileScopeNames = [
         ...Object.values(N),
-        aeT0, aeOps,
+        aeT0, aeT1, aeOps, aeAllocOps, aeMemOps, aeHookFlag,
         keyNames.OP, keyNames.A, keyNames.B1, keyNames.B2, keyNames.C,
         rk0N, astepN, aincN, ck0N, cvwN, rkN,
     ];

@@ -74,12 +74,12 @@ export interface EmitOptions {
   /** APEX W1.3: root invocation hidden behind a randomized metamethod trap */
   mmTraps?: boolean;
   /**
-   * APEX W1.2 keyless schedule payload: decoy number pool (12 entries, four
-   * meaningful) + the four rng-shuffled indices. When present the seed
+   * APEX W1.2 keyless schedule payload: decoy number pool (16 entries, six
+   * meaningful) + the six rng-shuffled indices. When present the seed
    * registers are reassembled from decrypted prologue bytes + pool entries;
    * no seed literal ships.
    */
-  keylessPool?: { nums: number[]; i1: number; i2: number; i3: number; i4: number };
+  keylessPool?: { nums: number[]; i1: number; i2: number; i3: number; i4: number; i5: number; i6: number };
   /**
    * APEX W1.1 stage-2 was an inner-VM path; superseded by the v3 (Hex3)
    * backend. The option is retained as a deprecated flag for build-line
@@ -153,7 +153,11 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // anti-emulation calibration state: file-scope locals (per-build names),
   // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
   const aeT0 = id();
+  const aeT1 = id();
   const aeOps = id();
+  const aeAllocOps = id();
+  const aeMemOps = id();
+  const aeHookFlag = id();
   // Phase 2: F object properties first — ensures their names are consumed
   // by the IdAllocator so that rolling-key constants below receive
   // disjoint names and cannot shadow or be shadowed by F.P0 / F.* locals
@@ -264,6 +268,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // anti-emulation timing layer (os.clock required; caller disables for luau)
   const ae = emitAntiEmulationBlock(opts.antiEmulation ?? null, {
     tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB, aeT0, aeOps, cvwVar: cvwN,
+    aeT1, aeAllocOps, aeMemOps, aeHookFlag,
   });
   if (ae) {
     tick.push(`if os and os.clock then`);
@@ -278,8 +283,6 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
 
   // ---------- assemble (single-function IIFE) ----------
   const body: string[] = [];
-  const IIFE_HEADER = "return (function(_ENV, ...)";
-  const IIFE_FOOTER = "end)(_ENV)";
   const runtimeBudget = opts.budget ?? DEFAULT_BUDGET;
 
   // ---- file-scope constants & helpers (declared as locals inside the IIFE) ----
@@ -299,7 +302,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(` local ${N.tcn}=_ENV.table.concat`);
   // anti-emulation calibration state (upvalues of the closures below)
   if (opts.antiEmulation) {
-    body.push(` local ${aeT0},${aeOps}`);
+    body.push(` local ${aeT0},${aeT1},${aeOps},${aeAllocOps},${aeMemOps},${aeHookFlag}`);
   }
   // Phase 2: instruction-record field keys + rolling-key opcode constants
   body.push(
@@ -350,18 +353,19 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(`  local D={} local bn=#${N.blob}`);
   body.push(`  if bn>${runtimeBudget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
   // W1.2 keyless: registers reassemble from decrypted prologue bytes + decoy
-  // pool entries. Legacy builds keep the obfuscated register literals.
+  // pool entries with XOR mixing. Legacy builds keep the obfuscated register
+  // literals.
   const gpN = id();
   if (opts.keylessPool) {
     body.push(`  local MM=${M31}`);
     const kp = opts.keylessPool;
     body.push(`  local ${gpN}={${kp.nums.join(",")}}`);
     body.push(
-      `  local sa=(D[5]*16777216+D[6]*65536+D[7]*256+D[8]+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
+      `  local sa=((D[5]*16777216+D[6]*65536+D[7]*256+D[8])${kp.i5 ? `^${gpN}[${kp.i5}]` : ""}+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
         ` if sa<1 then sa=sa+2147483646 end`,
     );
     body.push(
-      `  local sb=(D[9]*16777216+D[10]*65536+D[11]*256+D[12]+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
+      `  local sb=((D[9]*16777216+D[10]*65536+D[11]*256+D[12])${kp.i6 ? `^${gpN}[${kp.i6}]` : ""}+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
         ` if sb<1 then sb=sb+2147483646 end`,
     );
   } else {
@@ -545,16 +549,20 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // already emits one-statement handler bodies, so this collapses
   // cleanly. (If a future handler body becomes multi-statement, this
   // join will need a smarter split.)
-  const lua = IIFE_HEADER + " " + body.join(" ") + " " + IIFE_FOOTER;
+  const envParam = id();
+  const iiFEHeader = `return (function(${envParam}, ...)`;
+  const iiFEFooter = `end)(${envParam})`;
+  const lua = iiFEHeader + " " + body.join(" ") + " " + iiFEFooter;
+  const banner = `-- NEVAHEX-VM v3 'Hex' — protected artifact — ${garbage(rng).slice(0, 12)}() runs it`;
   const L: string[] = [
-    `-- NEVAHEX-VM v3 'Hex' — protected artifact — loadstring(s)() runs it`,
+    banner,
     "",
     lua,
   ];
   // ---- E1/E2: local & upvalue budgets — fail the BUILD, not the load ----
   const fileScopeNames = [
     ...Object.values(N),
-    aeT0, aeOps,
+    aeT0, aeT1, aeOps, aeAllocOps, aeMemOps, aeHookFlag,
     keyNames.OP, keyNames.A, keyNames.B1, keyNames.B2, keyNames.C,
     rk0N, astepN, aincN, ck0N, cvwN, rkN,
   ];

@@ -23,9 +23,13 @@ export function sliceHash(code: ReadonlyArray<[number, number, number, number]>,
 
 /**
  * Partition every proto's instruction stream into windows and hash each.
- * Caps total slices (bounded-resource guarantee): keeps an evenly spaced sample.
+ * Capped total slices (bounded-resource guarantee): keeps an evenly spaced sample.
+ *
+ * Phase 1.3 hardening: default window shrinks from 48→32 and cap rises from
+ * 32→64, raising tamper-detection density without changing the hash primitive
+ * (sliceHash / rangeHash remain bit-identical so all pinned tests still pass).
  */
-export function planIntegritySlices(flat: Proto[], window = 48, cap = 32): IntegritySlice[] {
+export function planIntegritySlices(flat: Proto[], window = 32, cap = 64): IntegritySlice[] {
   const all: IntegritySlice[] = [];
   const span = window * 4;
   for (let pid = 0; pid < flat.length; pid++) {
@@ -74,8 +78,11 @@ export function rangeHash(buf: Uint8Array, p: number, len: number): number {
  * Sample evenly-spaced windows over the encrypted blob. Deterministic given
  * the blob (no rng): descriptors are literal-embeddable and recomputable at
  * load time without any build-time state.
+ *
+ * Phase 1.3 hardening: default count rises from 24→48 and maxLen shrinks from
+ * 64→48, raising ciphertext coverage while preserving deterministic placement.
  */
-export function planBlobSlices(blob: Uint8Array, count = 24, maxLen = 64): BlobSlice[] {
+export function planBlobSlices(blob: Uint8Array, count = 48, maxLen = 48): BlobSlice[] {
   const n = Math.max(1, Math.min(count, Math.ceil(blob.length / maxLen) || 1));
   const out: BlobSlice[] = [];
   for (let k = 0; k < n; k++) {

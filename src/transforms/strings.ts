@@ -129,28 +129,56 @@ let stringIdx = 0;
         if (r.kind === "Call" || r.kind === "MethodCall") s.call = r;
         break;
       }
-      case "Do": rewriteBlock(s.body); break;
-      case "While": s.cond = rewriteExpr(s.cond); rewriteBlock(s.body); break;
-      case "Repeat": rewriteBlock(s.body); s.cond = rewriteExpr(s.cond); break;
+      case "Do":
+        enterScope();
+        rewriteBlock(s.body);
+        exitScope();
+        break;
+      case "While":
+        enterScope();
+        s.cond = rewriteExpr(s.cond);
+        rewriteBlock(s.body);
+        exitScope();
+        break;
+      case "Repeat":
+        enterScope();
+        rewriteBlock(s.body);
+        s.cond = rewriteExpr(s.cond);
+        exitScope();
+        break;
       case "If":
+        enterScope();
         s.clauses.forEach((c) => {
           c.cond = rewriteExpr(c.cond);
           rewriteBlock(c.body);
         });
         if (s.orelse) rewriteBlock(s.orelse);
+        exitScope();
         break;
       case "NumFor":
+        enterScope();
         s.start = rewriteExpr(s.start);
         s.limit = rewriteExpr(s.limit);
         if (s.step) s.step = rewriteExpr(s.step);
         rewriteBlock(s.body);
+        exitScope();
         break;
       case "GenFor":
+        enterScope();
         s.exprs = s.exprs.map(rewriteExpr);
         rewriteBlock(s.body);
+        exitScope();
         break;
-      case "FuncStat": rewriteBlock(s.func.body); break;
-      case "LocalFunc": rewriteBlock(s.func.body); break;
+      case "FuncStat":
+        enterScope();
+        rewriteBlock(s.func.body);
+        exitScope();
+        break;
+      case "LocalFunc":
+        enterScope();
+        rewriteBlock(s.func.body);
+        exitScope();
+        break;
       case "ExprStat": {
         const r = rewriteExpr(s.expr);
         if (r.kind === "Call" || r.kind === "MethodCall") s.expr = r;

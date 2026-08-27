@@ -109,14 +109,16 @@ describe("phase 5: anti-emulation v2", () => {
     aeT0: "AET", aeOps: "AEO", cvwVar: "CVW",
   };
 
-  it("three probes converge on a single verdict point", () => {
+  it("five probes converge on a single verdict point", () => {
     const lines = emitAntiEmulationBlock(DEFAULT_ANTI_EMULATION, names)!;
     const text = lines.join("\n");
-    expect((text.match(/bad=bad\+1/g) || []).length).toBe(3);
+    expect((text.match(/bad=bad\+1/g) || []).length).toBe(5);
     expect((text.match(/if bad>0 then/g) || []).length).toBe(1);
     expect(text).toContain("string.rep(\"x\",65536)");
     expect(text).toContain('collectgarbage("collect")');
     expect(text).toContain("CVW=1");
+    expect(text).toContain("debug.sethook");
+    expect(text).toContain("os.clock()");
   });
 
   it("null config disables the layer entirely", () => {
