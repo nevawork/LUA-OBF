@@ -23,7 +23,7 @@ switch (cmd) {
     case "protect": {
         const input = args[0];
         if (!input)
-            fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--no-anti-emu] [--no-flatten] [--no-mba] [--no-superops] [--no-mm-traps] [--no-keyless] [--dyn-load] [--emit-secrets] [--reg-obfuscate] [--const-shuffle] [--stage2]");
+            fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--no-anti-emu] [--no-flatten] [--no-mba] [--no-superops] [--no-mm-traps] [--no-keyless] [--dyn-load] [--emit-secrets] [--reg-obfuscate] [--const-shuffle] [--mega-superops] [--superop-nesting <n>] [--stage2]");
         let source;
         try {
             source = (0, fs_1.readFileSync)(input, "utf8");
@@ -51,6 +51,8 @@ switch (cmd) {
             layered: hasFlag("--layered"),
             emitSecrets: hasFlag("--emit-secrets"),
             superops: !hasFlag("--no-superops"),
+            megaSuperops: hasFlag("--mega-superops"),
+            superopNesting: flagOf("--superop-nesting") ? parseInt(flagOf("--superop-nesting")) : undefined,
             mmTraps: !hasFlag("--no-mm-traps"),
             keyless: !hasFlag("--no-keyless"),
             regObfuscate: hasFlag("--reg-obfuscate"),
@@ -123,6 +125,8 @@ Usage:
       --no-flatten              disable control-flow flattening (enabled by default)
       --no-mba                  disable MBA+ algebra rewrites (enabled by default)
       --no-superops             disable superoperator fusion (enabled by default)
+      --mega-superops           enable mega superoperator fusion (60–80 insn, operand-bearing)
+      --superop-nesting <n>     recursion bound for mega→mini nesting (default: 3)
       --no-mm-traps             disable metamethod trap (enabled by default)
       --no-keyless              disable keyless schedule (enabled by default)
       --reg-obfuscate           insert copy NOPs, permute register assignments

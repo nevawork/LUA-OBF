@@ -22,6 +22,7 @@ import { verifyGeneratedDispatch } from "./testing/dispatch-check";
 import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
 import { makeOpenCodeParams, initialRk, stepRk, decodeOp } from "./engine/runtime/opencode";
 import { fuseSuperOps, FUSED_ID_BASE, FusedSpec } from "./engine/vm/superops";
+import { fuseMegaSuperOps, MegaFusedSpec } from "./engine/vm/superops-mega";
 
 export interface ProtectOptions {
   source: string;
@@ -47,6 +48,16 @@ export interface ProtectOptions {
    * runtime differential matrix can run; enable with --superops.
    */
   superops?: boolean;
+  /**
+   * Phase 2: mega superoperator fusion (60–80 instructions, operand-bearing).
+   * Enable with --mega-superops. Recursively applies mini fusion afterward.
+   */
+  megaSuperops?: boolean;
+  /**
+   * Phase 2: recursion bound for mega→mini→mega nesting (default: 3).
+   * Higher values increase obfuscation but also build time.
+   */
+  superopNesting?: number;
   /**
    * APEX W1.3: route the root invocation through a per-build randomized
    * metamethod (__add/__sub/__mul/__mod) so the entry point hides behind a
@@ -194,11 +205,27 @@ export function protect(opts: ProtectOptions): ProtectResult {
     obfuscateConstants(chunk, rng);
   }
 
-  // ---- Phase 4 superoperator fusion (logical space, pre-permutation) ----
+  // ---- Phase 4/2: superoperator fusion (logical space, pre-permutation) ----
   // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
   // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
+  //
+  // Phase 2 mega mode: 60–80 instruction windows with operand-bearing fusion,
+  // followed by recursive mini fusion (2–15 instructions) up to the nesting
+  // bound. This creates a hierarchical fusion lattice that exponentially
+  // increases static-analysis complexity.
   let fusedSpecs: FusedSpec[] = [];
-  if (opts.superops !== false) {
+  let megaFusedSpecs: MegaFusedSpec[] = [];
+  const useMega = opts.megaSuperops === true;
+  const useBaseSuperops = opts.superops !== false && !useMega;
+
+  if (useMega) {
+    megaFusedSpecs = fuseMegaSuperOps(root, rng, {
+      megaWindow: [60, 80],
+      miniWindow: [2, 15],
+      recursionBound: opts.superopNesting ?? 3,
+      maxFused: 200,
+    });
+  } else if (useBaseSuperops) {
     fusedSpecs = fuseSuperOps(root, rng);
   }
 
@@ -236,15 +263,24 @@ export function protect(opts: ProtectOptions): ProtectResult {
 
   // fused physical band: unique values ≥500, far above the base ISA and the
   // decoy band (100..~110), well inside the opcode ring (<65536)
-  const fusedForEmit: Array<{ phys: number; members: Op[] }> = [];
+  const fusedForEmit: Array<{ phys: number; members: Op[]; operands?: [number, number, number][] }> = [];
   const fusedIdToPhys = new Map<number, number>();
-  if (fusedSpecs.length > 0) {
+  const allFusedSpecs = [...fusedSpecs, ...megaFusedSpecs];
+  if (allFusedSpecs.length > 0) {
     const usedPhys = new Set<number>(perm);
-    for (const spec of fusedSpecs) {
+    for (const spec of allFusedSpecs) {
       let phys = 500 + rng.int(40000);
       while (usedPhys.has(phys)) phys = 500 + rng.int(40000);
       usedPhys.add(phys);
-      fusedForEmit.push({ phys, members: spec.members });
+      const entry: { phys: number; members: Op[]; operands?: [number, number, number][] } = {
+        phys,
+        members: spec.members,
+      };
+      const megaSpec = spec as MegaFusedSpec;
+      if (megaSpec.operands && megaSpec.operands.length > 0) {
+        entry.operands = megaSpec.operands.map((ins) => [ins[1], ins[2], ins[3]] as [number, number, number]);
+      }
+      fusedForEmit.push(entry);
       fusedIdToPhys.set(spec.id, phys);
     }
     // Apply physical values to fused ops in the bytecode

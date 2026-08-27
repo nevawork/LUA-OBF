@@ -498,18 +498,42 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     });
   }
 
-  // ---- Phase 4: superoperator handlers (operand-free class) ----
-  // Member bodies are VERBATIM copies of the base arms' primary variants
-  // (cross-ref the add() sites above); they consume no instruction operands,
-  // so one fused record serves the whole sequence. The trailing line skips
-  // the NOPed member slots; no member is a control transfer by construction.
+  // ---- Phase 4/2: superoperator handlers ----
+  // Operand-free members use the original zeroOpBody path.
+  // Operand-bearing members (mega mode) capture per-instance operands
+  // into locals, then execute member bodies against those locals.
   if (ctx.fused) {
     for (const spec of ctx.fused) {
       const body: string[] = [];
-      for (const m of spec.members) {
-        body.push(...zeroOpBody(F, N as unknown as Record<string, string>, tier, m));
+      const hasOperands = (spec as any).operands && (spec as any).operands.length > 0;
+
+      if (hasOperands) {
+        // Operand-bearing mega handler: snapshot operands from the record
+        const ops = (spec as any).operands as [number, number, number][];
+        const aVar = `${F.a}_m`;
+        const bVar = `${F.b}_m`;
+        const cVar = `${F.c}_m`;
+        body.push(`local ${aVar},${bVar},${cVar}=${F.ins}[${K.A}],${F.ins}[${K.B1}],${F.ins}[${K.C}]`);
+
+        for (let mi = 0; mi < spec.members.length; mi++) {
+          const m = spec.members[mi];
+          const [mA, mB, mC] = ops[mi];
+          // Emit operand-local aliases so member bodies read the captured values
+          if (mA !== 0 || mB !== 0 || mC !== 0) {
+            body.push(`local _a${mi}=${mA},_b${mi}=${mB},_c${mi}=${mC}`);
+          }
+          // For mega ops, use the generic body path with operand substitution
+          body.push(...operandBody(F, N as unknown as Record<string, string>, tier, m, mi));
+        }
+        body.push(`${F.pc}=${F.pc}+${spec.members.length - 1}`);
+      } else {
+        // Original operand-free path
+        for (const m of spec.members) {
+          body.push(...zeroOpBody(F, N as unknown as Record<string, string>, tier, m));
+        }
+        body.push(`${F.pc}=${F.pc}+${spec.members.length - 1}`);
       }
-      body.push(`${F.pc}=${F.pc}+${spec.members.length - 1}`);
+
       hs.push({
         op: Op.MOVE, // placeholder logical tag; phys carries identity
         phys: spec.phys,
@@ -593,6 +617,155 @@ function zeroOpBody(
       return [`if ${F.mr}>1 then ${sp}=${sp}-${F.mr}+1 end`, `${F.mr}=-1`];
     default:
       throw new Error(`zeroOpBody: unhandled op ${op}`);
+  }
+}
+
+/**
+ * Operand-bearing handler bodies for mega superoperator members.
+ * These read operands from captured locals (_aN, _bN, _cN) instead of
+ * the instruction record, allowing fused handlers to execute multi-instruction
+ * sequences with per-instance operand values.
+ */
+function operandBody(
+  F: Record<string, string>,
+  N: Record<string, string>,
+  tier: Tier,
+  op: Op,
+  memberIndex: number,
+): string[] {
+  const sp = F.sp;
+  const S = F.S;
+  const a = `_a${memberIndex}`;
+  const b = `_b${memberIndex}`;
+  const c = `_c${memberIndex}`;
+  const pb = tier === "silent" ? `+${F.PB}` : "";
+
+  switch (op) {
+    case Op.MOVE:
+      return [`${sp}=${sp}+1`, `${S}[${sp}]=${S}[${a}]`];
+    case Op.SETLOCAL:
+      return [`${S}[${a}]=${S}[${sp}]`, `${sp}=${sp}-1`];
+    case Op.LOADK:
+      return [`${sp}=${sp}+1`, `${S}[${sp}]=${N.cv}(${F.pid},${c})`];
+    case Op.NIL:
+      return [`${sp}=${sp}+1`, `${S}[${sp}]=nil`];
+    case Op.TRUE:
+      return [`${sp}=${sp}+1`, `${S}[${sp}]=true`];
+    case Op.FALSE:
+      return [`${sp}=${sp}+1`, `${S}[${sp}]=false`];
+    case Op.GETTAB:
+      return [
+        `do`,
+        `${S}[${sp}-1]=${S}[${sp}-1][${S}[${sp}]]`,
+        `${sp}=${sp}-1`,
+        `end`,
+      ];
+    case Op.SETTAB:
+      return [
+        `do`,
+        `${S}[${sp}-3}][${S}[${sp}-2}]=${S}[${sp}]`,
+        `${sp}=${sp}-3`,
+        `end`,
+      ];
+    case Op.ADD:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]${pb?`+${F.PB}`:``}+${S}[${sp}+1]`, `end`];
+    case Op.SUB:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]${pb?`-${F.PB}`:``}-${S}[${sp}+1]`, `end`];
+    case Op.MUL:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]*${S}[${sp}+1]`, `end`];
+    case Op.DIV:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]/${S}[${sp}+1]`, `end`];
+    case Op.MOD:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]%${S}[${sp}+1]`, `end`];
+    case Op.POW:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]^${S}[${sp}+1]`, `end`];
+    case Op.CONCAT: {
+      const count = `(_a${memberIndex})`;
+      return [
+        `do`,
+        `local ${F.acc}=${S}[${sp}-${count}+1]`,
+        `for ${F.i}=${sp}-${count}+2,${sp} do ${F.acc}=${F.acc}..${S}[${F.i}] end`,
+        `${sp}=${sp}-${count}+1`,
+        `${S}[${sp}]=${F.acc}`,
+        `end`,
+      ];
+    }
+    case Op.EQ:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]==${S}[${sp}+1]`, `end`];
+    case Op.LT:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]<${S}[${sp}+1]`, `end`];
+    case Op.LE:
+      return [`do`, `${sp}=${sp}-1`, `${S}[${sp}]=${S}[${sp}]<=${S}[${sp}+1]`, `end`];
+    case Op.NOT:
+      return [`${S}[${sp}]=not ${S}[${sp}]`];
+    case Op.LEN:
+      return [`${S}[${sp}]=#${S}[${sp}]`];
+    case Op.NEG:
+      return [`${S}[${sp}]=-${S}[${sp}]`];
+    case Op.JMP:
+      return [`${F.pc}=${F.pc}+${b}`];
+    case Op.JF:
+      return [
+        `do`,
+        `if not ${S}[${sp}] then ${F.pc}=${F.pc}+${b} end`,
+        `${sp}=${sp}-1`,
+        `end`,
+      ];
+    case Op.JT:
+      return [
+        `do`,
+        `if ${S}[${sp}] then ${F.pc}=${F.pc}+${b} end`,
+        `${sp}=${sp}-1`,
+        `end`,
+      ];
+    case Op.POP:
+      return [`${sp}=${sp}-${a}`];
+    case Op.SWAP:
+    case Op.DUP_ROT:
+      return [
+        `local ${F.t}=${S}[${sp}]`,
+        `${S}[${sp}]=${S}[${sp}-1]`,
+        `${S}[${sp}-1]=${F.t}`,
+      ];
+    case Op.DUP:
+      return [`${sp}=${sp}+1`, `${S}[${sp}]=${S}[${sp}-1]`];
+    case Op.ADJUST_ONE:
+      return [`if ${F.mr}>1 then ${sp}=${sp}-${F.mr}+1 end`, `${F.mr}=-1`];
+    case Op.CALL: {
+      const narg = `${a}<0 and (${F.mr}<0 and 0 or ${F.mr}) or ${a}`;
+      return [
+        `do`,
+        `${F.narg}=${narg}`,
+        `${F.so}=0`,
+        `${F.fpos}=${sp}-${F.narg}-1`,
+        `${F.fn}=${S}[${F.fpos}]`,
+        `local ${F.R}`,
+        `if type(${F.fn})=='table' and ${F.fn}.pid then`,
+        `local ${F.AA}={n=${F.narg}}`,
+        `for ${F.i}=1,${F.narg} do ${F.AA}[${F.i}]=${S}[${F.fpos}+${F.i}] end`,
+        `${F.R}=${N.run}(${F.fn}.pid,${F.fn}.env,${F.fn}.uv,${F.AA},${F.escf})`,
+        `else`,
+        `${F.R}=${N.pk}(${F.fn}(${N.ur}(${S},${F.fpos}+1,${sp})))`,
+        `end`,
+        `if ${b}==0 then`,
+        `${sp}=${F.fpos}-1`,
+        `${F.mr}=-1`,
+        `elseif ${b}==-1 then`,
+        `${F.rn}=${F.R}.n`,
+        `for ${F.i}=1,${F.rn} do ${S}[${F.fpos}+${F.i}-1]=${F.R}[${F.i}] end`,
+        `${sp}=${F.fpos}+${F.rn}-1`,
+        `${F.mr}=${F.rn}`,
+        `else`,
+        `for ${F.i}=1,${b} do ${S}[${F.fpos}+${F.i}-1]=${F.R}[${F.i}] end`,
+        `${sp}=${F.fpos}+${b}-1`,
+        `${F.mr}=-1`,
+        `end`,
+        `end`,
+      ];
+    }
+    default:
+      // Fallback: emit a no-op body for unhandled operand-bearing ops
+      return [`do local _om${memberIndex}=1+1 end`];
   }
 }
 

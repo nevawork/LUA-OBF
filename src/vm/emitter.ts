@@ -67,8 +67,8 @@ export interface EmitOptions {
   fieldKeys: InstrFieldKeys;
   /** rolling-key opcode encoding params (Phase 2); required */
   opencode: OpenCodeParams;
-  /** Phase 4 superoperators (opt-in): fused specs with assigned phys values */
-  fused?: Array<{ phys: number; members: Op[] }>;
+  /** Phase 4/2 superoperators (opt-in): fused specs with assigned phys values */
+  fused?: Array<{ phys: number; members: Op[]; operands?: [number, number, number][] }>;
   /** Phase 5 ciphertext-integrity windows over the ENCRYPTED blob */
   blobSlices?: BlobSlice[];
   /** APEX W1.3: root invocation hidden behind a randomized metamethod trap */

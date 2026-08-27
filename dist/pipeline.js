@@ -19,6 +19,7 @@ const dispatch_check_1 = require("./testing/dispatch-check");
 const contracts_1 = require("./engine/triple/contracts");
 const opencode_1 = require("./engine/runtime/opencode");
 const superops_1 = require("./engine/vm/superops");
+const superops_mega_1 = require("./engine/vm/superops-mega");
 /** stable canonical JSON (sorted object keys) for tagging; exported for verifier tooling */
 function canonicalManifestJson(v) {
     if (Array.isArray(v))
@@ -60,11 +61,27 @@ function protect(opts) {
     if (opts.constShuffle === true) {
         (0, constant_shuffle_1.obfuscateConstants)(chunk, rng);
     }
-    // ---- Phase 4 superoperator fusion (logical space, pre-permutation) ----
+    // ---- Phase 4/2: superoperator fusion (logical space, pre-permutation) ----
     // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
     // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
+    //
+    // Phase 2 mega mode: 60–80 instruction windows with operand-bearing fusion,
+    // followed by recursive mini fusion (2–15 instructions) up to the nesting
+    // bound. This creates a hierarchical fusion lattice that exponentially
+    // increases static-analysis complexity.
     let fusedSpecs = [];
-    if (opts.superops !== false) {
+    let megaFusedSpecs = [];
+    const useMega = opts.megaSuperops === true;
+    const useBaseSuperops = opts.superops !== false && !useMega;
+    if (useMega) {
+        megaFusedSpecs = (0, superops_mega_1.fuseMegaSuperOps)(root, rng, {
+            megaWindow: [60, 80],
+            miniWindow: [2, 15],
+            recursionBound: opts.superopNesting ?? 3,
+            maxFused: 200,
+        });
+    }
+    else if (useBaseSuperops) {
         fusedSpecs = (0, superops_1.fuseSuperOps)(root, rng);
     }
     const seeds = [
@@ -101,14 +118,23 @@ function protect(opts) {
     // decoy band (100..~110), well inside the opcode ring (<65536)
     const fusedForEmit = [];
     const fusedIdToPhys = new Map();
-    if (fusedSpecs.length > 0) {
+    const allFusedSpecs = [...fusedSpecs, ...megaFusedSpecs];
+    if (allFusedSpecs.length > 0) {
         const usedPhys = new Set(perm);
-        for (const spec of fusedSpecs) {
+        for (const spec of allFusedSpecs) {
             let phys = 500 + rng.int(40000);
             while (usedPhys.has(phys))
                 phys = 500 + rng.int(40000);
             usedPhys.add(phys);
-            fusedForEmit.push({ phys, members: spec.members });
+            const entry = {
+                phys,
+                members: spec.members,
+            };
+            const megaSpec = spec;
+            if (megaSpec.operands && megaSpec.operands.length > 0) {
+                entry.operands = megaSpec.operands.map((ins) => [ins[1], ins[2], ins[3]]);
+            }
+            fusedForEmit.push(entry);
             fusedIdToPhys.set(spec.id, phys);
         }
         // Apply physical values to fused ops in the bytecode
