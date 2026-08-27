@@ -215,6 +215,12 @@ function protect(opts) {
         }
     }
     const usedPhysicalOps = new Set(opEToPhys.values());
+    if (process.env.NEVAHEX_DUMP_LUA) {
+        try {
+            require("fs").writeFileSync(process.env.NEVAHEX_DUMP_LUA, emitted.lua);
+        }
+        catch { }
+    }
     const check = (0, dispatch_check_1.verifyGeneratedDispatch)(emitted.lua, perm, usedPhysicalOps, {
         encoded: true,
         extraReal: fusedForEmit.map((s) => s.phys),

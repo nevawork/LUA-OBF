@@ -339,6 +339,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     }
   }
   const usedPhysicalOps = new Set<number>(opEToPhys.values());
+  if (process.env.NEVAHEX_DUMP_LUA) {
+    try { require("fs").writeFileSync(process.env.NEVAHEX_DUMP_LUA, emitted.lua); } catch {}
+  }
   const check = verifyGeneratedDispatch(emitted.lua, perm, usedPhysicalOps, {
     encoded: true,
     extraReal: fusedForEmit.map((s) => s.phys),
