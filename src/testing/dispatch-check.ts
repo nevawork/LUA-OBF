@@ -65,11 +65,11 @@ export function verifyGeneratedDispatch(
   const problems: string[] = [];
 
   // ---- extract chain arms ----
-  // literal may contain one nesting level: ((15+256)-256)
-  const LIT = String.raw`\((?:[^()]|\([^()]*\))*\)`;
+  // literal may contain up to two nesting levels: ((15+256)-256)
+  const LIT = String.raw`\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)`;
   const arms: { litRaw: string; litVal: number | string; gate: string }[] = [];
   const re = new RegExp(
-    `(elseif|if) op==(${LIT}|[\\d*+\\-/ ]+?)( and \\S.*)? then`,
+    `(elseif|if) op==(${LIT}|[\\d*+\\-/() ]+?)( and \\S*?)? then`,
     "g",
   );
   let m: RegExpExecArray | null;
