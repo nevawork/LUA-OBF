@@ -479,6 +479,104 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
   ]);
   add(Op.ESCAPE, [`error(${ctx.escapeGarbageLit}.."::ESCAPE-OP="..tostring(op))`]);
 
+  // Phase 6: Luau bytecode extensions (Roblox Luau dialect)
+  add(Op.GETVARARGS, [
+    `do`,
+    `local ${F.base}=${fA()}`,
+    `local ${F.nv}=${fC()}`,
+    `if ${F.nv}<0 then ${F.nv}=(${F.mr}<0 and 0 or ${F.mr}) end`,
+    `for ${F.i}=1,${F.nv} do`,
+    `  ${F.sp}=${F.sp}+1`,
+    `  ${F.S}[${F.sp}]=(${F.base}+${F.i}-1)>=0 and ${F.cells}[${F.base}+${F.i}-1].v or nil`,
+    `end`,
+    `end`,
+  ]);
+  add(Op.GETIMPORT, [
+    `do`,
+    `local ${F.impIdx}=${fC()}`,
+    `local ${F.modName}=${N.cv}(${F.pid},${F.impIdx})`,
+    `if ${F.impIdx}<#${N.protos}[1].consts then`,
+    `  ${F.sp}=${F.sp}+1`,
+    `  ${F.S}[${F.sp}]=${N.run}(0,${F.env},${N.protos}[1].uv,{n=1,${F.modName}},${F.escf})`,
+    `else`,
+    `  ${F.sp}=${F.sp}+1`,
+    `  ${F.S}[${F.sp}]=nil`,
+    `end`,
+    `end`,
+  ]);
+  add(Op.FASTCALL, [
+    `do`,
+    `local ${F.narg}=${fA()}`,
+    `local ${F.nres}=${fC()}`,
+    `local ${F.t}=${F.pc}+1`,
+    `${F.pc}=${F.t}`,
+    `${F.sp}=${F.sp}+${F.narg}`,
+    `${F.fn}=${F.S}[${F.sp}-${F.narg}]`,
+    `local ${F.R}=${N.pk}(${F.fn}(${N.ur}(${F.S},${F.sp}-${F.narg}+1,${F.sp})))`,
+    `if ${F.nres}==0 then ${F.sp}=${F.sp}-${F.narg}-1 ${F.mr}=-1`,
+    `elseif ${F.nres}==-1 then ${F.rn}=${F.R}.n for ${F.i}=1,${F.rn} do ${F.S}[${F.sp}-${F.narg}+${F.i}]=${F.R}[${F.i}] end ${F.sp}=${F.sp}-${F.narg}+${F.rn}-1 ${F.mr}=${F.rn}`,
+    `else ${F.rn}=${F.nres} for ${F.i}=1,${F.rn} do ${F.S}[${F.sp}-${F.narg}+${F.i}]=${F.R}[${F.i}] end ${F.sp}=${F.sp}-${F.narg}+${F.rn}-1 ${F.mr}=${F.rn} end`,
+    `end`,
+  ]);
+  add(Op.FASTCALL1, [
+    `do`,
+    `local ${F.arg1}=${F.S}[${F.sp}]`,
+    `${F.pc}=${F.pc}+1`,
+    `${F.fn}=${F.S}[${F.sp}-1]`,
+    `local ${F.R}=${N.pk}(${F.fn}(${F.arg1}))`,
+    `${F.sp}=${F.sp}-2+${F.R}.n`,
+    `for ${F.i}=1,${F.R}.n do ${F.S}[${F.sp}-${F.R}.n+${F.i}]=${F.R}[${F.i}] end`,
+    `${F.mr}=${F.R}.n`,
+    `end`,
+  ]);
+  add(Op.FASTCALL2, [
+    `do`,
+    `local ${F.arg1}=${F.S}[${F.sp}-1]`,
+    `local ${F.arg2}=${F.S}[${F.sp}]`,
+    `${F.pc}=${F.pc}+1`,
+    `${F.fn}=${F.S}[${F.sp}-2]`,
+    `local ${F.R}=${N.pk}(${F.fn}(${F.arg1},${F.arg2}))`,
+    `${F.sp}=${F.sp}-3+${F.R}.n`,
+    `for ${F.i}=1,${F.R}.n do ${F.S}[${F.sp}-${F.R}.n+${F.i}]=${F.R}[${F.i}] end`,
+    `${F.mr}=${F.R}.n`,
+    `end`,
+  ]);
+  add(Op.FASTCALL2K, [
+    `do`,
+    `local ${F.arg1}=${F.S}[${F.sp}-1]`,
+    `local ${F.arg2}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
+    `${F.pc}=${F.pc}+1`,
+    `${F.fn}=${F.S}[${F.sp}-2]`,
+    `local ${F.R}=${N.pk}(${F.fn}(${F.arg1},${F.arg2}))`,
+    `${F.sp}=${F.sp}-3+${F.R}.n`,
+    `for ${F.i}=1,${F.R}.n do ${F.S}[${F.sp}-${F.R}.n+${F.i}]=${F.R}[${F.i}] end`,
+    `${F.mr}=${F.R}.n`,
+    `end`,
+  ]);
+  add(Op.FORGPREP, [
+    `do`,
+    `local ${F.base}=${fA()}`,
+    `local ${F.off}=${fB(Op.FORGPREP)}`,
+    `${F.cells}[${F.base}].v=${F.cells}[${F.base}].v`,
+    `${F.cells}[${F.base}+1].v=${F.cells}[${F.base}+1].v`,
+    `${F.cells}[${F.base}+2].v=${F.cells}[${F.base}+2].v`,
+    `${F.pc}=${F.pc}+${F.off}`,
+    `end`,
+  ]);
+  add(Op.FORGLOOP, [
+    `do`,
+    `local ${F.base}=${fA()}`,
+    `local ${F.off}=${fB(Op.FORGLOOP)}`,
+    `local ${F.nv}=${fC()}`,
+    `local ${F.rs}=${N.pk}(${F.cells}[${F.base}].v(${F.cells}[${F.base}+1].v,${F.cells}[${F.base}+2].v))`,
+    `if ${F.rs}[1]~=nil then`,
+    `  ${F.pc}=${F.pc}+${F.off}`,
+    `  ${F.cells}[${F.base}+2].v=${F.rs}[1]`,
+    `  for ${F.i}=1,${F.nv} do ${F.cells}[${F.base}+2+${F.i}]={v=${F.rs}[${F.i}]} end`,
+    `end`,
+    `end`,
+  ]);
+
   // Per-build handler synthesis (spec Phase 1, DPA defense): decoy arms with
   // literals outside the physical opcode range — never dispatched. Phase 4:
   // they use always-false MBA guards and nested no-op bodies to resist

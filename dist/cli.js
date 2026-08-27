@@ -23,7 +23,7 @@ switch (cmd) {
     case "protect": {
         const input = args[0];
         if (!input)
-            fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--no-anti-emu] [--no-flatten] [--no-mba] [--no-superops] [--no-mm-traps] [--no-keyless] [--dyn-load] [--emit-secrets] [--reg-obfuscate] [--const-shuffle] [--mega-superops] [--superop-nesting <n>] [--stage2]");
+            fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--no-anti-emu] [--no-flatten] [--no-mba] [--no-superops] [--mega-superops] [--superop-nesting <n>] [--no-mm-traps] [--no-keyless] [--reg-obfuscate] [--const-shuffle] [--mba-database] [--factorization-keys] [--dual-vm] [--direct-threaded] [--anti-luahunt] [--path-explosion] [--self-modifying] [--luau-vm] [--luau-anti-deobf] [--no-luau-optimize] [--dyn-load] [--emit-secrets] [--stage2]");
         let source;
         try {
             source = (0, fs_1.readFileSync)(input, "utf8");
@@ -57,6 +57,16 @@ switch (cmd) {
             keyless: !hasFlag("--no-keyless"),
             regObfuscate: hasFlag("--reg-obfuscate"),
             constShuffle: hasFlag("--const-shuffle"),
+            mbaDatabase: hasFlag("--mba-database"),
+            factorizationKeys: hasFlag("--factorization-keys"),
+            dualVm: hasFlag("--dual-vm"),
+            directThreaded: hasFlag("--direct-threaded"),
+            antiLuahunt: hasFlag("--anti-luahunt"),
+            pathExplosion: hasFlag("--path-explosion"),
+            selfModifying: hasFlag("--self-modifying"),
+            luauVm: hasFlag("--luau-vm"),
+            luauAntiDeobfuscation: hasFlag("--luau-anti-deobf"),
+            luauOptimize: !hasFlag("--no-luau-optimize"),
             stage2: hasFlag("--stage2"),
         });
         const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
@@ -131,6 +141,16 @@ Usage:
       --no-keyless              disable keyless schedule (enabled by default)
       --reg-obfuscate           insert copy NOPs, permute register assignments
       --const-shuffle           randomize constant order + type confusion
+      --mba-database            use precomputed MBA database (5,000+ expressions)
+      --factorization-keys      enable factorization-based key encoding (SMT-resistant)
+      --dual-vm                 use separate deserializer VM (two-VM architecture)
+      --direct-threaded         inline dispatch in handlers (no central loop)
+      --anti-luahunt            enable anti-LuaHunt countermeasures
+      --path-explosion          enable path explosion opaque predicates (defeats SMT)
+      --self-modifying          enable self-modifying handler code
+      --luau-vm                 enable Luau bytecode virtualization (Roblox Luau)
+      --luau-anti-deobf        enable Luau anti-deobfuscation (decompiler resistance)
+      --no-luau-optimize       disable Luau bytecode optimization
       --dyn-load                optional string.dump+load path (non-luau)
       --emit-secrets            include nonce+seeds in the manifest (holder
                                 mode; default manifests carry NO key material)

@@ -86,6 +86,16 @@ export interface EmitOptions {
    * stability: passing it is now a silent no-op.
    */
   stage2?: boolean;
+  /**
+   * Phase 4: enable dual-VM mode. Uses a separate deserializer VM to decode
+   * the blob instead of inline decode loop.
+   */
+  dualVm?: boolean;
+  /**
+   * Phase 4: enable direct-threaded dispatch. Each handler inlines dispatch
+   * to the next handler.
+   */
+  directThreaded?: boolean;
 }
 
 export interface EmitResult {

@@ -52,6 +52,15 @@ export enum Op {
   GFORPREP = 48, // A,B,C    A=base slot, B=rel exit, C=#ctrl vars; pops f,s,ctrl
   GFORLOOP = 49, // A,B,C    A=base slot, B=rel back to body, C=#ctrl vars
   ESCAPE = 50,   // A,B      reserved deopt valve: native escape[A] (never emitted in v2.1 core)
+  // Phase 6: Luau bytecode extensions (Roblox Luau dialect)
+  GETVARARGS = 51, // A       push varargs starting at A (Luau-style)
+  GETIMPORT = 52,  // A,B,C   import module: push consts[import_idx]
+  FASTCALL = 53,    // A,B,C   fast call: A=args, B=results, C=pc+1 (tail)
+  FASTCALL1 = 54,   // A,B,C   fast call with 1 arg
+  FASTCALL2 = 55,   // A,B,C   fast call with 2 args
+  FASTCALL2K = 56,  // A,B,C   fast call with 2 const args
+  FORGPREP = 57,    // A,B     generic for prep: A=base, B=rel exit
+  FORGLOOP = 58,    // A,B     generic for loop: A=base, B=rel back
 }
 
 export const OP_NAMES: Record<number, string> = Object.fromEntries(

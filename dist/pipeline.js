@@ -20,6 +20,13 @@ const contracts_1 = require("./engine/triple/contracts");
 const opencode_1 = require("./engine/runtime/opencode");
 const superops_1 = require("./engine/vm/superops");
 const superops_mega_1 = require("./engine/vm/superops-mega");
+const luau_compiler_1 = require("./engine/vm/luau-compiler");
+const luau_antideobfuscation_1 = require("./protection/luau-antideobfuscation");
+const luau_optimizer_1 = require("./engine/vm/luau-optimizer");
+const mba_database_1 = require("./transforms/mba-database");
+const mba_synthesizer_1 = require("./transforms/mba-synthesizer");
+const anti_luahunt_1 = require("./protection/anti-luahunt");
+const path_explosion_1 = require("./protection/path-explosion");
 /** stable canonical JSON (sorted object keys) for tagging; exported for verifier tooling */
 function canonicalManifestJson(v) {
     if (Array.isArray(v))
@@ -49,8 +56,28 @@ function protect(opts) {
     (0, transforms_1.injectOpaqueJunk)(chunk, opts.junkDensity ?? 0.12, rng);
     if (opts.mbaPlus !== false)
         (0, transforms_1.applyMbaPlus)(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
+    // ---- Phase 3: SMT-resistant MBA database ----
+    // Precompute the MBA database and optionally generate factorization keys.
+    // The database provides 5,000+ unique MBA expressions across 48 classes.
+    const mbaDb = (0, mba_database_1.getMbaDatabase)();
+    const factorizationSemiprime = opts.factorizationKeys === true ? (0, mba_synthesizer_1.generateSemiprime)(rng) : 0;
+    // ---- Phase 5: anti-LuaHunt countermeasures ----
+    // Breaks LuaHunt's assumptions: no stable opcode→semantics mapping,
+    // non-deterministic outputs, gadget detection, format mutation.
+    const antiLuahuntHandlers = opts.antiLuahunt === true
+        ? (0, anti_luahunt_1.generatePolymorphicHandlers)(rng)
+        : new Map();
+    const gadgetDetectors = opts.antiLuahunt === true
+        ? (0, anti_luahunt_1.generateGadgetDetection)(rng)
+        : [];
+    const pathExplosionPredicates = opts.pathExplosion === true
+        ? (0, anti_luahunt_1.generatePathExplosionPredicates)(rng)
+        : [];
+    const selfModifyingSnippets = opts.selfModifying === true
+        ? (0, path_explosion_1.generateSelfModifyingCode)(rng)
+        : [];
     // ---- Phase V: compile to VM bytecode ----
-    const root = (0, compiler_1.compileChunk)(chunk);
+    let root = (0, compiler_1.compileChunk)(chunk);
     // ---- Phase 1: register allocation obfuscation (post-compilation) ----
     // Inserts copy NOPs, permutes register assignments, splits live ranges.
     if (opts.regObfuscate === true) {
@@ -101,8 +128,40 @@ function protect(opts) {
     const embeddedCipherLits = envProfile === "universal"
         ? null
         : (0, envkeying_1.bakeProfileSeeds)([seeds[0], seeds[1]], envProfile);
+    // ---- Phase 6: Luau bytecode virtualization ----
+    // When target is Luau or luauVm is enabled, use Luau-specific compilation
+    // to generate Luau-optimized bytecode with fast calls, generic for loops, etc.
+    if (opts.luauVm === true || envProfile === "luau") {
+        const luauResult = (0, luau_compiler_1.compileLuau)(chunk, { optimize: true, fastCalls: true, genericFor: true });
+        // Use the Luau-compiled protos instead of the base compilation
+        root = luauResult.protos[0];
+        // Apply Luau anti-deobfuscation if enabled
+        if (opts.luauAntiDeobfuscation === true) {
+            const antiDeobfOpts = {
+                decompilerResistance: true,
+                signatureMasking: true,
+                envFingerprint: true,
+                typeObfuscation: true,
+                instanceVirtualization: true,
+            };
+            root = (0, luau_antideobfuscation_1.applyLuauAntiDeobfuscation)(root, rng, antiDeobfOpts);
+        }
+        // Apply Luau bytecode optimization if enabled
+        if (opts.luauOptimize !== false) {
+            const optimizeOpts = {
+                peephole: true,
+                constantFolding: true,
+                deadCodeElimination: true,
+                instructionCombining: true,
+                maxPasses: 3,
+            };
+            root = (0, luau_optimizer_1.optimizeLuauBytecode)(root, optimizeOpts);
+        }
+    }
     // ---- physical opcode permutation applied in-memory ----
-    const logicalCount = Object.keys(opcodes_1.Op).filter((x) => isNaN(Number(x))).length;
+    const baseLogicalCount = 51; // base ISA: MOVE(0) .. ESCAPE(50)
+    const luauLogicalCount = opts.luauVm === true || envProfile === "luau" ? 8 : 0; // GETVARARGS..FORGLOOP
+    const logicalCount = baseLogicalCount + luauLogicalCount;
     const perm = rng.shuffle(Array.from({ length: logicalCount }, (_, i) => i));
     const renumber = (p) => {
         for (const ins of p.code) {
@@ -264,6 +323,8 @@ function protect(opts) {
         mmTraps: opts.mmTraps !== false,
         keylessPool,
         stage2: opts.stage2 === true,
+        dualVm: opts.dualVm === true,
+        directThreaded: opts.directThreaded === true,
     });
     // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
     // The decoded representation's q[0] is opE (rolling-key encoded). The
@@ -319,6 +380,9 @@ function protect(opts) {
         layerSeals,
         watermarkLen: wmLen,
         watermarkCrc16: wmCrc,
+        // Phase 3: MBA database stats
+        mbaStats: opts.mbaDatabase === true ? (0, mba_database_1.getMbaStats)() : undefined,
+        factorizationEnabled: opts.factorizationKeys === true,
     };
     const auth = (0, prng_1.hmacSha256)(nonce, Buffer.from(canonicalManifestJson(authPayload), "utf8")).toString("hex");
     const manifest = {
