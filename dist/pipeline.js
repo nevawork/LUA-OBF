@@ -9,6 +9,8 @@ const opcodes_1 = require("./vm/opcodes");
 const serializer_1 = require("./vm/serializer");
 const emitter_1 = require("./vm/emitter");
 const transforms_1 = require("./transforms");
+const constant_shuffle_1 = require("./transforms/constant-shuffle");
+const register_obfuscation_1 = require("./transforms/register-obfuscation");
 const prng_1 = require("./gen/prng");
 const antitamper_1 = require("./protection/antitamper");
 const envkeying_1 = require("./protection/envkeying");
@@ -48,6 +50,16 @@ function protect(opts) {
         (0, transforms_1.applyMbaPlus)(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
     // ---- Phase V: compile to VM bytecode ----
     const root = (0, compiler_1.compileChunk)(chunk);
+    // ---- Phase 1: register allocation obfuscation (post-compilation) ----
+    // Inserts copy NOPs, permutes register assignments, splits live ranges.
+    if (opts.regObfuscate === true) {
+        (0, register_obfuscation_1.obfuscateRegisters)(root, rng);
+    }
+    // ---- Phase 1: constant pool obfuscation (AST-level) ----
+    // Type confusion: numbers→table lengths, strings→MBA expressions
+    if (opts.constShuffle === true) {
+        (0, constant_shuffle_1.obfuscateConstants)(chunk, rng);
+    }
     // ---- Phase 4 superoperator fusion (logical space, pre-permutation) ----
     // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
     // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
@@ -88,6 +100,7 @@ function protect(opts) {
     // fused physical band: unique values ≥500, far above the base ISA and the
     // decoy band (100..~110), well inside the opcode ring (<65536)
     const fusedForEmit = [];
+    const fusedIdToPhys = new Map();
     if (fusedSpecs.length > 0) {
         const usedPhys = new Set(perm);
         for (const spec of fusedSpecs) {
@@ -96,7 +109,18 @@ function protect(opts) {
                 phys = 500 + rng.int(40000);
             usedPhys.add(phys);
             fusedForEmit.push({ phys, members: spec.members });
+            fusedIdToPhys.set(spec.id, phys);
         }
+        // Apply physical values to fused ops in the bytecode
+        const applyFusedPhys = (p) => {
+            for (const ins of p.code) {
+                if (ins[0] >= superops_1.FUSED_ID_BASE && fusedIdToPhys.has(ins[0])) {
+                    ins[0] = fusedIdToPhys.get(ins[0]);
+                }
+            }
+            p.protos.forEach(applyFusedPhys);
+        };
+        applyFusedPhys(root);
     }
     // ---- Phase 2 dispatch-hardening material ----
     // rolling-key opcode encoder + physical set of jump ops (their B operand
@@ -155,6 +179,11 @@ function protect(opts) {
             i5: idx[4] + 1,
             i6: idx[5] + 1,
         };
+    }
+    // ---- Phase 1: constant pool shuffling (post-compilation, pre-serialization) ----
+    // Randomizes constant order and remaps instruction indices after compilation.
+    if (opts.constShuffle !== false) {
+        (0, constant_shuffle_1.shuffleConstantPool)(root, rng);
     }
     // ---- serialize & encrypt (wire v3.2: keyed records, split jumps, opE) ----
     const { plain, keys: fieldKeys } = (0, serializer_1.serializeProto)(root, wmRegion ?? undefined, {
@@ -223,10 +252,10 @@ function protect(opts) {
         let lrk = opencode ? (0, opencode_1.initialRk)(opencode, flat.indexOf(p) + 1) : 0;
         for (const ins of p.code) {
             const opE = ins[0];
-            const phys = (opE - lrk + 65536) % 65536;
+            const phys = opencode ? (0, opencode_1.decodeOp)(opE, lrk) : opE;
             opEToPhys.set(opE, phys);
             if (opencode)
-                lrk = (lrk + opencode.ainc) % 65536;
+                lrk = (0, opencode_1.stepRk)(opencode, lrk);
         }
     }
     const usedPhysicalOps = new Set(opEToPhys.values());

@@ -42,6 +42,50 @@ export interface DispatchCheckOptions {
   extraReal?: number[];
 }
 
+import { initialRk, stepRk, OPMOD } from "../engine/runtime/opencode";
+// Static contract check between the generated artifact's dispatch chain and
+// the serialized bytecode it must interpret. Catches any literal/permutation/
+// decode desync AT BUILD TIME with a precise diff, instead of a cryptic
+// runtime fallback error.
+//
+// Checks:
+//  1. Every physical opcode used by decoded code has a matching chain arm.
+//  2. Every REAL chain-arm literal evaluates to a permuted opcode value.
+//  3. Every gated test's MBA gate is a tautology over representative counters
+//     (checked for ALL arms, real and decoy alike).
+//  4. Every perm value is covered by exactly one REAL arm (no lost/duplicated
+//     handlers).
+//
+// Phase 2 encoded mode (opts.encoded): bytecode opcodes are rolling-key
+// encoded (opE), so arm literals still compare against DECODED physical
+// values while the wire never contains them. Structural checks then also
+// require: the per-fetch decode/step lines (`…+65536)%65536`) and at least
+// one range router (`op<=<n>`) from the binary-search tree.
+//
+// Decoy classification (spec Phase 1, DPA defense): builds intentionally
+// append 2..5 synthesized never-matched DECOY arms whose literals lie outside
+// the physical opcode permutation space. After extracting all arms and
+// evaluating their literals, an arm is classified REAL iff its evaluated
+// literal value is in the set of perm values; otherwise it is a DECOY.
+// Decoys are exempt from permutation coverage but must not collide with any
+// real physical opcode value nor with another decoy literal.
+
+export interface DispatchCheckResult {
+  ok: boolean;
+  problems: string[];
+}
+
+export interface DispatchCheckOptions {
+  /** wire v3.2: opcodes stored rolling-key encoded; verify structural markers */
+  encoded?: boolean;
+  /**
+   * Phase 4: physical values of fused superop arms — REAL arms living
+   * outside the base permutation space. Coverage/collision rules extend to
+   * them exactly as if they were perm values.
+   */
+  extraReal?: number[];
+}
+
 function evalNum(expr: string): number | string {
   try {
     // eslint-disable-next-line no-new-func

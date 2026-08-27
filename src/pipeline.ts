@@ -12,13 +12,15 @@ import {
   encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter,
   preserveTaskLibrary, applyMbaPlus,
 } from "./transforms";
+import { obfuscateConstants, shuffleConstantPool } from "./transforms/constant-shuffle";
+import { obfuscateRegisters } from "./transforms/register-obfuscation";
 import { BuildRng, randomNonce, sha256, hmacSha256 } from "./gen/prng";
 import { planIntegritySlices, planBlobSlices } from "./protection/antitamper";
 import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 import { verifyGeneratedDispatch } from "./testing/dispatch-check";
 import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
-import { makeOpenCodeParams, initialRk } from "./engine/runtime/opencode";
+import { makeOpenCodeParams, initialRk, stepRk, decodeOp } from "./engine/runtime/opencode";
 import { fuseSuperOps, FUSED_ID_BASE, FusedSpec } from "./engine/vm/superops";
 
 export interface ProtectOptions {
@@ -70,6 +72,23 @@ export interface ProtectOptions {
    * material, and the historical default wrote both to every manifest.
    */
   emitSecrets?: boolean;
+  /**
+   * Phase 1: register allocation obfuscation. Inserts copy NOPs, permutes
+   * register assignments, and splits live ranges to destroy the
+   * register→variable mapping used by deobfuscators.
+   */
+  regObfuscate?: boolean;
+  /**
+   * Phase 1: constant pool shuffling. Randomizes constant order and remaps
+   * instruction indices, combined with type confusion (numbers→table lengths,
+   * strings→MBA).
+   */
+  constShuffle?: boolean;
+  /**
+   * Phase 1: mutation engine intensity. Number of handler variants per opcode
+   * (default: 50, range: 10-200). Higher = more diversity, larger output.
+   */
+  mutationCount?: number;
 }
 
 /** public manifest fields covered by the authenticity tag */
@@ -163,6 +182,18 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // ---- Phase V: compile to VM bytecode ----
   const root = compileChunk(chunk);
 
+  // ---- Phase 1: register allocation obfuscation (post-compilation) ----
+  // Inserts copy NOPs, permutes register assignments, splits live ranges.
+  if (opts.regObfuscate === true) {
+    obfuscateRegisters(root, rng);
+  }
+
+  // ---- Phase 1: constant pool obfuscation (AST-level) ----
+  // Type confusion: numbers→table lengths, strings→MBA expressions
+  if (opts.constShuffle === true) {
+    obfuscateConstants(chunk, rng);
+  }
+
   // ---- Phase 4 superoperator fusion (logical space, pre-permutation) ----
   // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
   // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
@@ -206,6 +237,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // fused physical band: unique values ≥500, far above the base ISA and the
   // decoy band (100..~110), well inside the opcode ring (<65536)
   const fusedForEmit: Array<{ phys: number; members: Op[] }> = [];
+  const fusedIdToPhys = new Map<number, number>();
   if (fusedSpecs.length > 0) {
     const usedPhys = new Set<number>(perm);
     for (const spec of fusedSpecs) {
@@ -213,7 +245,18 @@ export function protect(opts: ProtectOptions): ProtectResult {
       while (usedPhys.has(phys)) phys = 500 + rng.int(40000);
       usedPhys.add(phys);
       fusedForEmit.push({ phys, members: spec.members });
+      fusedIdToPhys.set(spec.id, phys);
     }
+    // Apply physical values to fused ops in the bytecode
+    const applyFusedPhys = (p: import("./vm/opcodes").Proto): void => {
+      for (const ins of p.code) {
+        if (ins[0] >= FUSED_ID_BASE && fusedIdToPhys.has(ins[0])) {
+          ins[0] = fusedIdToPhys.get(ins[0])!;
+        }
+      }
+      p.protos.forEach(applyFusedPhys);
+    };
+    applyFusedPhys(root);
   }
 
   // ---- Phase 2 dispatch-hardening material ----
@@ -275,6 +318,12 @@ export function protect(opts: ProtectOptions): ProtectResult {
       i5: idx[4] + 1,
       i6: idx[5] + 1,
     };
+  }
+
+  // ---- Phase 1: constant pool shuffling (post-compilation, pre-serialization) ----
+  // Randomizes constant order and remaps instruction indices after compilation.
+  if (opts.constShuffle !== false) {
+    shuffleConstantPool(root, rng);
   }
 
   // ---- serialize & encrypt (wire v3.2: keyed records, split jumps, opE) ----
@@ -342,9 +391,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     let lrk = opencode ? initialRk(opencode, flat.indexOf(p) + 1) : 0;
     for (const ins of p.code) {
       const opE = ins[0];
-      const phys = (opE - lrk + 65536) % 65536;
+      const phys = opencode ? decodeOp(opE, lrk) : opE;
       opEToPhys.set(opE, phys);
-      if (opencode) lrk = (lrk + opencode.ainc) % 65536;
+      if (opencode) lrk = stepRk(opencode, lrk);
     }
   }
   const usedPhysicalOps = new Set<number>(opEToPhys.values());

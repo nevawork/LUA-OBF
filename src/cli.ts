@@ -24,7 +24,7 @@ function hasFlag(name: string): boolean {
 switch (cmd) {
   case "protect": {
     const input = args[0];
-    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--anti-emu] [--no-mba] [--dyn-load] [--emit-secrets]");
+    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--no-anti-emu] [--no-flatten] [--no-mba] [--no-superops] [--no-mm-traps] [--no-keyless] [--dyn-load] [--emit-secrets] [--reg-obfuscate] [--const-shuffle] [--stage2]");
     let source: string;
     try {
       source = readFileSync(input, "utf8");
@@ -52,6 +52,8 @@ switch (cmd) {
       superops: !hasFlag("--no-superops"),
       mmTraps: !hasFlag("--no-mm-traps"),
       keyless: !hasFlag("--no-keyless"),
+      regObfuscate: hasFlag("--reg-obfuscate"),
+      constShuffle: hasFlag("--const-shuffle"),
       stage2: hasFlag("--stage2"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
@@ -119,6 +121,8 @@ Usage:
       --no-superops             disable superoperator fusion (enabled by default)
       --no-mm-traps             disable metamethod trap (enabled by default)
       --no-keyless              disable keyless schedule (enabled by default)
+      --reg-obfuscate           insert copy NOPs, permute register assignments
+      --const-shuffle           randomize constant order + type confusion
       --dyn-load                optional string.dump+load path (non-luau)
       --emit-secrets            include nonce+seeds in the manifest (holder
                                 mode; default manifests carry NO key material)
