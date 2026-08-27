@@ -35,6 +35,111 @@ Direct evidence collected this turn:
 - **MoonSec V2/V3 die in 1 second** to public web deobfuscators + GitHub
   dumpers. The root causes are codified in the NEVER-list (Appendix B).
 
+### Adversarial research 2025-2026 (supersedes 2024 evidence)
+
+This section collects the additional attack-tool and academic evidence
+gathered August 2026 for the v3.0 hardening campaign. The 2024 evidence
+above stays valid; the new evidence is what makes v3.0 specifically
+stronger than Luraph v15 instead of only stronger than v11.
+
+**Luraph v15 — released August 11, 2026.** Direct from the v15 release
+notes and v15 documentation:
+- Two VM types: `OPAL` (default, balance) and `ONYX` (security-first)
+- Hybrid compilation pipeline (8 months of R&D)
+- Per-function attributes: `LPH_ATTRIBUTES(VM(ONYX), PRESET(SECURE))` etc.
+- `LPH_PRECHECK` macro: lets the user ship their own anti-tamper check
+  that gates the bytecode decryption key
+- `LPH_ENCNUM` with up to 8 per-key encryption for numeric constants
+- Optimized deserialization (3x faster on large files)
+- Brand-new framework for non-virtualized code with non-standard syntax
+
+What v15 tells us: Luraph themselves moved to multiple VM types, added
+a user-supplied precheck that gates key delivery (significant shift —
+they recognize embedded keys always leak), made numeric-constant
+encryption more complex, and optimized the load path. v3.0 must match
+or exceed each of these.
+
+**Luraph v14.4+ initv4 bootstrapper — well understood by attackers.**
+The `mehCake/luraph-deobfuscator-py` project (Sep 2025, 33 stars) ships
+a pipeline that:
+- Detects the `init_fn(...)` bootstrap signature and the embedded
+  `script_key` (extractable from the artifact in 13ms)
+- Runs `initv4.lua` in a sandbox (Frida, LuaJIT wrapper, emulator, or
+  in-process) to extract the custom alphabet and opcode dispatch table
+- Decrypts the high-entropy bytecode blob with the key
+- Decrypts the per-proto constant pool via pattern-matching the
+  `string.char` masking sequence in the VM body
+- Pattern-matches the binary decision tree `if not(d < N) then ... else ... end`
+  in the dispatcher to lift handlers
+- Emits `.luac` for unluac decompilation
+
+The full pipeline runs in ~50ms on a v14.4.1 sample. v3.0 must break
+this pipeline at ≥3 stages simultaneously.
+
+**Academic: trace-free deobfuscation (Pushan, March 2026).**
+`Pushan: Trace-Free Deobfuscation of Virtualization-Obfuscated Binaries`
+(arXiv 2603.18355). Achieves 92-100% CFG isomorphism on VMProtect
+3.5.0 and Themida 3.1.1.0. Critical insight: Pushan doesn't execute
+the VM — it statically inverts it. v3.0 must be **hard to INVERT, not
+hard to SIMULATE**. Non-linear operations, dynamic opcode remapping,
+and state-bound dispatch are the right defenses; "too slow to run"
+is the wrong one.
+
+**Academic: anti-DSE opaque predicates (Cao et al., 2025).**
+`Advancing Code Obfuscation: Novel Opaque Predicate Techniques to
+Counter Dynamic Symbolic Execution` (CMC 2025). Introduces
+single-way-function predicates (hash + log transforms) and
+path-explosion predicates (Fibonacci/Collatz). Their predicates
+forced KLEE and Angr to time out on multiple benchmarks. v3.0's
+opaque predicates MUST use the single-way-function approach, not the
+`(x²-x) % 2 == 0` tautologies that Z3 folds in microseconds.
+
+**Academic: COVER (Wang et al., November 2024).**
+`COVER: Enhancing Virtualization Obfuscation Through Dynamic Bytecode
+Scheduling` (Computers & Security 2024). Non-deterministic mapping
+rules (which handler executes each opcode is randomized per-dispatch,
+not per-build). Even tracing the same program twice produces
+different execution paths. v3.0 can implement this in Lua via
+per-dispatch handler-table shuffling.
+
+**Academic: MBA-Blast + GAMBA (2021-2023).** The MBA identities
+NEVA HEX uses today (32-bit `x+y ≡ (x^y) + 2*(x&y)`) are FOLDABLE by
+public tools in seconds. v3.0 must use per-build-secret-bearing MBA
+identities that fold in MBA-Blast only to expressions still
+containing the secret.
+
+**Luraph v15 anti-patterns NEVA HEX should adopt:**
+- v15's `LPH_PRECHECK` analog: `precheck` option that ships a user-
+  supplied function; the bytecode decryption key is derived from
+  the precheck's return. A tampered precheck produces garbage.
+- v15's `LPH_ENCNUM` analog: per-constant keys sourced from
+  function calls (not the same `ck0+pid*7919` for every constant).
+- v15's per-function VM attribute system: a `vmType` option
+  (default = balance, secure = ONYX-like) lets the user pick their
+  security/performance trade.
+- v15's optimized deserialization: fusing the L1 helpers directly
+  into the decode body, removing the per-instruction call cost.
+
+**Per-build attack-defend map (current state vs v3.0 target):**
+
+| Attack (current deobfuscator can do) | v2.1 resistance | v3.0 resistance |
+|---|---|---|
+| Pattern-match the binary decision tree | NONE — 5 min | HIGH — handler table pre-bound, no chain to match |
+| Recover cipher state from 32 keystream bytes | NONE — 1 hour | HIGH — non-linear Feistel (≥3 rounds) |
+| Linear-algebra-fingerprint per-proto constant pool | NONE — 1 hour | MEDIUM — per-const salt makes per-const keys unique |
+| Z3-fold MBA identities | LOW — 1 sec | MEDIUM — per-build secret in the identity prevents folding |
+| Z3-fold opaque predicates | NONE — 1 sec | HIGH — hash-based preimage (2^64 brute force) |
+| Direct `decode()` call to extract the wire-format program | NONE — trivial | MEDIUM — precheck gates the key |
+| Hook native functions (pcall, print) | NONE — 1 hour | MEDIUM — native calls go through a per-proto proxy |
+| Patch a single byte to bypass integrity | NONE — 1 hour | HIGH — per-instruction Merkle hash aborts on patch |
+| Pattern-match the wire format (SoA protobuf) | NONE — 5 min | HIGH — variable-length, custom-encoded wire format |
+| LLM-assisted re-rolling of unrolled dispatchers | LOW — minutes | HIGH — threaded keyed loop + polymorphism density |
+
+The v3.0 design raises average deobfuscation time from "hours" to
+"weeks" and requires attacker tools to be extended with new VM-format
+plugins. The deobfuscator ecosystem that handles Luraph v14.x today
+would not handle NEVA HEX v3.0 without significant re-tooling.
+
 Luraph's current REAL advantages: (a) commercial patch-response time against
 new attack papers; (b) control over LPH! format updates. NEVAHEX can match
 (a) via continuous red-team growth and beat (b) by being structurally harder
