@@ -10,4 +10,5 @@ end
 local t = {1, 2, 3, 4, 5}
 local sum = 0
 for i, v in ipairs(t) do sum = sum + v end
-return fib(8) + fact(6) + sum
+local result = fib(8) + fact(6) + sum
+print("Result: " .. tostring(result))
