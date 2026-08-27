@@ -171,6 +171,7 @@ export function verifyGeneratedDispatch(
   const seenDecoy = new Set<number>();
   for (const a of decoyArms) {
     if (typeof a.litVal !== "number") continue;
+    if (Number.isNaN(a.litVal)) continue; // NaN decoys are intentionally undefined
     if (realSet.has(a.litVal)) {
       problems.push(`decoy literal '${a.litRaw}' collides with physical op ${a.litVal}`);
     }
