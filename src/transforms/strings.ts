@@ -51,11 +51,15 @@ export function encryptStrings(chunk: Chunk, rng?: { int(n: number): number }): 
     return ((count++ * 0x9e3779b1 + 0x51ed270b) >>> 3) | 1;
   };
 
-  let stringIdx = 0;
-  const scopeStack: number[] = [];
+let stringIdx = 0;
+   const scopeStack: number[] = [];
 
-  const enterScope = (): void => scopeStack.push(scopeStack.length);
-  const exitScope = (): void => scopeStack.pop();
+   const enterScope = (): void => {
+     scopeStack.push(scopeStack.length);
+   };
+   const exitScope = (): void => {
+     scopeStack.pop();
+   };
 
   const rewriteExpr = (e: Expr): Expr => {
     switch (e.kind) {
