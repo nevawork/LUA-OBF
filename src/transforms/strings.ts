@@ -15,6 +15,7 @@ export function resetStringsCounter(): void {
 export function encryptStrings(chunk: Chunk, rng?: { int(n: number): number }): void {
   const fnName = uid();
   let count = 0;
+  let hasStrings = false;
 
   const encOf = (value: string, key: number): string => {
     const bytes = Buffer.from(value, "latin1");
@@ -46,6 +47,7 @@ export function encryptStrings(chunk: Chunk, rng?: { int(n: number): number }): 
   const rewriteExpr = (e: Expr): Expr => {
     switch (e.kind) {
       case "String": {
+        hasStrings = true;
         const key = nextKey();
         return {
           kind: "Call",
@@ -141,7 +143,11 @@ export function encryptStrings(chunk: Chunk, rng?: { int(n: number): number }): 
   };
 
   // decryptor: additive inverse of encOf, spliced from genuine Lua source
-  const decChunk = parse(`
+  // Only injected if string literals were found — avoids dead-code overhead
+  // and the "unconditional helper" fingerprint that links builds without
+  // string literals to builds that do have them.
+  if (hasStrings) {
+    const decChunk = parse(`
 local ${fnName} = function(k, s)
   local r = ""
   local g = k % 2147483646
@@ -154,6 +160,7 @@ local ${fnName} = function(k, s)
   return r
 end
 `) as Chunk;
-  chunk.stats.unshift(...decChunk.stats);
+    chunk.stats.unshift(...decChunk.stats);
+  }
   rewriteBlock(chunk);
 }

@@ -73,17 +73,10 @@ function emitRuntime(opts) {
     // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
     const aeT0 = id();
     const aeOps = id();
-    // Phase 2: instruction-record field-key locals + rolling-key constants
-    const keyNames = { OP: id(), A: id(), B1: id(), B2: id(), C: id() };
-    const rk0N = id();
-    const astepN = id();
-    const aincN = id();
-    const rkN = id();
-    // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
-    const ck0N = id();
-    // Phase 5: cross-coupling flag — raised by silent-tier violations, shifts
-    // every subsequent constant-decryption stream
-    const cvwN = id();
+    // Phase 2: F object properties first — ensures their names are consumed
+    // by the IdAllocator so that rolling-key constants below receive
+    // disjoint names and cannot shadow or be shadowed by F.P0 / F.* locals
+    // in the run() function and related inner functions.
     const F = {
         P0: id(), K: id(), C: id(), S: id(), cells: id(), sp: id(), mr: id(),
         pc: id(), VA: id(), i: id(), tc: id(), six: id(), poison: id(), PB: id(),
@@ -96,6 +89,17 @@ function emitRuntime(opts) {
         j: id(), q: id(), wmv: id(), escf: id(), env: id(), upv: id(), pid: id(),
         args: id(), A: id(),
     };
+    // Phase 2: instruction-record field-key locals + rolling-key constants
+    const keyNames = { OP: id(), A: id(), B1: id(), B2: id(), C: id() };
+    const rk0N = id();
+    const astepN = id();
+    const aincN = id();
+    const rkN = id();
+    // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
+    const ck0N = id();
+    // Phase 5: cross-coupling flag — raised by silent-tier violations, shifts
+    // every subsequent constant-decryption stream
+    const cvwN = id();
     // ---------- physical opcode mapping (provided by pipeline) ----------
     const P = opts.perm;
     const lit = (op) => obf(P[op], rng);
