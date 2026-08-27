@@ -73,10 +73,16 @@ function emitRuntime(opts) {
     // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
     const aeT0 = id();
     const aeT1 = id();
+    const aeT2 = id();
+    const aeT3 = id();
+    const aeT4 = id();
     const aeOps = id();
     const aeAllocOps = id();
     const aeMemOps = id();
+    const aeArithOps = id();
+    const aeTotalOps = id();
     const aeHookFlag = id();
+    const aeEnvScore = id();
     // Phase 2: F object properties first — ensures their names are consumed
     // by the IdAllocator so that rolling-key constants below receive
     // disjoint names and cannot shadow or be shadowed by F.P0 / F.* locals
@@ -97,6 +103,7 @@ function emitRuntime(opts) {
     const keyNames = { OP: id(), A: id(), B1: id(), B2: id(), C: id() };
     const rk0N = id();
     const astepN = id();
+    const astep2N = id();
     const aincN = id();
     const rkN = id();
     // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
@@ -155,14 +162,16 @@ function emitRuntime(opts) {
     const s1 = (0, serializer_1.normSeed)(opts.cipherLiterals ? opts.cipherLiterals[1] : opts.seeds[1]);
     const icvLits = opts.integrity.map((s) => obf(s[3], rng)).join(",");
     const slicesLits = opts.integrity
-        .map((s, ix) => `{i=${ix + 1},p=${obf(s[0], rng)},a=${obf(s[1], rng)},b=${obf(s[2], rng)}}`)
+        .map((s, ix) => `{i=${ix + 1},p=${obf(s[0], rng)},a=${obf(s[1], rng)},b=${obf(s[2], rng)},salt=${obf(s[4] ?? 0, rng)}}`)
         .join(",");
     const pbiasLit = obf((0, serializer_1.normSeed)(opts.pbias), rng);
     // integrity tick names → dispatcher frame locals
+    const prevHash = id();
     const IN = {
         icv: N.icv, slices: N.slices, nic: N.nic, six: F.six,
         protos: N.protos, keys: keyNames,
         sl: F.sl, seg: F.seg, h: F.h, j: F.j, q: F.q, v: F.v,
+        prevHash, saltVar: F.poison,
     };
     // ---------- integrity + watermark tick (engine/runtime modules) ----------
     const tick = [];
@@ -171,12 +180,15 @@ function emitRuntime(opts) {
             poisonVar: F.poison, pbVar: F.PB, biasLit: pbiasLit, cvwVar: cvwN,
         });
         tick.push(...(0, integrity_1.emitIntegrityCheck)(IN, response));
+        // Phase 2: update prevHash after each integrity check for cross-slice correlation
+        tick.push(`local ${prevHash}=${F.h}`);
     }
     tick.push(...(0, carriers_1.emitCarrierTouch)({ wmVar: N.wm, wmiVar: N.wmi, sixVar: F.six, sinkVar: F.wmv }));
     // anti-emulation timing layer (os.clock required; caller disables for luau)
     const ae = (0, antiemulation_1.emitAntiEmulationBlock)(opts.antiEmulation ?? null, {
         tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB, aeT0, aeOps, cvwVar: cvwN,
         aeT1, aeAllocOps, aeMemOps, aeHookFlag,
+        aeArithOps, aeTotalOps, aeT2, aeT3, aeT4, aeEnvScore,
     });
     if (ae) {
         tick.push(`if os and os.clock then`);
@@ -206,13 +218,13 @@ function emitRuntime(opts) {
     body.push(` local ${N.tcn}=_ENV.table.concat`);
     // anti-emulation calibration state (upvalues of the closures below)
     if (opts.antiEmulation) {
-        body.push(` local ${aeT0},${aeT1},${aeOps},${aeAllocOps},${aeMemOps},${aeHookFlag}`);
+        body.push(` local ${aeT0},${aeT1},${aeT2},${aeT3},${aeT4},${aeOps},${aeAllocOps},${aeMemOps},${aeArithOps},${aeTotalOps},${aeHookFlag},${aeEnvScore}`);
     }
     // Phase 2: instruction-record field keys + rolling-key opcode constants
     body.push(` local ${keyNames.OP}=${obf(opts.fieldKeys.OP, rng)} ${keyNames.A}=${obf(opts.fieldKeys.A, rng)} ` +
         `${keyNames.B1}=${obf(opts.fieldKeys.B1, rng)} ${keyNames.B2}=${obf(opts.fieldKeys.B2, rng)} ` +
         `${keyNames.C}=${obf(opts.fieldKeys.C, rng)}`);
-    body.push(` local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ` +
+    body.push(` local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ${astep2N}=${obf(opts.opencode.astep2, rng)} ` +
         `${aincN}=${obf(opts.opencode.ainc, rng)}`);
     // Phase 3: constant-pool mask root — normalized seeds[3]; per-proto streams
     // derive as (CK0+pid*7919), mirroring serializer constSeed()
@@ -361,8 +373,8 @@ function emitRuntime(opts) {
     body.push(`   local nk=${N.uvar}()`);
     body.push(`   if nk>${runtimeBudget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
     body.push(`   pr.k={}`);
-    // per-proto rolling-key mirror for operand de-whitening
-    body.push(`   local lrk=(${rk0N}+${N.pid2}*${astepN})%65536`);
+    // per-proto rolling-key mirror for operand de-whitening (Phase 3 non-linear)
+    body.push(`   local lrk=(${rk0N}+${N.pid2}*${astepN}+${N.pid2}*${N.pid2}*${astep2N})%65536`);
     body.push(`   for i=1,nk do`);
     body.push(`    local mm=math.floor(lrk/3)%256`);
     body.push(`    local oe=${N.uvar}()`);
@@ -370,7 +382,7 @@ function emitRuntime(opts) {
     body.push(`    local b1w=${N.svar}()-mm`);
     body.push(`    local b2w=${N.svar}()+mm`);
     body.push(`    local cw=${N.svar}()-mm`);
-    body.push(`    lrk=(lrk+${aincN})%65536`);
+    body.push(`    lrk=(lrk+${aincN}+(lrk>>3))%65536`);
     body.push(`    pr.k[i]={[${keyNames.OP}]=oe,[${keyNames.A}]=aw,[${keyNames.B1}]=b1w,[${keyNames.B2}]=b2w,[${keyNames.C}]=cw}`);
     body.push(`   end`);
     body.push(`   ${N.protos}[${N.pid2}]=pr`);
@@ -414,8 +426,8 @@ function emitRuntime(opts) {
     body.push(`  for ${F.i}=1,${F.P0}.pn do ${F.cells}[${F.i}].v=${F.args}[${F.i}] end`);
     body.push(`  local ${F.tc},${F.six}=37,1`);
     body.push(`  local ${F.poison},${F.PB},${F.wmv}=false,0,0`);
-    // Phase 2: per-frame rolling key
-    body.push(`  local ${rkN}=(${rk0N}+${F.pid}*${astepN})%65536`);
+    // Phase 3: per-frame rolling key (non-linear Phase 3.1+3.2)
+    body.push(`  local ${rkN}=(${rk0N}+${F.pid}*${astepN}+${F.pid}*${F.pid}*${astep2N})%65536`);
     body.push(`  local ${F.rn},${F.narg},${F.so},${F.fpos},${F.fn}`);
     body.push(`  local ${F.ins},${F.op}`);
     body.push(`  while true do`);
@@ -425,7 +437,7 @@ function emitRuntime(opts) {
         body.push(`   ${cl}`);
     body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
     body.push(`   ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
-    body.push(`   ${rkN}=(${rkN}+${aincN})%65536`);
+    body.push(`   ${rkN}=(${rkN}+${aincN}+(${rkN}>>3))%65536`);
     body.push(`   ${F.pc}=${F.pc}+1`);
     for (const cl of chainLines)
         body.push(`   ${cl}`);
@@ -466,9 +478,9 @@ function emitRuntime(opts) {
     // ---- E1/E2: local & upvalue budgets — fail the BUILD, not the load ----
     const fileScopeNames = [
         ...Object.values(N),
-        aeT0, aeT1, aeOps, aeAllocOps, aeMemOps, aeHookFlag,
+        aeT0, aeT1, aeT2, aeT3, aeT4, aeOps, aeAllocOps, aeMemOps, aeArithOps, aeTotalOps, aeHookFlag, aeEnvScore,
         keyNames.OP, keyNames.A, keyNames.B1, keyNames.B2, keyNames.C,
-        rk0N, astepN, aincN, ck0N, cvwN, rkN,
+        rk0N, astepN, astep2N, aincN, ck0N, cvwN, rkN,
     ];
     const runText = body.join("\n");
     const budget = (0, localbudget_1.checkBudgets)(L.join("\n"), runText, fileScopeNames.filter((n) => !localbudget_1.DECODE_BLOCK_LOCALS.has(n)));

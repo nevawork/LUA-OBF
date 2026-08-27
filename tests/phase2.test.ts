@@ -26,6 +26,7 @@ describe("phase 2: opencode rolling-key codec", () => {
     const b = makeOpenCodeParams(rngFrom("p2b"));
     expect(a).toEqual(a2);
     expect(a.astep % 2).toBe(1);
+    expect(a.astep2 % 2).toBe(1);
     expect(a.ainc % 2).toBe(1);
     expect(JSON.stringify(b)).not.toBe(JSON.stringify(a)); // streams differ
   });
@@ -47,7 +48,14 @@ describe("phase 2: opencode rolling-key codec", () => {
   it("initialRk matches the manual formula", () => {
     const p = makeOpenCodeParams(rngFrom("init"));
     for (const pid of [1, 2, 51, 4096]) {
-      expect(initialRk(p, pid)).toBe(((p.rk0 + pid * p.astep) % OPMOD + OPMOD) % OPMOD);
+      expect(initialRk(p, pid)).toBe(((p.rk0 + pid * p.astep + pid * pid * p.astep2) % OPMOD + OPMOD) % OPMOD);
+    }
+  });
+
+  it("stepRk matches the non-linear manual formula", () => {
+    const p = makeOpenCodeParams(rngFrom("step"));
+    for (let rk = 0; rk < 65536; rk += 1234) {
+      expect(stepRk(p, rk)).toBe((rk + p.ainc + (rk >> 3)) % OPMOD);
     }
   });
 });

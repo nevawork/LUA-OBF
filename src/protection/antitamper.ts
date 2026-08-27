@@ -5,15 +5,16 @@
 // All arithmetic stays below 2^53 so doubles match bit-for-bit across JS/Lua.
 import { Proto } from "../engine/vm/opcodes";
 
-export type IntegritySlice = [number, number, number, number]; // [pid(1-based), from, to, expected]
+export type IntegritySlice = [number, number, number, number, number]; // [pid(1-based), from, to, expected, salt]
 
 /** multiplier chosen so h*mult stays within 2^53 for all h < 1e9, guaranteeing
  * bit-identical results between JS doubles and Lua 5.4 doubles in wasmoon. */
 const HASH_MULT = 31;
 
 /** mirror of the Lua-side slice hash */
-export function sliceHash(code: ReadonlyArray<[number, number, number, number]>, from: number, to: number): number {
+export function sliceHash(code: ReadonlyArray<[number, number, number, number]>, from: number, to: number, salt?: number): number {
   let h = 2166136261 % 1000000007;
+  if (salt !== undefined) h = (h + salt) % 1000000007;
   for (let j = from - 1; j < to; j++) {
     const q = code[j];
     h = (h * HASH_MULT + q[0] * 31 + q[1] * 7 + q[2] * 3 + q[3]) % 1000000007;
@@ -28,17 +29,21 @@ export function sliceHash(code: ReadonlyArray<[number, number, number, number]>,
  * Phase 1.3 hardening: default window shrinks from 48→32 and cap rises from
  * 32→64, raising tamper-detection density without changing the hash primitive
  * (sliceHash / rangeHash remain bit-identical so all pinned tests still pass).
+ *
+ * Phase 2 hardening: each slice gets a per-proto salt so tamper detection
+ * is no longer uniform across the artifact.
  */
 export function planIntegritySlices(flat: Proto[], window = 32, cap = 64): IntegritySlice[] {
   const all: IntegritySlice[] = [];
   const span = window * 4;
   for (let pid = 0; pid < flat.length; pid++) {
     const code = flat[pid].code;
+    const salt = ((pid + 1) * 7919 + 31) % 1000000007;
     for (let start = 0; start < code.length; start += span) {
       const a = start + 1;
       const b = Math.min(code.length, start + span);
       if (a > b) break;
-      all.push([pid + 1, a, b, sliceHash(code, a, b)]);
+      all.push([pid + 1, a, b, sliceHash(code, a, b, salt), salt]);
     }
   }
   if (all.length > cap) {

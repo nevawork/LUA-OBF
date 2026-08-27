@@ -109,8 +109,8 @@ describe("anti-tamper slice planning", () => {
     const { flat } = deserializeBlob(plain);
     const slices = planIntegritySlices(flat);
     expect(slices.length).toBeGreaterThan(0);
-    for (const [pid, a, b, h] of slices) {
-      expect(sliceHash(flat[pid - 1].code, a, b)).toBe(h);
+    for (const [pid, a, b, h, salt] of slices) {
+      expect(sliceHash(flat[pid - 1].code, a, b, salt)).toBe(h);
     }
   });
 });

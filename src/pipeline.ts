@@ -311,7 +311,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     tier,
     rng,
     blob,
-    integrity: cappedIntegrity.map((s) => s as [number, number, number, number]),
+    integrity: cappedIntegrity.map((s) => s as [number, number, number, number, number]),
     pbias,
     rootPid: 1,
     perm,
