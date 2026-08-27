@@ -222,6 +222,10 @@ function emitRuntime(opts) {
     if (opts.antiEmulation) {
         body.push(` local ${aeT0},${aeT1},${aeT2},${aeT3},${aeT4},${aeOps},${aeAllocOps},${aeMemOps},${aeArithOps},${aeTotalOps},${aeHookFlag},${aeEnvScore}`);
     }
+    // Phase 5: anti-debugging preamble — detect debug hooks and profilers
+    if (opts.antiEmulation) {
+        body.push(` if debug and debug.sethook then local _ad=0 local function _adh() _ad=_ad+1 end debug.sethook(_adh,"lr") local _gi=debug.getinfo and debug.getinfo(1) if _gi and (_gi.what=="C" or _ad>0) then ${F.poison}=true ${F.PB}=9999 end debug.sethook() end`);
+    }
     // Phase 2: instruction-record field keys + rolling-key opcode constants
     body.push(` local ${keyNames.OP}=${obf(opts.fieldKeys.OP, rng)} ${keyNames.A}=${obf(opts.fieldKeys.A, rng)} ` +
         `${keyNames.B1}=${obf(opts.fieldKeys.B1, rng)} ${keyNames.B2}=${obf(opts.fieldKeys.B2, rng)} ` +
@@ -434,6 +438,23 @@ function emitRuntime(opts) {
     body.push(`  local ${F.rn},${F.narg},${F.so},${F.fpos},${F.fn}`);
     body.push(`  local ${F.ins},${F.op}`);
     body.push(`  while true do`);
+    // Phase 5: randomized instruction scheduling — inject no-ops at
+    // build-specific intervals to break predictable dispatch rhythm.
+    if (rng.bool()) {
+        const schedN = id();
+        body.push(`   local ${schedN}=(${obf(rng.int(65536), rng)}+${F.pid}*7919)%65536`);
+        body.push(`   if ${schedN}<256 then local _nop=1+1 end`);
+    }
+    // Phase 5: opaque dispatch guard — always-true condition with MBA form
+    if (rng.bool()) {
+        const opaqueN = id();
+        body.push(`   local ${opaqueN}=((7*${F.tc}*${F.tc})+${F.tc})%2`);
+        body.push(`   if ${opaqueN}==0 then local _og=1+1 end`);
+    }
+    // Phase 5: anti-debugging check in dispatch loop
+    if (opts.antiEmulation) {
+        body.push(`   if debug and debug.getinfo then local _dg=debug.getinfo(1) if _dg and _dg.what=="C" then ${F.poison}=true ${F.PB}=1 end end`);
+    }
     body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
     body.push(`   if ${F.pc}<20 then _G.__VM_TRACE=(_G.__VM_TRACE or "").."PC="..tostring(${F.pc}).." RK="..tostring(${rkN}).." INS="..tostring(${F.ins}[${keyNames.OP}]).." A="..tostring(${F.ins}[${keyNames.A}]).." B="..tostring(${F.ins}[${keyNames.B1}]+${F.ins}[${keyNames.B2}]).." C="..tostring(${F.ins}[${keyNames.C}]).."\\n" end`);
     for (const cl of countdown)
@@ -442,6 +463,16 @@ function emitRuntime(opts) {
     body.push(`   ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
     body.push(`   ${rkN}=(${rkN}+${aincN}+(${rkN}>>3))%65536`);
     body.push(`   ${F.pc}=${F.pc}+1`);
+    // Phase 5: MBA-scrambled dispatch with computed jump
+    if (rng.bool()) {
+        const jumpTableN = id();
+        body.push(`   local ${jumpTableN}={}`);
+        for (let i = 0; i < 8; i++) {
+            const offset = rng.int(200) - 100;
+            body.push(`   ${jumpTableN}[${i}]=${F.pc}+${offset}`);
+        }
+        body.push(`   local _jt=${jumpTableN}[(${F.op}%8)] if _jt and _jt~=${F.pc} then ${F.pc}=_jt end`);
+    }
     for (const cl of chainLines)
         body.push(`   ${cl}`);
     body.push(`  end`);
