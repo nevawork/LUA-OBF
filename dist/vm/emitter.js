@@ -19,7 +19,14 @@ function luaEscape(bytes) {
     let out = '"';
     for (let i = 0; i < bytes.length; i++) {
         const b = bytes[i];
-        if (b >= 40 && b <= 126 && b !== 92)
+        // Inside a double-quoted Lua literal, `"` (34) and `\` (92) MUST be
+        // escaped; every other printable byte (40..126) is safe, the rest become
+        // decimal \ddd escapes (valid in Lua 5.1+).
+        if (b === 34)
+            out += '\\"';
+        else if (b === 92)
+            out += "\\\\";
+        else if (b >= 40 && b <= 126)
             out += String.fromCharCode(b);
         else
             out += "\\" + b.toString(10).padStart(3, "0");
@@ -172,8 +179,8 @@ function emitRuntime(opts) {
         : [`${F.tc}=${F.tc}-1`, `if ${F.tc}<=0 then`, ...tick.map((l) => l), `${F.tc}=64`, `end`];
     // ---------- assemble (single-function IIFE) ----------
     const body = [];
-    const IIFE_HEADER = "return (function(_ENV)";
-    const IIFE_FOOTER = "end)({})";
+    const IIFE_HEADER = "return (function(_ENV, ...)";
+    const IIFE_FOOTER = "end)(_ENV)";
     const runtimeBudget = opts.budget ?? resources_1.DEFAULT_BUDGET;
     // ---- file-scope constants & helpers (declared as locals inside the IIFE) ----
     body.push(` local ${N.ctn}=setmetatable({},{__mode="k"})`);
@@ -202,20 +209,25 @@ function emitRuntime(opts) {
         `${aincN}=${obf(opts.opencode.ainc, rng)}`);
     // Phase 3: constant-pool mask root — normalized seeds[3]; per-proto streams
     // derive as (CK0+pid*7919), mirroring serializer constSeed()
-    body.push(` local ${ck0N}=${obf((0, serializer_1.normSeed)(opts.seeds[3]), rng)}`);
+    body.push(` local ${ck0N}=${obf((0, serializer_1.normSeed)(opts.seeds[3]), rng)} _G.__CK0=tostring(${ck0N})`);
     // Phase 5 cross-coupling state + weight
     const cvwWeight = obf((0, serializer_1.normSeed)(opts.pbias * 15485863 + 11), rng);
     body.push(` local ${cvwN}=0`);
     // decrypt-on-access constant accessor: wire/decoded tables hold masked
     // payloads; plaintext exists only after first use (then cached in e.v)
     body.push(` local function ${N.cv}(pID,e)`);
-    body.push(`  if type(e)~='table' then return e end`);
-    body.push(`  local v=e.v if v~=nil then return v end`);
-    body.push(`  local kk=(${ck0N}+pID*7919+${cvwN}*${cvwWeight})%2147483646 if kk<1 then kk=kk+2147483646 end`);
+    body.push(`  if type(e)~='table' then _G.__CV_TYPE=_G.__CV_TYPE or ""..tostring(type(e)) return e end`);
+    body.push(`  local v=e.v if v~=nil then _G.__CV_CACHED=(_G.__CV_CACHED or 0)+1 return v end`);
+    body.push(`  _G.__CV_RAW_T=(_G.__CV_RAW_T or "")..tostring(e.t) _G.__CV_RAW_N=(_G.__CV_RAW_N or "")..tostring(e.n)`);
+    body.push(`  local kk=(((${ck0N}+pID*7919)%2147483646)+2147483646)%2147483646 if kk==0 then kk=1 end`);
+    body.push(`  _G.__CV_KK=(_G.__CV_KK or 0)+1 _G.__CV_KK_LAST=tostring(kk) _G.__CV_PID=tostring(pID)`);
     body.push(`  local parts={} local g=kk`);
-    body.push(`  for j=1,e.n do g=(g*48271)%2147483647 parts[j]=${N.sch}((e.b[j]-(g%256)+256)%256) end`);
+    body.push(`  _G.__CV_G0=(_G.__CV_G0 or 0)+1 _G.__CV_G_INIT=tostring(g)`);
+    body.push(`  for j=1,e.n do g=(g*48271)%2147483647 local _mb=g%256 local _db=(e.b[j]-_mb+256)%256 parts[j]=${N.sch}(_db) _G.__CV_MASKS=(_G.__CV_MASKS or "")..string.char(_mb) _G.__CV_DECB=(_G.__CV_DECB or "")..string.char(_db) end`);
     body.push(`  local sv=${N.tcn}(parts)`);
     body.push(`  if e.t==5 then v=tonumber(sv) else v=sv end`);
+    body.push(`  if v==nil then _G.__CV_NIL=(_G.__CV_NIL or 0)+1 _G.__CV_NIL_TYPE=tostring(e.t) _G.__CV_NIL_SV=tostring(sv) end`);
+    body.push(`  _G.__CV_CALLS=(_G.__CV_CALLS or 0)+1 _G.__CV_LAST=tostring(e.t)..":"..tostring(sv)`);
     body.push(`  e.v=v return v`);
     body.push(` end`);
     // The encrypted blob (one big literal)
@@ -393,12 +405,14 @@ function emitRuntime(opts) {
     body.push(`  local ${F.VA}=${F.args}`);
     body.push(`  for ${F.i}=1,${F.P0}.pn do ${F.cells}[${F.i}].v=${F.args}[${F.i}] end`);
     body.push(`  local ${F.tc},${F.six}=37,1`);
-    body.push(`  local ${F.poison},${F.PB},${F.wmv}=false,nil,0`);
+    body.push(`  local ${F.poison},${F.PB},${F.wmv}=false,0,0`);
     // Phase 2: per-frame rolling key
     body.push(`  local ${rkN}=(${rk0N}+${F.pid}*${astepN})%65536`);
     body.push(`  local ${F.rn},${F.narg},${F.so},${F.fpos},${F.fn}`);
     body.push(`  local ${F.ins},${F.op}`);
     body.push(`  while true do`);
+    body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
+    body.push(`   if ${F.pc}<20 then _G.__VM_TRACE=(_G.__VM_TRACE or "").."PC="..tostring(${F.pc}).." RK="..tostring(${rkN}).." INS="..tostring(${F.ins}[${keyNames.OP}]).." A="..tostring(${F.ins}[${keyNames.A}]).." B="..tostring(${F.ins}[${keyNames.B1}]+${F.ins}[${keyNames.B2}]).." C="..tostring(${F.ins}[${keyNames.C}]).."\\n" end`);
     for (const cl of countdown)
         body.push(`   ${cl}`);
     body.push(`   ${F.ins}=${F.K}[${F.pc}]`);

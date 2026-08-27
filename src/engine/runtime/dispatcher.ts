@@ -453,7 +453,7 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     `end`,
     `end`,
   ]);
-  add(Op.ESCAPE, [`error(${ctx.escapeGarbageLit})`]);
+  add(Op.ESCAPE, [`error(${ctx.escapeGarbageLit}.."::ESCAPE-OP="..tostring(op))`]);
 
   // Per-build handler synthesis (spec Phase 1, DPA defense): decoy arms with
   // literals outside the physical opcode range — never dispatched. Phase 2:
@@ -597,7 +597,7 @@ export function assembleChain(
       chainLines.push(`if ${h.test} then`);
       chainLines.push(...h.body);
       chainLines.push(`else`);
-      chainLines.push(`error(${fallbackLit})`);
+      chainLines.push(`error(${fallbackLit}.."::FALLBACK-OP="..tostring(op))`);
       chainLines.push(`end`);
       return;
     }

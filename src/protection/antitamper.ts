@@ -7,12 +7,16 @@ import { Proto } from "../engine/vm/opcodes";
 
 export type IntegritySlice = [number, number, number, number]; // [pid(1-based), from, to, expected]
 
+/** multiplier chosen so h*mult stays within 2^53 for all h < 1e9, guaranteeing
+ * bit-identical results between JS doubles and Lua 5.4 doubles in wasmoon. */
+const HASH_MULT = 31;
+
 /** mirror of the Lua-side slice hash */
 export function sliceHash(code: ReadonlyArray<[number, number, number, number]>, from: number, to: number): number {
   let h = 2166136261 % 1000000007;
   for (let j = from - 1; j < to; j++) {
     const q = code[j];
-    h = (h * 16777619 + q[0] * 31 + q[1] * 7 + q[2] * 3 + q[3]) % 1000000007;
+    h = (h * HASH_MULT + q[0] * 31 + q[1] * 7 + q[2] * 3 + q[3]) % 1000000007;
   }
   return h;
 }
@@ -61,7 +65,7 @@ export interface BlobSlice {
 export function rangeHash(buf: Uint8Array, p: number, len: number): number {
   let h = 2166136261 % 1000000007;
   for (let j = p - 1; j < p - 1 + len; j++) {
-    h = (h * 16777619 + buf[j]) % 1000000007;
+    h = (h * HASH_MULT + buf[j]) % 1000000007;
   }
   return h;
 }

@@ -284,9 +284,15 @@ export function protect(opts: ProtectOptions): ProtectResult {
     prologueShares,
   });
   const blob = encryptBlob(plain, encSeeds);
+  if (process.env.NEVAHEX_DEBUG_OPS) {
+    try { require("fs").writeFileSync("/tmp/kilo/blob.bin", blob); } catch {}
+  }
 
   // ---- Phase 5: ciphertext-integrity windows over the ENCRYPTED blob ----
   const blobSlices = tier !== "off" ? planBlobSlices(blob) : [];
+  if (process.env.NEVAHEX_DEBUG_OPS) {
+    try { require("fs").writeFileSync("/tmp/kilo/slices.json", JSON.stringify(blobSlices)); } catch {}
+  }
 
   // ---- integrity slices over decoded representation ----
   // mirror must reverse operand whitening ⇒ pass the build's rolling-key params
