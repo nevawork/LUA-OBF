@@ -24,7 +24,7 @@ function hasFlag(name: string): boolean {
 switch (cmd) {
   case "protect": {
     const input = args[0];
-    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--no-anti-emu] [--no-flatten] [--no-mba] [--no-superops] [--mega-superops] [--superop-nesting <n>] [--no-mm-traps] [--no-keyless] [--reg-obfuscate] [--const-shuffle] [--mba-database] [--factorization-keys] [--dual-vm] [--direct-threaded] [--anti-luahunt] [--path-explosion] [--self-modifying] [--luau-vm] [--luau-anti-deobf] [--no-luau-optimize] [--dyn-load] [--emit-secrets] [--stage2]");
+    if (!input) fail("usage: nevahex protect <input.lua> [-o out.lua] [--tier TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|off] [--seed <hex>] [--watermark <text>] [--manifest out.json] [--target lua51|luajit|luau|universal] [--env-keying] [--no-anti-emu] [--no-flatten] [--no-mba] [--no-superops] [--mega-superops] [--superop-nesting <n>] [--no-mm-traps] [--no-keyless] [--reg-obfuscate] [--const-shuffle] [--mba-database] [--factorization-keys] [--dual-vm] [--direct-threaded] [--anti-luahunt] [--path-explosion] [--self-modifying] [--luau-vm] [--luau-anti-deobf] [--no-luau-optimize] [--luraph] [--dyn-load] [--emit-secrets] [--stage2]");
     let source: string;
     try {
       source = readFileSync(input, "utf8");
@@ -67,7 +67,9 @@ switch (cmd) {
       luauVm: hasFlag("--luau-vm"),
       luauAntiDeobfuscation: hasFlag("--luau-anti-deobf"),
       luauOptimize: !hasFlag("--no-luau-optimize"),
+      luraph: hasFlag("--luraph"),
       stage2: hasFlag("--stage2"),
+      executorVm: hasFlag("--executor-vm"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
     writeFileSync(output, result.lua);
@@ -148,6 +150,7 @@ Usage:
       --luau-vm                 enable Luau bytecode virtualization (Roblox Luau)
       --luau-anti-deobf        enable Luau anti-deobfuscation (decompiler resistance)
       --no-luau-optimize       disable Luau bytecode optimization
+      --luraph                 enable Luraph v14+ style VM for Roblox executors
       --dyn-load                optional string.dump+load path (non-luau)
       --emit-secrets            include nonce+seeds in the manifest (holder
                                 mode; default manifests carry NO key material)

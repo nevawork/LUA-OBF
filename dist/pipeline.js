@@ -27,6 +27,7 @@ const mba_database_1 = require("./transforms/mba-database");
 const mba_synthesizer_1 = require("./transforms/mba-synthesizer");
 const anti_luahunt_1 = require("./protection/anti-luahunt");
 const path_explosion_1 = require("./protection/path-explosion");
+const luraph_vm_1 = require("./engine/obfuscator/luraph-vm");
 /** stable canonical JSON (sorted object keys) for tagging; exported for verifier tooling */
 function canonicalManifestJson(v) {
     if (Array.isArray(v))
@@ -153,6 +154,22 @@ function protect(opts) {
             };
             root = (0, luau_optimizer_1.optimizeLuauBytecode)(root, optimizeOpts);
         }
+    }
+    // ---- Phase 7: Luraph v14+ style VM for Roblox executors ----
+    // When luraph option is enabled, generate a Luraph-style table-based bytecode VM
+    // that is compatible with all Roblox executors (Delta, Synapse X, Krnl, etc.)
+    let luraphLua = null;
+    if (opts.luraph === true) {
+        const seed = rng.int(2147483646) + 1;
+        luraphLua = (0, luraph_vm_1.generateLuraph)(opts.source, root, seed, {
+            seed,
+            encryptBytecode: true,
+            encryptConstants: true,
+            useBit32: true,
+            useNaN: true,
+            usePolymorphic: true,
+            useSelfModify: true,
+        });
     }
     // ---- physical opcode permutation applied in-memory ----
     const baseLogicalCount = 51; // base ISA: MOVE(0) .. ESCAPE(50)
@@ -405,7 +422,8 @@ function protect(opts) {
         manifest.fieldKeys = [fieldKeys.OP, fieldKeys.A, fieldKeys.B1, fieldKeys.B2, fieldKeys.C];
     }
     return {
-        lua: emitted.lua,
+        lua: luraphLua ?? emitted.lua,
+        luraphLua,
         manifest,
         stats: {
             protos: flat.length,

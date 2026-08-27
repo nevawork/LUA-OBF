@@ -31,6 +31,7 @@ import { getMbaDatabase, getMbaStats } from "./transforms/mba-database";
 import { generateSemiprime, synthesizePartialPoint } from "./transforms/mba-synthesizer";
 import { generatePolymorphicHandlers, generateGadgetDetection, generatePathExplosionPredicates } from "./protection/anti-luahunt";
 import { injectPathExplosionPredicates, generateSelfModifyingCode } from "./protection/path-explosion";
+import { generateLuraph } from "./engine/obfuscator/luraph-vm";
 
 export interface ProtectOptions {
   source: string;
@@ -45,6 +46,8 @@ export interface ProtectOptions {
   envProfile?: EnvProfile;
   /** anti-emulation timing layer (default: off; ignored for luau profile) */
   antiEmulation?: boolean;
+  /** use executor-compatible VM instead of full VM */
+  executorVm?: boolean;
   /** corrected MBA+ algebra rewrites (spec summary item 8; default on) */
   mbaPlus?: boolean;
   /** optional string.dump+load dynamic path (Phase 2 exception; off for luau) */
@@ -157,6 +160,11 @@ export interface ProtectOptions {
    * Phase 6: enable Luau bytecode optimization.
    */
   luauOptimize?: boolean;
+  /**
+   * Phase 7: Luraph v14+ style VM for Roblox executors.
+   * Generates a table-based bytecode VM that works in Delta, Synapse X, Krnl, etc.
+   */
+  luraph?: boolean;
 }
 
 /** public manifest fields covered by the authenticity tag */
@@ -215,6 +223,7 @@ export interface Manifest {
 
 export interface ProtectResult {
   lua: string;
+  luraphLua: string | null;
   manifest: Manifest;
   stats: {
     protos: number;
@@ -356,6 +365,23 @@ export function protect(opts: ProtectOptions): ProtectResult {
       };
       root = optimizeLuauBytecode(root, optimizeOpts);
     }
+  }
+
+  // ---- Phase 7: Luraph v14+ style VM for Roblox executors ----
+  // When luraph option is enabled, generate a Luraph-style table-based bytecode VM
+  // that is compatible with all Roblox executors (Delta, Synapse X, Krnl, etc.)
+  let luraphLua: string | null = null;
+  if (opts.luraph === true) {
+    const seed = rng.int(2147483646) + 1;
+    luraphLua = generateLuraph(opts.source, root, seed, {
+      seed,
+      encryptBytecode: true,
+      encryptConstants: true,
+      useBit32: true,
+      useNaN: true,
+      usePolymorphic: true,
+      useSelfModify: true,
+    });
   }
 
   // ---- physical opcode permutation applied in-memory ----
@@ -616,7 +642,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
   }
 
   return {
-    lua: emitted.lua,
+    lua: luraphLua ?? emitted.lua,
+    luraphLua,
     manifest,
     stats: {
       protos: flat.length,
