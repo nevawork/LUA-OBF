@@ -212,14 +212,12 @@ function emitRuntime(opts) {
     L.push(` if type(e)~='table' then return e end`);
     L.push(` local v=e.v if v~=nil then return v end`);
     L.push(` local kk=(${ck0N}+pID*7919+${cvwN}*${cvwWeight})%2147483646 if kk<1 then kk=kk+2147483646 end`);
-    L.push(` _G.LAST_KK=kk _G.LAST_PID=pID`);
-    L.push(` _G.LAST_B1=e.b and e.b[1] _G.LAST_N=e.n _G.LAST_T=e.t`);
+    L.push(` _G.LAST_KK=kk _G.LAST_PID=pID _G.LAST_N=e.n _G.LAST_T=e.t`);
     // Phase 6: batch materialization — parts[] + table.concat avoids the
     // quadratic `sv = sv .. ch()` chain on long constants
     L.push(` local parts={} local g=kk`);
     L.push(` for j=1,e.n do g=(g*48271)%2147483647 parts[j]=${N.sch}((e.b[j]-(g%256)+256)%256) end`);
     L.push(` local sv=${N.tcn}(parts)`);
-    L.push(` _G.LAST_SV=sv`);
     L.push(` if e.t==5 then v=tonumber(sv) else v=sv end`);
     L.push(` _G.LAST_V=v`);
     L.push(` e.v=v return v`);
