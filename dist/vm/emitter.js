@@ -111,6 +111,8 @@ function emitRuntime(opts) {
     // Phase 5: cross-coupling flag — raised by silent-tier violations, shifts
     // every subsequent constant-decryption stream
     const cvwN = id();
+    // Phase 4: cipher mismatch counter for adaptive poisoning
+    const cmN = id();
     // ---------- physical opcode mapping (provided by pipeline) ----------
     const P = opts.perm;
     const lit = (op) => obf(P[op], rng);
@@ -231,7 +233,7 @@ function emitRuntime(opts) {
     body.push(` local ${ck0N}=${obf((0, serializer_1.normSeed)(opts.seeds[3]), rng)} _G.__CK0=tostring(${ck0N})`);
     // Phase 5 cross-coupling state + weight
     const cvwWeight = obf((0, serializer_1.normSeed)(opts.pbias * 15485863 + 11), rng);
-    body.push(` local ${cvwN}=0`);
+    body.push(` local ${cvwN}=0 ${cmN}=0`);
     // decrypt-on-access constant accessor: wire/decoded tables hold masked
     // payloads; plaintext exists only after first use (then cached in e.v)
     body.push(` local function ${N.cv}(pID,e)`);
@@ -293,6 +295,7 @@ function emitRuntime(opts) {
             garbageLit: JSON.stringify(garbage(rng)),
             deltaSa: obf((0, serializer_1.normSeed)(opts.pbias * 104729 + 29), rng),
             deltaSb: obf((0, serializer_1.normSeed)(opts.pbias * 15485863 + 11), rng),
+            cmVar: cmN,
         });
         if (guardLines)
             for (const gl of guardLines)
@@ -480,7 +483,7 @@ function emitRuntime(opts) {
         ...Object.values(N),
         aeT0, aeT1, aeT2, aeT3, aeT4, aeOps, aeAllocOps, aeMemOps, aeArithOps, aeTotalOps, aeHookFlag, aeEnvScore,
         keyNames.OP, keyNames.A, keyNames.B1, keyNames.B2, keyNames.C,
-        rk0N, astepN, astep2N, aincN, ck0N, cvwN, rkN,
+        rk0N, astepN, astep2N, aincN, ck0N, cvwN, cmN, rkN,
     ];
     const runText = body.join("\n");
     const budget = (0, localbudget_1.checkBudgets)(L.join("\n"), runText, fileScopeNames.filter((n) => !localbudget_1.DECODE_BLOCK_LOCALS.has(n)));

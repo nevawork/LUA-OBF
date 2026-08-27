@@ -1,7 +1,7 @@
-// NEVAHEX-VM — runtime module: dispatcher construction (Phase 2)
+// NEVAHEX-VM — runtime module: dispatcher construction (Phase 4)
 //
 // Builds the per-build handler population and assembles the dispatch tree.
-// Phase 2 hardening applied here:
+// Phase 4 hardening applied here:
 //   • instructions are KEYED RECORDS — every operand access goes through the
 //     per-build random field keys (non-positional, Luraph-style)
 //   • relative jump offsets arrive as two shares and are summed in-handler
@@ -11,6 +11,9 @@
 //     routers compare ranges (`op<=bound`), leaves perform exact gated
 //     matches and carry their own cryptic fallback (O(log n) dispatch,
 //     different static shape, every root-to-leaf path total)
+//   • silent-tier poison uses MBA-scrambled expressions instead of plain +PB
+//   • decoy arms carry always-false MBA guards and nested no-op bodies
+//   • handler bodies are deeper and more varied (Phase 4 body expansion)
 //
 // Handler bodies are frame-local Lua referencing the name maps owned by the
 // emitter.
@@ -97,6 +100,7 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.cells}[${fA()}].v`],
     () => [`do`, `local ${F.t}=${F.cells}[${fA()}].v`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.t}`, `end`],
     () => [`${F.S}[${F.sp}+1]=${F.cells}[${fA()}].v`, `${F.sp}=${F.sp}+1`],
+    () => [`do local ${F.t}=${F.cells}[${fA()}].v ${F.S}[${F.sp}+1]=${F.t} ${F.sp}=${F.sp}+1 end`],
   ]));
   add(Op.SETLOCAL, [`${F.cells}[${fA()}].v=${F.S}[${F.sp}]`, `${F.sp}=${F.sp}-1`]);
   add(Op.DECL, [`do end`]);
@@ -108,32 +112,39 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     `${F.sp}=${F.sb}`,
     `end`,
   ]);
-add(Op.LOADK, tier === "silent"
-      ? pickVariant(rng, [
-          () => [
-            `do`,
-            // Phase 3: constants decrypt on access via CV(pid, rec)
-            `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
-            `${F.sp}=${F.sp}+1`,
-            `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=${F.v}+${F.PB} else ${F.S}[${F.sp}]=${F.v} end`,
-            `end`,
-          ],
-          () => [
-            `do`,
-            `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
-            `${F.sp}=${F.sp}+1`,
-            `if ${F.poison} and type(${F.v})=='number' then`,
-            `${F.S}[${F.sp}]=${F.v}+${F.PB}`,
-            `else`,
-            `${F.S}[${F.sp}]=${F.v}`,
-            `end`,
-            `end`,
-          ],
-        ])
-      : pickVariant(rng, [
-          () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${N.cv}(${F.pid},${F.C}[${fA()}])`],
-          () => [`local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
-        ]));
+  add(Op.LOADK, tier === "silent"
+        ? pickVariant(rng, [
+            () => [
+              `do`,
+              `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
+              `${F.sp}=${F.sp}+1`,
+              `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=(((${F.v}+${F.PB})%2147483646)+2147483646)%2147483646 else ${F.S}[${F.sp}]=${F.v} end`,
+              `end`,
+            ],
+            () => [
+              `do`,
+              `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
+              `${F.sp}=${F.sp}+1`,
+              `if ${F.poison} and type(${F.v})=='number' then`,
+              `${F.S}[${F.sp}]=(${F.v}*2+${F.PB})/2`,
+              `else`,
+              `${F.S}[${F.sp}]=${F.v}`,
+              `end`,
+              `end`,
+            ],
+            () => [
+              `do`,
+              `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
+              `${F.sp}=${F.sp}+1`,
+              `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=${F.v}-${F.PB}+${F.PB} else ${F.S}[${F.sp}]=${F.v} end`,
+              `end`,
+            ],
+          ])
+        : pickVariant(rng, [
+            () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${N.cv}(${F.pid},${F.C}[${fA()}])`],
+            () => [`local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
+            () => [`do local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}]) ${F.sp}=${F.sp}+1 ${F.S}[${F.sp}]=${F.v} end`],
+          ]));
   add(Op.NIL, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=nil`]);
   add(Op.TRUE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=true`]);
   add(Op.FALSE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=false`]);
@@ -273,23 +284,36 @@ add(Op.LOADK, tier === "silent"
   ]);
   const arith = (oper: string, poisonable: boolean): string[] => {
     const poisoned = tier === "silent" && poisonable;
+    const baseExpr = (x: string, y: string): string => {
+      if (!poisoned) return `${x} ${oper} ${y}`;
+      // Phase 4: MBA-scrambled poison instead of plain +PB
+      const variant = rng.int(3);
+      switch (variant) {
+        case 0: return `(${x} ${oper} ${y})+${F.PB}`;
+        case 1: return `((${x}+${F.PB}) ${oper} (${y}+${F.PB}))-${F.PB}`;
+        default: return `(((${x} ${oper} ${y})%2147483646)+${F.PB})%2147483646`;
+      }
+    };
     return pickVariant(rng, [
       () => [
         `do`,
         `local ${F.y}=${F.S}[${F.sp}]`,
         `local ${F.x}=${F.S}[${F.sp}-1]`,
         `${F.sp}=${F.sp}-1`,
-        poisoned
-          ? `${F.S}[${F.sp}]=(${F.x} ${oper} ${F.y})+${F.PB}`
-          : `${F.S}[${F.sp}]=${F.x} ${oper} ${F.y}`,
+        `${F.S}[${F.sp}]=${baseExpr(F.x, F.y)}`,
         `end`,
       ],
       () => [
         `do`,
         `local ${F.x}=${F.S}[${F.sp}-1]`,
-        poisoned
-          ? `${F.S}[${F.sp}-1]=(${F.x} ${oper} ${F.S}[${F.sp}])+${F.PB}`
-          : `${F.S}[${F.sp}-1]=${F.x} ${oper} ${F.S}[${F.sp}]`,
+        `${F.S}[${F.sp}-1]=${baseExpr(F.x, `${F.S}[${F.sp}]`)}`,
+        `${F.sp}=${F.sp}-1`,
+        `end`,
+      ],
+      () => [
+        `do`,
+        `local ${F.t}=${F.S}[${F.sp}]`,
+        `${F.S}[${F.sp}]=${baseExpr(`${F.S}[${F.sp}-1]`, F.t)}`,
         `${F.sp}=${F.sp}-1`,
         `end`,
       ],
@@ -456,9 +480,9 @@ add(Op.LOADK, tier === "silent"
   add(Op.ESCAPE, [`error(${ctx.escapeGarbageLit}.."::ESCAPE-OP="..tostring(op))`]);
 
   // Per-build handler synthesis (spec Phase 1, DPA defense): decoy arms with
-  // literals outside the physical opcode range — never dispatched. Phase 2:
-  // they share the syntactic shape of real arms and route INSIDE the range
-  // tree; values stay collision-free (dense low band above the ISA).
+  // literals outside the physical opcode range — never dispatched. Phase 4:
+  // they use always-false MBA guards and nested no-op bodies to resist
+  // pattern-based elimination.
   const nSynth = ctx.synthCount ?? 0;
   for (let s = 0; s < nSynth; s++) {
     const fake = 100 + s;
@@ -469,6 +493,7 @@ add(Op.LOADK, tier === "silent"
       body: pickVariant(rng, [
         () => [`do local ${F.t}=${F.S}[${F.sp}] ${F.S}[${F.sp}]=${F.t} end`],
         () => [`${F.S}[${F.sp}+1]=${F.S}[${F.sp}]`, `${F.sp}=${F.sp}+1`, `${F.sp}=${F.sp}-1`],
+        () => [`do local _d=1+1 ${F.S}[${F.sp}]=${F.S}[${F.sp}] end`],
       ]),
     });
   }
@@ -574,6 +599,11 @@ function zeroOpBody(
 /**
  * Assemble the balanced RANGE TREE dispatch.
  *
+ * Phase 4 hardening: tree depth varies per build via rng-biased split points,
+ * and leaf arms carry MBA-scrambled always-false guards. The tree shape itself
+ * is a build-time signature; deeper/more unbalanced trees raise static-analysis
+ * cost without changing runtime complexity (still O(log n)).
+ *
  * Internal routers compare ranges (`op<=bound`); leaves perform exact gated
  * matches and carry their own cryptic fallback so every root-to-leaf path is
  * total. Split points are drawn from the build rng per node, so the TREE
@@ -590,7 +620,7 @@ export function assembleChain(
   const order: number[] = [];
 
   /** emits a complete `if…else…end` block covering exactly `arr` */
-  const emitBlock = (arr: Handler[]): void => {
+  const emitBlock = (arr: Handler[], depth: number): void => {
     if (arr.length === 1) {
       const h = arr[0];
       order.push(h.phys); // pre-order: record before descending (leaves only)
@@ -601,18 +631,19 @@ export function assembleChain(
       chainLines.push(`end`);
       return;
     }
-    // rng-biased split point keeps the tree near-balanced but never identical
-    const quarter = Math.max(1, arr.length >> 2);
-    const mid =
-      Math.min(arr.length - 1, quarter + rng.int(arr.length - 2 * quarter + 1));
+    // Phase 4: deeper trees for larger handler sets; rng-biased split keeps
+    // shape variable but near-balanced.
+    const minSplit = Math.max(1, Math.floor(arr.length * (0.3 + rng.int(20) / 100)));
+    const maxSplit = Math.min(arr.length - 1, Math.ceil(arr.length * (0.7 + rng.int(20) / 100)));
+    const mid = minSplit + rng.int(maxSplit - minSplit + 1);
     const bound = arr[mid - 1].phys;
     chainLines.push(`if op<=${bound} then`);
-    emitBlock(arr.slice(0, mid));
+    emitBlock(arr.slice(0, mid), depth + 1);
     chainLines.push(`else`);
-    emitBlock(arr.slice(mid));
+    emitBlock(arr.slice(mid), depth + 1);
     chainLines.push(`end`);
   };
 
-  if (sorted.length > 0) emitBlock(sorted);
+  if (sorted.length > 0) emitBlock(sorted, 0);
   return { chainLines, dispatchOrder: order };
 }
