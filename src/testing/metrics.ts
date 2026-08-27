@@ -44,6 +44,40 @@ export function layoutSimilarity(a: BuildFingerprint, b: BuildFingerprint): numb
   }
 }
 
+/** Kendall tau distance between two permutations: 0 = identical, 1 = reversed */
+export function kendallTauDistance(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 1;
+  const n = a.length;
+  // Build position maps
+  const posA = new Map<number, number>();
+  const posB = new Map<number, number>();
+  for (let i = 0; i < n; i++) {
+    posA.set(a[i], i);
+    posB.set(b[i], i);
+  }
+  let discordant = 0;
+  const total = n * (n - 1) / 2;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const ai = a[i], aj = a[j];
+      const bi = posB.get(ai)!, bj = posB.get(aj)!;
+      if ((bi < bj) !== (i < j)) discordant++;
+    }
+  }
+  return discordant / total;
+}
+
+function featureVec(f: BuildFingerprint, size: number): number[] {
+  const v = new Array<number>(size * 2).fill(0);
+  for (let logical = 0; logical < size; logical++) {
+    v[f.perm[logical]] = 1 + 1 / (size + logical + 1); // permutation component
+  }
+  f.dispatchOrder.forEach((phys, idx) => {
+    v[size + phys] = 1 + 1 / (size + idx + 1); // chain-order component
+  });
+  return v;
+}
+
 // ---------------------------------------------------------------------------
 // Phase 7 additions — artifact-level metrics backing the red-team harness.
 // ---------------------------------------------------------------------------

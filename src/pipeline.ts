@@ -167,7 +167,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
   // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
   let fusedSpecs: FusedSpec[] = [];
-  if (opts.superops === true) {
+  if (opts.superops !== false) {
     fusedSpecs = fuseSuperOps(root, rng);
   }
 
@@ -239,7 +239,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // prologue layout + pool cross-reference instead of evaluating two parens.
   let prologueShares: [number, number] | undefined;
   let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number; i5: number; i6: number } | undefined;
-  if (opts.keyless === true) {
+  if (opts.keyless !== false) {
     const u32 = (): number => {
       const v =
         rng.int(256) * 16777216 +
@@ -303,7 +303,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const cappedIntegrity = planIntegritySlices(flat);
 
   // ---- emit runtime ----
-  const antiEmu = opts.antiEmulation && envProfile !== "luau"
+  const antiEmu = envProfile !== "luau"
     ? { ...DEFAULT_ANTI_EMULATION }
     : null;
   const emitted = emitRuntime({
@@ -324,7 +324,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     opencode,
     fused: fusedForEmit.length > 0 ? fusedForEmit : undefined,
     blobSlices,
-    mmTraps: opts.mmTraps === true,
+    mmTraps: opts.mmTraps !== false,
     keylessPool,
     stage2: opts.stage2 === true,
   });

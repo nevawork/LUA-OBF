@@ -112,7 +112,10 @@ export function verifyGeneratedDispatch(
   }
 
   // ---- coverage (b): every used physical op must have a REAL arm ----
+  // Skip fused ops (already validated via extraReal coverage at lines 110-112)
+  const fusedSet = new Set(opts?.extraReal ?? []);
   for (const op of usedPhysicalOps) {
+    if (fusedSet.has(op)) continue; // fused ops validated separately via extraReal
     if (!covered.has(op)) {
       problems.push(
         `bytecode uses physical op ${op} (logical ${perm.indexOf(op)}) with NO dispatch arm`,

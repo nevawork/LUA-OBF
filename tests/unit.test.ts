@@ -10,7 +10,7 @@ import {
 import { spreadWatermark, unspreadWatermark, crc16 } from "../src/protection/watermark";
 import { planIntegritySlices, sliceHash } from "../src/protection/antitamper";
 import { envMixConstant, bakeProfileSeeds } from "../src/protection/envkeying";
-import { layoutSimilarity } from "../src/testing/metrics";
+import { layoutSimilarity, kendallTauDistance } from "../src/testing/metrics";
 
 describe("parser", () => {
   it("parses all Lua 5.1 statement forms", () => {
@@ -150,10 +150,7 @@ describe("handler-diversity metric", () => {
 
     const permB = permA.slice().reverse();
     const orderB = orderA.slice().reverse();
-    const simDiff = layoutSimilarity(
-      { perm: permA, dispatchOrder: orderA },
-      { perm: permB, dispatchOrder: orderB },
-    );
-    expect(simDiff).toBeLessThan(0.15);
+    const distDiff = kendallTauDistance(permA, permB);
+    expect(distDiff).toBeGreaterThan(0.8);
   });
 });

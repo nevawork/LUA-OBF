@@ -43,14 +43,15 @@ switch (cmd) {
       seedHex: flagOf("--seed"),
       watermark: flagOf("--watermark"),
       envProfile: envKeying,
-      antiEmulation: target !== "luau" && hasFlag("--anti-emu"),
+      antiEmulation: target !== "luau" && !hasFlag("--no-anti-emu"),
+      flatten: !hasFlag("--no-flatten"),
       mbaPlus: !hasFlag("--no-mba"),
       dynLoad: hasFlag("--dyn-load") && target !== "luau",
       layered: hasFlag("--layered"),
       emitSecrets: hasFlag("--emit-secrets"),
-      superops: hasFlag("--superops"),
-      mmTraps: hasFlag("--mm-traps"),
-      keyless: hasFlag("--keyless"),
+      superops: !hasFlag("--no-superops"),
+      mmTraps: !hasFlag("--no-mm-traps"),
+      keyless: !hasFlag("--no-keyless"),
       stage2: hasFlag("--stage2"),
     });
     const output = flagOf("-o") ?? input.replace(/\.lua$/, "") + ".protected.lua";
@@ -112,17 +113,15 @@ Usage:
       --manifest <path>         manifest output path
       --target <env>            lua51 | luajit | luau | universal
       --env-keying              bind decryption to the target fingerprint
-      --anti-emu                enable timing-based anti-emulation (non-luau)
-      --no-mba                  disable MBA+ algebra rewrites (on by default)
+      --no-anti-emu             disable timing-based anti-emulation (enabled by default on non-luau)
+      --no-flatten              disable control-flow flattening (enabled by default)
+      --no-mba                  disable MBA+ algebra rewrites (enabled by default)
+      --no-superops             disable superoperator fusion (enabled by default)
+      --no-mm-traps             disable metamethod trap (enabled by default)
+      --no-keyless              disable keyless schedule (enabled by default)
       --dyn-load                optional string.dump+load path (non-luau)
       --emit-secrets            include nonce+seeds in the manifest (holder
                                 mode; default manifests carry NO key material)
-      --superops                enable superoperator fusion (Phase 4, opt-in
-                                until the runtime differential matrix runs)
-      --mm-traps                hide the root invoke behind a randomized
-                                metamethod trap (APEX W1.3; depth-budgeted)
-      --keyless                 split cipher registers into prologue+pool
-                                shares; no seed literal ships (APEX W1.2)
       --stage2                  emit the inner deserializer VM + masked program
                                 instead of the flat decode loop (APEX W1.1)
   nevahex extract <protected.lua> --manifest <file>

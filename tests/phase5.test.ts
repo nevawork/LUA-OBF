@@ -90,8 +90,8 @@ describe("phase 5: shell cipher guard emission", () => {
 describe("phase 5: CVW cross-coupling", () => {
   it("CV seed derivation consumes the coupling flag in silent artifacts", () => {
     const r = protect({ source: 'return "x"', tier: "silent", seedHex: "cd".repeat(32) });
-    // kk=(CK0+pid*7919+CVW*WEIGHT)%2147483646
-    expect(/\+pID\*7919\+\w+\*\w+\)%2147483646/.test(r.lua)).toBe(true);
+    // kk=(CK0+pid*7919+CVW*WEIGHT*cmVar)%2147483646 (adaptive with mismatch counter)
+    expect(/\+pID\*7919\+\w+\*\w+\*\w+\)%2147483646/.test(r.lua)).toBe(true);
     // frame-tick silent response raises CVW next to poison/pbias
     // (bias literal may be any non-space obfuscated expression)
     expect(/=true\s+\S+\s+\w+=1/.test(r.lua)).toBe(true);

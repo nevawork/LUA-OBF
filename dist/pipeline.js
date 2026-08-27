@@ -52,7 +52,7 @@ function protect(opts) {
     // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
     // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
     let fusedSpecs = [];
-    if (opts.superops === true) {
+    if (opts.superops !== false) {
         fusedSpecs = (0, superops_1.fuseSuperOps)(root, rng);
     }
     const seeds = [
@@ -119,7 +119,7 @@ function protect(opts) {
     // prologue layout + pool cross-reference instead of evaluating two parens.
     let prologueShares;
     let keylessPool;
-    if (opts.keyless === true) {
+    if (opts.keyless !== false) {
         const u32 = () => {
             const v = rng.int(256) * 16777216 +
                 rng.int(256) * 65536 +
@@ -185,7 +185,7 @@ function protect(opts) {
     const { flat } = (0, serializer_1.deserializeBlob)((0, serializer_1.decryptBlob)(blob, encSeeds), { opencode });
     const cappedIntegrity = (0, antitamper_1.planIntegritySlices)(flat);
     // ---- emit runtime ----
-    const antiEmu = opts.antiEmulation && envProfile !== "luau"
+    const antiEmu = envProfile !== "luau"
         ? { ...antiemulation_1.DEFAULT_ANTI_EMULATION }
         : null;
     const emitted = (0, emitter_1.emitRuntime)({
@@ -206,7 +206,7 @@ function protect(opts) {
         opencode,
         fused: fusedForEmit.length > 0 ? fusedForEmit : undefined,
         blobSlices,
-        mmTraps: opts.mmTraps === true,
+        mmTraps: opts.mmTraps !== false,
         keylessPool,
         stage2: opts.stage2 === true,
     });
