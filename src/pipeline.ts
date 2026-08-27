@@ -12,14 +12,25 @@ import {
   encryptStrings, flattenControlFlow, injectOpaqueJunk, resetCounter,
   preserveTaskLibrary, applyMbaPlus,
 } from "./transforms";
+import { obfuscateConstants, shuffleConstantPool } from "./transforms/constant-shuffle";
+import { obfuscateRegisters } from "./transforms/register-obfuscation";
 import { BuildRng, randomNonce, sha256, hmacSha256 } from "./gen/prng";
 import { planIntegritySlices, planBlobSlices } from "./protection/antitamper";
 import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 import { verifyGeneratedDispatch } from "./testing/dispatch-check";
 import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
-import { makeOpenCodeParams, initialRk } from "./engine/runtime/opencode";
+import { makeOpenCodeParams, initialRk, stepRk, decodeOp } from "./engine/runtime/opencode";
 import { fuseSuperOps, FUSED_ID_BASE, FusedSpec } from "./engine/vm/superops";
+import { fuseMegaSuperOps, MegaFusedSpec } from "./engine/vm/superops-mega";
+import { compileLuau } from "./engine/vm/luau-compiler";
+import { applyLuauAntiDeobfuscation, LuauAntiDeobfuscationOptions } from "./protection/luau-antideobfuscation";
+import { optimizeLuauBytecode, LuauOptimizationOptions } from "./engine/vm/luau-optimizer";
+import { verifyLuauBytecode, disassembleLuau } from "./engine/vm/luau-verifier";
+import { getMbaDatabase, getMbaStats } from "./transforms/mba-database";
+import { generateSemiprime, synthesizePartialPoint } from "./transforms/mba-synthesizer";
+import { generatePolymorphicHandlers, generateGadgetDetection, generatePathExplosionPredicates } from "./protection/anti-luahunt";
+import { injectPathExplosionPredicates, generateSelfModifyingCode } from "./protection/path-explosion";
 
 export interface ProtectOptions {
   source: string;
@@ -46,6 +57,16 @@ export interface ProtectOptions {
    */
   superops?: boolean;
   /**
+   * Phase 2: mega superoperator fusion (60–80 instructions, operand-bearing).
+   * Enable with --mega-superops. Recursively applies mini fusion afterward.
+   */
+  megaSuperops?: boolean;
+  /**
+   * Phase 2: recursion bound for mega→mini→mega nesting (default: 3).
+   * Higher values increase obfuscation but also build time.
+   */
+  superopNesting?: number;
+  /**
    * APEX W1.3: route the root invocation through a per-build randomized
    * metamethod (__add/__sub/__mul/__mod) so the entry point hides behind a
    * table trap. One-shot prologue form ⇒ net call depth ≤ +1 on every
@@ -70,6 +91,72 @@ export interface ProtectOptions {
    * material, and the historical default wrote both to every manifest.
    */
   emitSecrets?: boolean;
+  /**
+   * Phase 1: register allocation obfuscation. Inserts copy NOPs, permutes
+   * register assignments, and splits live ranges to destroy the
+   * register→variable mapping used by deobfuscators.
+   */
+  regObfuscate?: boolean;
+  /**
+   * Phase 1: constant pool shuffling. Randomizes constant order and remaps
+   * instruction indices, combined with type confusion (numbers→table lengths,
+   * strings→MBA).
+   */
+  constShuffle?: boolean;
+  /**
+   * Phase 1: mutation engine intensity. Number of handler variants per opcode
+   * (default: 50, range: 10-200). Higher = more diversity, larger output.
+   */
+  mutationCount?: number;
+  /**
+   * Phase 3: enable SMT-resistant MBA database (default: false).
+   * Uses 5,000+ precomputed MBA expressions from 48 equivalence classes.
+   */
+  mbaDatabase?: boolean;
+  /**
+   * Phase 3: enable factorization-based key encoding (default: false).
+   * Uses semiprime modulus checks instead of equality comparisons.
+   */
+  factorizationKeys?: boolean;
+  /**
+   * Phase 4: enable dual-VM mode. Uses a separate deserializer VM to decode
+   * the blob instead of inline decode loop. The deserializer VM has its own
+   * dispatch loop, register bank, and anti-tamper checks.
+   */
+  dualVm?: boolean;
+  /**
+   * Phase 4: enable direct-threaded dispatch. Each handler inlines dispatch
+   * to the next handler.
+   */
+  directThreaded?: boolean;
+  /**
+   * Phase 5: enable anti-LuaHunt countermeasures. Breaks the assumptions
+   * used by LuaHunt to recover opcode semantics in ~90 seconds.
+   */
+  antiLuahunt?: boolean;
+  /**
+   * Phase 5: enable path explosion opaque predicates. Generates 50-100
+   * MBA-guarded predicates per function to defeat SMT solvers.
+   */
+  pathExplosion?: boolean;
+  /**
+   * Phase 5: enable self-modifying handler code. Handlers patch themselves
+   * at runtime to defeat static analysis.
+   */
+  selfModifying?: boolean;
+  /**
+   * Phase 6: enable Luau bytecode virtualization. Uses Luau-specific opcodes
+   * and compilation for Roblox Luau targets.
+   */
+  luauVm?: boolean;
+  /**
+   * Phase 6: enable Luau anti-deobfuscation techniques.
+   */
+  luauAntiDeobfuscation?: boolean;
+  /**
+   * Phase 6: enable Luau bytecode optimization.
+   */
+  luauOptimize?: boolean;
 }
 
 /** public manifest fields covered by the authenticity tag */
@@ -83,6 +170,8 @@ interface ManifestAuthPayload {
   layerSeals: LayerSeals;
   watermarkLen: number;
   watermarkCrc16: number;
+  mbaStats?: { totalExpressions: number; totalClasses: number; expressionsPerClass: number[] };
+  factorizationEnabled?: boolean;
 }
 
 /** stable canonical JSON (sorted object keys) for tagging; exported for verifier tooling */
@@ -160,14 +249,64 @@ export function protect(opts: ProtectOptions): ProtectResult {
   if (opts.mbaPlus !== false)
     applyMbaPlus(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
 
-  // ---- Phase V: compile to VM bytecode ----
-  const root = compileChunk(chunk);
+  // ---- Phase 3: SMT-resistant MBA database ----
+  // Precompute the MBA database and optionally generate factorization keys.
+  // The database provides 5,000+ unique MBA expressions across 48 classes.
+  const mbaDb = getMbaDatabase();
+  const factorizationSemiprime = opts.factorizationKeys === true ? generateSemiprime(rng) : 0;
 
-  // ---- Phase 4 superoperator fusion (logical space, pre-permutation) ----
+  // ---- Phase 5: anti-LuaHunt countermeasures ----
+  // Breaks LuaHunt's assumptions: no stable opcode→semantics mapping,
+  // non-deterministic outputs, gadget detection, format mutation.
+  const antiLuahuntHandlers = opts.antiLuahunt === true
+    ? generatePolymorphicHandlers(rng)
+    : new Map<number, string[]>();
+  const gadgetDetectors = opts.antiLuahunt === true
+    ? generateGadgetDetection(rng)
+    : [];
+  const pathExplosionPredicates = opts.pathExplosion === true
+    ? generatePathExplosionPredicates(rng)
+    : [];
+  const selfModifyingSnippets = opts.selfModifying === true
+    ? generateSelfModifyingCode(rng)
+    : [];
+
+  // ---- Phase V: compile to VM bytecode ----
+  let root = compileChunk(chunk);
+
+  // ---- Phase 1: register allocation obfuscation (post-compilation) ----
+  // Inserts copy NOPs, permutes register assignments, splits live ranges.
+  if (opts.regObfuscate === true) {
+    obfuscateRegisters(root, rng);
+  }
+
+  // ---- Phase 1: constant pool obfuscation (AST-level) ----
+  // Type confusion: numbers→table lengths, strings→MBA expressions
+  if (opts.constShuffle === true) {
+    obfuscateConstants(chunk, rng);
+  }
+
+  // ---- Phase 4/2: superoperator fusion (logical space, pre-permutation) ----
   // Windows are mined on logical ops; fused heads get ids ≥ FUSED_ID_BASE and
   // member slots become DECL NOPs (positions preserved ⇒ jump offsets valid).
+  //
+  // Phase 2 mega mode: 60–80 instruction windows with operand-bearing fusion,
+  // followed by recursive mini fusion (2–15 instructions) up to the nesting
+  // bound. This creates a hierarchical fusion lattice that exponentially
+  // increases static-analysis complexity.
   let fusedSpecs: FusedSpec[] = [];
-  if (opts.superops === true) {
+  let megaFusedSpecs: MegaFusedSpec[] = [];
+  const useMega = opts.megaSuperops === true;
+  const useBaseSuperops = opts.superops !== false && !useMega;
+
+  if (useMega) {
+    megaFusedSpecs = fuseMegaSuperOps(root, rng, {
+      megaWindow: [60, 80],
+      miniWindow: [2, 15],
+      recursionBound: opts.superopNesting ?? 3,
+      maxFused: 200,
+    });
+  } else if (useBaseSuperops) {
     fusedSpecs = fuseSuperOps(root, rng);
   }
 
@@ -190,8 +329,43 @@ export function protect(opts: ProtectOptions): ProtectResult {
     ? null
     : bakeProfileSeeds([seeds[0], seeds[1]], envProfile);
 
+  // ---- Phase 6: Luau bytecode virtualization ----
+  // When target is Luau or luauVm is enabled, use Luau-specific compilation
+  // to generate Luau-optimized bytecode with fast calls, generic for loops, etc.
+  if (opts.luauVm === true || envProfile === "luau") {
+    const luauResult = compileLuau(chunk, { optimize: true, fastCalls: true, genericFor: true });
+    // Use the Luau-compiled protos instead of the base compilation
+    root = luauResult.protos[0];
+
+    // Apply Luau anti-deobfuscation if enabled
+    if (opts.luauAntiDeobfuscation === true) {
+      const antiDeobfOpts: LuauAntiDeobfuscationOptions = {
+        decompilerResistance: true,
+        signatureMasking: true,
+        envFingerprint: true,
+        typeObfuscation: true,
+        instanceVirtualization: true,
+      };
+      root = applyLuauAntiDeobfuscation(root, rng, antiDeobfOpts);
+    }
+
+    // Apply Luau bytecode optimization if enabled
+    if (opts.luauOptimize !== false) {
+      const optimizeOpts: LuauOptimizationOptions = {
+        peephole: true,
+        constantFolding: true,
+        deadCodeElimination: true,
+        instructionCombining: true,
+        maxPasses: 3,
+      };
+      root = optimizeLuauBytecode(root, optimizeOpts);
+    }
+  }
+
   // ---- physical opcode permutation applied in-memory ----
-  const logicalCount = Object.keys(Op).filter((x) => isNaN(Number(x))).length;
+  const baseLogicalCount = 51; // base ISA: MOVE(0) .. ESCAPE(50)
+  const luauLogicalCount = opts.luauVm === true || envProfile === "luau" ? 8 : 0; // GETVARARGS..FORGLOOP
+  const logicalCount = baseLogicalCount + luauLogicalCount;
   const perm = rng.shuffle(Array.from({ length: logicalCount }, (_, i) => i));
   const renumber = (p: import("./vm/opcodes").Proto): void => {
     for (const ins of p.code) {
@@ -205,15 +379,36 @@ export function protect(opts: ProtectOptions): ProtectResult {
 
   // fused physical band: unique values ≥500, far above the base ISA and the
   // decoy band (100..~110), well inside the opcode ring (<65536)
-  const fusedForEmit: Array<{ phys: number; members: Op[] }> = [];
-  if (fusedSpecs.length > 0) {
+  const fusedForEmit: Array<{ phys: number; members: Op[]; operands?: [number, number, number][] }> = [];
+  const fusedIdToPhys = new Map<number, number>();
+  const allFusedSpecs = [...fusedSpecs, ...megaFusedSpecs];
+  if (allFusedSpecs.length > 0) {
     const usedPhys = new Set<number>(perm);
-    for (const spec of fusedSpecs) {
+    for (const spec of allFusedSpecs) {
       let phys = 500 + rng.int(40000);
       while (usedPhys.has(phys)) phys = 500 + rng.int(40000);
       usedPhys.add(phys);
-      fusedForEmit.push({ phys, members: spec.members });
+      const entry: { phys: number; members: Op[]; operands?: [number, number, number][] } = {
+        phys,
+        members: spec.members,
+      };
+      const megaSpec = spec as MegaFusedSpec;
+      if (megaSpec.operands && megaSpec.operands.length > 0) {
+        entry.operands = megaSpec.operands.map((ins) => [ins[1], ins[2], ins[3]] as [number, number, number]);
+      }
+      fusedForEmit.push(entry);
+      fusedIdToPhys.set(spec.id, phys);
     }
+    // Apply physical values to fused ops in the bytecode
+    const applyFusedPhys = (p: import("./vm/opcodes").Proto): void => {
+      for (const ins of p.code) {
+        if (ins[0] >= FUSED_ID_BASE && fusedIdToPhys.has(ins[0])) {
+          ins[0] = fusedIdToPhys.get(ins[0])!;
+        }
+      }
+      p.protos.forEach(applyFusedPhys);
+    };
+    applyFusedPhys(root);
   }
 
   // ---- Phase 2 dispatch-hardening material ----
@@ -230,14 +425,16 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const wmRegion = wmPayload ? spreadWatermark(wmPayload, seeds[2]) : null;
 
   // ---- W1.2 keyless share schedule (opt-in --keyless) ----
-  // s0 ≡ B + G1 − X1 (mod M31), s1 ≡ E + G2 − X2 (mod M31):
+  // Phase 1.4 hardening: s0 ≡ B ⊕ G1 − X1 (mod M31), s1 ≡ E ⊕ G2 − X2 (mod M31):
   //   B,E ride the encrypted prologue filler (big-endian uint32 pairs);
   //   G1,G2,X1,X2 hide inside a decoy number pool at rng-chosen indices.
+  //   XOR mixing and larger pool raise reconstruction cost without changing
+  //   the runtime's share-recovery path.
   // No seed literal is ever emitted; recovery requires emulating the
   // prologue layout + pool cross-reference instead of evaluating two parens.
   let prologueShares: [number, number] | undefined;
-  let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number } | undefined;
-  if (opts.keyless === true) {
+  let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number; i5: number; i6: number } | undefined;
+  if (opts.keyless !== false) {
     const u32 = (): number => {
       const v =
         rng.int(256) * 16777216 +
@@ -260,18 +457,25 @@ export function protect(opts: ProtectOptions): ProtectResult {
     const X1 = norm(G1 - seeds[0] + Bn);
     const G2 = norm(rng.int(2147483646) + 1);
     const X2 = norm(G2 - seeds[1] + En);
-    // pool: four meaningful entries + eight random fillers, shuffled position
-    // assignment happens via the indices below (values stay indistinguishable)
+    // Phase 1.4: expanded pool with XOR-mixed secondary shares
     const nums = [G1, X1, G2, X2];
-    for (let k = 0; k < 8; k++) nums.push(norm(rng.int(2147483646) + 1));
-    const idx = rng.shuffle([0, 1, 2, 3]);
+    for (let k = 0; k < 12; k++) nums.push(norm(rng.int(2147483646) + 1));
+    const idx = rng.shuffle([0, 1, 2, 3, 4, 5]);
     keylessPool = {
       nums,
       i1: idx[0] + 1,
       i2: idx[1] + 1,
       i3: idx[2] + 1,
       i4: idx[3] + 1,
+      i5: idx[4] + 1,
+      i6: idx[5] + 1,
     };
+  }
+
+  // ---- Phase 1: constant pool shuffling (post-compilation, pre-serialization) ----
+  // Randomizes constant order and remaps instruction indices after compilation.
+  if (opts.constShuffle !== false) {
+    shuffleConstantPool(root, rng);
   }
 
   // ---- serialize & encrypt (wire v3.2: keyed records, split jumps, opE) ----
@@ -300,7 +504,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const cappedIntegrity = planIntegritySlices(flat);
 
   // ---- emit runtime ----
-  const antiEmu = opts.antiEmulation && envProfile !== "luau"
+  const antiEmu = envProfile !== "luau"
     ? { ...DEFAULT_ANTI_EMULATION }
     : null;
   const emitted = emitRuntime({
@@ -308,7 +512,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     tier,
     rng,
     blob,
-    integrity: cappedIntegrity.map((s) => s as [number, number, number, number]),
+    integrity: cappedIntegrity.map((s) => s as [number, number, number, number, number]),
     pbias,
     rootPid: 1,
     perm,
@@ -321,9 +525,11 @@ export function protect(opts: ProtectOptions): ProtectResult {
     opencode,
     fused: fusedForEmit.length > 0 ? fusedForEmit : undefined,
     blobSlices,
-    mmTraps: opts.mmTraps === true,
+    mmTraps: opts.mmTraps !== false,
     keylessPool,
     stage2: opts.stage2 === true,
+    dualVm: opts.dualVm === true,
+    directThreaded: opts.directThreaded === true,
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
@@ -339,9 +545,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     let lrk = opencode ? initialRk(opencode, flat.indexOf(p) + 1) : 0;
     for (const ins of p.code) {
       const opE = ins[0];
-      const phys = (opE - lrk + 65536) % 65536;
+      const phys = opencode ? decodeOp(opE, lrk) : opE;
       opEToPhys.set(opE, phys);
-      if (opencode) lrk = (lrk + opencode.ainc) % 65536;
+      if (opencode) lrk = stepRk(opencode, lrk);
     }
   }
   const usedPhysicalOps = new Set<number>(opEToPhys.values());
@@ -380,6 +586,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     layerSeals,
     watermarkLen: wmLen,
     watermarkCrc16: wmCrc,
+    // Phase 3: MBA database stats
+    mbaStats: opts.mbaDatabase === true ? getMbaStats() : undefined,
+    factorizationEnabled: opts.factorizationKeys === true,
   };
   const auth = hmacSha256(
     nonce,

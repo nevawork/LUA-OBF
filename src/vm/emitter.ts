@@ -37,8 +37,8 @@ export interface EmitOptions {
   rng: BuildRng;
   /** encrypted blob (includes trailing watermark section) */
   blob: Buffer;
-  /** integrity slices over decoded code: [pid, from, to, expectedHash] */
-  integrity: [number, number, number, number][];
+  /** integrity slices over decoded code: [pid, from, to, expectedHash, salt] */
+  integrity: [number, number, number, number, number][];
   /** deterministic poison bias applied in silent tier */
   pbias: number;
   rootPid: number;
@@ -67,25 +67,35 @@ export interface EmitOptions {
   fieldKeys: InstrFieldKeys;
   /** rolling-key opcode encoding params (Phase 2); required */
   opencode: OpenCodeParams;
-  /** Phase 4 superoperators (opt-in): fused specs with assigned phys values */
-  fused?: Array<{ phys: number; members: Op[] }>;
+  /** Phase 4/2 superoperators (opt-in): fused specs with assigned phys values */
+  fused?: Array<{ phys: number; members: Op[]; operands?: [number, number, number][] }>;
   /** Phase 5 ciphertext-integrity windows over the ENCRYPTED blob */
   blobSlices?: BlobSlice[];
   /** APEX W1.3: root invocation hidden behind a randomized metamethod trap */
   mmTraps?: boolean;
   /**
-   * APEX W1.2 keyless schedule payload: decoy number pool (12 entries, four
-   * meaningful) + the four rng-shuffled indices. When present the seed
+   * APEX W1.2 keyless schedule payload: decoy number pool (16 entries, six
+   * meaningful) + the six rng-shuffled indices. When present the seed
    * registers are reassembled from decrypted prologue bytes + pool entries;
    * no seed literal ships.
    */
-  keylessPool?: { nums: number[]; i1: number; i2: number; i3: number; i4: number };
+  keylessPool?: { nums: number[]; i1: number; i2: number; i3: number; i4: number; i5: number; i6: number };
   /**
    * APEX W1.1 stage-2 was an inner-VM path; superseded by the v3 (Hex3)
    * backend. The option is retained as a deprecated flag for build-line
    * stability: passing it is now a silent no-op.
    */
   stage2?: boolean;
+  /**
+   * Phase 4: enable dual-VM mode. Uses a separate deserializer VM to decode
+   * the blob instead of inline decode loop.
+   */
+  dualVm?: boolean;
+  /**
+   * Phase 4: enable direct-threaded dispatch. Each handler inlines dispatch
+   * to the next handler.
+   */
+  directThreaded?: boolean;
 }
 
 export interface EmitResult {
@@ -153,7 +163,17 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // anti-emulation calibration state: file-scope locals (per-build names),
   // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
   const aeT0 = id();
+  const aeT1 = id();
+  const aeT2 = id();
+  const aeT3 = id();
+  const aeT4 = id();
   const aeOps = id();
+  const aeAllocOps = id();
+  const aeMemOps = id();
+  const aeArithOps = id();
+  const aeTotalOps = id();
+  const aeHookFlag = id();
+  const aeEnvScore = id();
   // Phase 2: F object properties first — ensures their names are consumed
   // by the IdAllocator so that rolling-key constants below receive
   // disjoint names and cannot shadow or be shadowed by F.P0 / F.* locals
@@ -174,6 +194,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const keyNames: FieldKeyNames = { OP: id(), A: id(), B1: id(), B2: id(), C: id() };
   const rk0N = id();
   const astepN = id();
+  const astep2N = id();
   const aincN = id();
   const rkN = id();
   // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
@@ -181,6 +202,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // Phase 5: cross-coupling flag — raised by silent-tier violations, shifts
   // every subsequent constant-decryption stream
   const cvwN = id();
+  // Phase 4: cipher mismatch counter for adaptive poisoning
+  const cmN = id();
 
   // ---------- physical opcode mapping (provided by pipeline) ----------
   const P: number[] = opts.perm;
@@ -241,15 +264,17 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
 
   const icvLits = opts.integrity.map((s) => obf(s[3], rng)).join(",");
   const slicesLits = opts.integrity
-    .map((s, ix) => `{i=${ix + 1},p=${obf(s[0], rng)},a=${obf(s[1], rng)},b=${obf(s[2], rng)}}`)
+    .map((s, ix) => `{i=${ix + 1},p=${obf(s[0], rng)},a=${obf(s[1], rng)},b=${obf(s[2], rng)},salt=${obf(s[4] ?? 0, rng)}}`)
     .join(",");
   const pbiasLit = obf(normSeed(opts.pbias), rng);
 
   // integrity tick names → dispatcher frame locals
+  const prevHash = id();
   const IN: IntegrityNames = {
     icv: N.icv, slices: N.slices, nic: N.nic, six: F.six,
     protos: N.protos, keys: keyNames,
     sl: F.sl, seg: F.seg, h: F.h, j: F.j, q: F.q, v: F.v,
+    prevHash, saltVar: F.poison,
   };
 
   // ---------- integrity + watermark tick (engine/runtime modules) ----------
@@ -259,11 +284,15 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
       poisonVar: F.poison, pbVar: F.PB, biasLit: pbiasLit, cvwVar: cvwN,
     });
     tick.push(...emitIntegrityCheck(IN, response));
+    // Phase 2: update prevHash after each integrity check for cross-slice correlation
+    tick.push(`local ${prevHash}=${F.h}`);
   }
   tick.push(...emitCarrierTouch({ wmVar: N.wm, wmiVar: N.wmi, sixVar: F.six, sinkVar: F.wmv }));
   // anti-emulation timing layer (os.clock required; caller disables for luau)
   const ae = emitAntiEmulationBlock(opts.antiEmulation ?? null, {
     tcVar: F.tc, poisonVar: F.poison, pbVar: F.PB, aeT0, aeOps, cvwVar: cvwN,
+    aeT1, aeAllocOps, aeMemOps, aeHookFlag,
+    aeArithOps, aeTotalOps, aeT2, aeT3, aeT4, aeEnvScore,
   });
   if (ae) {
     tick.push(`if os and os.clock then`);
@@ -278,8 +307,6 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
 
   // ---------- assemble (single-function IIFE) ----------
   const body: string[] = [];
-  const IIFE_HEADER = "return (function(_ENV, ...)";
-  const IIFE_FOOTER = "end)(_ENV)";
   const runtimeBudget = opts.budget ?? DEFAULT_BUDGET;
 
   // ---- file-scope constants & helpers (declared as locals inside the IIFE) ----
@@ -299,7 +326,11 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(` local ${N.tcn}=_ENV.table.concat`);
   // anti-emulation calibration state (upvalues of the closures below)
   if (opts.antiEmulation) {
-    body.push(` local ${aeT0},${aeOps}`);
+    body.push(` local ${aeT0},${aeT1},${aeT2},${aeT3},${aeT4},${aeOps},${aeAllocOps},${aeMemOps},${aeArithOps},${aeTotalOps},${aeHookFlag},${aeEnvScore}`);
+  }
+  // Phase 5: anti-debugging preamble — detect debug hooks and profilers
+  if (opts.antiEmulation) {
+    body.push(` if debug and debug.sethook then local _ad=0 local function _adh() _ad=_ad+1 end debug.sethook(_adh,"lr") local _gi=debug.getinfo and debug.getinfo(1) if _gi and (_gi.what=="C" or _ad>0) then ${F.poison}=true ${F.PB}=9999 end debug.sethook() end`);
   }
   // Phase 2: instruction-record field keys + rolling-key opcode constants
   body.push(
@@ -308,7 +339,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
       `${keyNames.C}=${obf(opts.fieldKeys.C, rng)}`,
   );
   body.push(
-    ` local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ` +
+    ` local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ${astep2N}=${obf(opts.opencode.astep2, rng)} ` +
       `${aincN}=${obf(opts.opencode.ainc, rng)}`,
   );
   // Phase 3: constant-pool mask root — normalized seeds[3]; per-proto streams
@@ -316,7 +347,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(` local ${ck0N}=${obf(normSeed(opts.seeds[3]), rng)} _G.__CK0=tostring(${ck0N})`);
   // Phase 5 cross-coupling state + weight
   const cvwWeight = obf(normSeed(opts.pbias * 15485863 + 11), rng);
-  body.push(` local ${cvwN}=0`);
+  body.push(` local ${cvwN}=0 ${cmN}=0`);
   // decrypt-on-access constant accessor: wire/decoded tables hold masked
   // payloads; plaintext exists only after first use (then cached in e.v)
   body.push(` local function ${N.cv}(pID,e)`);
@@ -350,18 +381,19 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(`  local D={} local bn=#${N.blob}`);
   body.push(`  if bn>${runtimeBudget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
   // W1.2 keyless: registers reassemble from decrypted prologue bytes + decoy
-  // pool entries. Legacy builds keep the obfuscated register literals.
+  // pool entries with XOR mixing. Legacy builds keep the obfuscated register
+  // literals.
   const gpN = id();
   if (opts.keylessPool) {
     body.push(`  local MM=${M31}`);
     const kp = opts.keylessPool;
     body.push(`  local ${gpN}={${kp.nums.join(",")}}`);
     body.push(
-      `  local sa=(D[5]*16777216+D[6]*65536+D[7]*256+D[8]+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
+      `  local sa=((D[5]*16777216+D[6]*65536+D[7]*256+D[8])${kp.i5 ? `^${gpN}[${kp.i5}]` : ""}+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
         ` if sa<1 then sa=sa+2147483646 end`,
     );
     body.push(
-      `  local sb=(D[9]*16777216+D[10]*65536+D[11]*256+D[12]+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
+      `  local sb=((D[9]*16777216+D[10]*65536+D[11]*256+D[12])${kp.i6 ? `^${gpN}[${kp.i6}]` : ""}+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
         ` if sb<1 then sb=sb+2147483646 end`,
     );
   } else {
@@ -380,6 +412,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
       garbageLit: JSON.stringify(garbage(rng)),
       deltaSa: obf(normSeed(opts.pbias * 104729 + 29), rng),
       deltaSb: obf(normSeed(opts.pbias * 15485863 + 11), rng),
+      cmVar: cmN,
     });
     if (guardLines) for (const gl of guardLines) body.push(` ${gl}`);
   }
@@ -454,8 +487,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(`   local nk=${N.uvar}()`);
   body.push(`   if nk>${runtimeBudget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
   body.push(`   pr.k={}`);
-  // per-proto rolling-key mirror for operand de-whitening
-  body.push(`   local lrk=(${rk0N}+${N.pid2}*${astepN})%65536`);
+  // per-proto rolling-key mirror for operand de-whitening (Phase 3 non-linear)
+  body.push(`   local lrk=(${rk0N}+${N.pid2}*${astepN}+${N.pid2}*${N.pid2}*${astep2N})%65536`);
   body.push(`   for i=1,nk do`);
   body.push(`    local mm=math.floor(lrk/3)%256`);
   body.push(`    local oe=${N.uvar}()`);
@@ -463,7 +496,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(`    local b1w=${N.svar}()-mm`);
   body.push(`    local b2w=${N.svar}()+mm`);
   body.push(`    local cw=${N.svar}()-mm`);
-  body.push(`    lrk=(lrk+${aincN})%65536`);
+  body.push(`    lrk=(lrk+${aincN}+(lrk>>3))%65536`);
   body.push(`    pr.k[i]={[${keyNames.OP}]=oe,[${keyNames.A}]=aw,[${keyNames.B1}]=b1w,[${keyNames.B2}]=b2w,[${keyNames.C}]=cw}`);
   body.push(`   end`);
   body.push(`   ${N.protos}[${N.pid2}]=pr`);
@@ -507,18 +540,45 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(`  for ${F.i}=1,${F.P0}.pn do ${F.cells}[${F.i}].v=${F.args}[${F.i}] end`);
   body.push(`  local ${F.tc},${F.six}=37,1`);
   body.push(`  local ${F.poison},${F.PB},${F.wmv}=false,0,0`);
-  // Phase 2: per-frame rolling key
-  body.push(`  local ${rkN}=(${rk0N}+${F.pid}*${astepN})%65536`);
+  // Phase 3: per-frame rolling key (non-linear Phase 3.1+3.2)
+  body.push(`  local ${rkN}=(${rk0N}+${F.pid}*${astepN}+${F.pid}*${F.pid}*${astep2N})%65536`);
   body.push(`  local ${F.rn},${F.narg},${F.so},${F.fpos},${F.fn}`);
   body.push(`  local ${F.ins},${F.op}`);
   body.push(`  while true do`);
+  // Phase 5: randomized instruction scheduling — inject no-ops at
+  // build-specific intervals to break predictable dispatch rhythm.
+  if (rng.bool()) {
+    const schedN = id();
+    body.push(`   local ${schedN}=(${obf(rng.int(65536), rng)}+${F.pid}*7919)%65536`);
+    body.push(`   if ${schedN}<256 then local _nop=1+1 end`);
+  }
+  // Phase 5: opaque dispatch guard — always-true condition with MBA form
+  if (rng.bool()) {
+    const opaqueN = id();
+    body.push(`   local ${opaqueN}=((7*${F.tc}*${F.tc})+${F.tc})%2`);
+    body.push(`   if ${opaqueN}==0 then local _og=1+1 end`);
+  }
+  // Phase 5: anti-debugging check in dispatch loop
+  if (opts.antiEmulation) {
+    body.push(`   if debug and debug.getinfo then local _dg=debug.getinfo(1) if _dg and _dg.what=="C" then ${F.poison}=true ${F.PB}=1 end end`);
+  }
   body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
   body.push(`   if ${F.pc}<20 then _G.__VM_TRACE=(_G.__VM_TRACE or "").."PC="..tostring(${F.pc}).." RK="..tostring(${rkN}).." INS="..tostring(${F.ins}[${keyNames.OP}]).." A="..tostring(${F.ins}[${keyNames.A}]).." B="..tostring(${F.ins}[${keyNames.B1}]+${F.ins}[${keyNames.B2}]).." C="..tostring(${F.ins}[${keyNames.C}]).."\\n" end`);
   for (const cl of countdown) body.push(`   ${cl}`);
   body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
   body.push(`   ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
-  body.push(`   ${rkN}=(${rkN}+${aincN})%65536`);
+  body.push(`   ${rkN}=(${rkN}+${aincN}+(${rkN}>>3))%65536`);
   body.push(`   ${F.pc}=${F.pc}+1`);
+  // Phase 5: MBA-scrambled dispatch with computed jump
+  if (rng.bool()) {
+    const jumpTableN = id();
+    body.push(`   local ${jumpTableN}={}`);
+    for (let i = 0; i < 8; i++) {
+      const offset = rng.int(200) - 100;
+      body.push(`   ${jumpTableN}[${i}]=${F.pc}+${offset}`);
+    }
+    body.push(`   local _jt=${jumpTableN}[(${F.op}%8)] if _jt and _jt~=${F.pc} then ${F.pc}=_jt end`);
+  }
   for (const cl of chainLines) body.push(`   ${cl}`);
   body.push(`  end`);
   body.push(` end`);
@@ -545,18 +605,22 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // already emits one-statement handler bodies, so this collapses
   // cleanly. (If a future handler body becomes multi-statement, this
   // join will need a smarter split.)
-  const lua = IIFE_HEADER + " " + body.join(" ") + " " + IIFE_FOOTER;
+  const envParam = id();
+  const iiFEHeader = `return (function(${envParam}, ...)`;
+  const iiFEFooter = `end)(${envParam})`;
+  const lua = iiFEHeader + " " + body.join(" ") + " " + iiFEFooter;
+  const banner = `-- NEVAHEX-VM v3 'Hex' — protected artifact — ${garbage(rng).slice(0, 12)}() runs it`;
   const L: string[] = [
-    `-- NEVAHEX-VM v3 'Hex' — protected artifact — loadstring(s)() runs it`,
+    banner,
     "",
     lua,
   ];
   // ---- E1/E2: local & upvalue budgets — fail the BUILD, not the load ----
   const fileScopeNames = [
     ...Object.values(N),
-    aeT0, aeOps,
+    aeT0, aeT1, aeT2, aeT3, aeT4, aeOps, aeAllocOps, aeMemOps, aeArithOps, aeTotalOps, aeHookFlag, aeEnvScore,
     keyNames.OP, keyNames.A, keyNames.B1, keyNames.B2, keyNames.C,
-    rk0N, astepN, aincN, ck0N, cvwN, rkN,
+    rk0N, astepN, astep2N, aincN, ck0N, cvwN, cmN, rkN,
   ];
   const runText = body.join("\n");
   const budget = checkBudgets(

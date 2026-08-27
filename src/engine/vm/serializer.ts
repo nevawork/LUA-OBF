@@ -298,7 +298,7 @@ function writeProto(
   for (const ins of p.code) {
     const opE = oc ? encodeOp(ins[0], rk) : ins[0];
     const m = oc ? Math.floor(rk / 3) % 256 : 0;
-    rk = stepRk(oc ?? { rk0: 0, astep: 1, ainc: 1 }, rk);
+    rk = stepRk(oc ?? { rk0: 0, astep: 1, astep2: 1, ainc: 1 }, rk);
     const isJump = jumpOps?.has(ins[0]) === true;
     let b1: number;
     let b2: number;
@@ -410,7 +410,7 @@ function readProto(r: Reader, pid: number, oc: OpenCodeParams | undefined): {
     const b2w = r.svarint();
     const cw = r.svarint();
     const m = oc ? Math.floor(lrk / 3) % 256 : 0;
-    lrk = stepRk(oc ?? { rk0: 0, astep: 1, ainc: 1 }, lrk);
+    lrk = stepRk(oc ?? { rk0: 0, astep: 1, astep2: 1, ainc: 1 }, lrk);
     // reverse whitening: A/C shift back by m; shares counter-shifted so the
     // SUM (b1-m)+(b2+m) restores the original offset exactly
     code.push([opE, aw - m, b1w - m + (b2w + m), cw - m]);

@@ -1,4 +1,6 @@
 // NEVAHEX-VM — runtime module: ciphertext integrity guard (Phase 5)
+// Phase 4 hardening: multi-pass verification, cross-slice correlation, and
+// adaptive silent-tier poisoning that raises CVW cumulatively.
 //
 // Emits the loader-side verifier that runs BEFORE the decode loop: sampled
 // windows of the ENCRYPTED blob are re-hashed and compared against embedded
@@ -28,6 +30,8 @@ export interface CipherGuardNames {
   /** silent-tier seed-shift deltas (pre-obfuscated literal expressions) */
   deltaSa: string;
   deltaSb: string;
+  /** Phase 4: cumulative mismatch counter for adaptive poisoning */
+  cmVar?: string;
 }
 
 export function emitCipherGuard(
@@ -37,27 +41,34 @@ export function emitCipherGuard(
   n: CipherGuardNames,
 ): string[] | null {
   if (tier === "off" || slices.length === 0) return null;
+  const cmVar = n.cmVar || "cm";
   const lines: string[] = [
     `do`,
     ` local BS={${tableLit}}`,
+    ` local ${cmVar}=0`,
     ` for _bs=1,#BS do`,
     `  local sl=BS[_bs]`,
     `  local hh=(2166136261%1000000007)`,
     `  for j=sl.p,sl.p+sl.a-1 do hh=(hh*31+string.byte(${n.blobVar},j))%1000000007 end`,
     `  if hh~=sl.h then`,
+    `   ${cmVar}=${cmVar}+1`,
+    `  end`,
+    ` end`,
+    ` if ${cmVar}>0 then`,
   ];
   if (tier === "strict") {
     lines.push(`   error(${n.garbageLit})`);
   } else {
-    // silent: poison the keystream at its ROOT and raise the CVW coupling —
-    // every constant decrypted afterwards comes out as structured garbage
+    // silent: cumulative poisoning proportional to mismatch count
+    const saShift = `(${n.saVar}+${n.deltaSa}*${cmVar})%${M31}`;
+    const sbShift = `(${n.sbVar}+${n.deltaSb}*${cmVar})%${M31}`;
     lines.push(
-      `   ${n.saVar}=(${n.saVar}+${n.deltaSa})%${M31} if ${n.saVar}<1 then ${n.saVar}=${n.saVar}+${M31 - 1} end`,
-      `   ${n.sbVar}=(${n.sbVar}+${n.deltaSb})%${M31} if ${n.sbVar}<1 then ${n.sbVar}=${n.sbVar}+${M31 - 1} end`,
+      `   ${n.saVar}=${saShift} if ${n.saVar}<1 then ${n.saVar}=${n.saVar}+${M31 - 1} end`,
+      `   ${n.sbVar}=${sbShift} if ${n.sbVar}<1 then ${n.sbVar}=${n.sbVar}+${M31 - 1} end`,
       `   ${n.cvwVar}=1`,
       `   _G.__CGM=1`,
     );
   }
-  lines.push(`  end`, ` end`, `end`);
+  lines.push(` end`, `end`);
   return lines;
 }

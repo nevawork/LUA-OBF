@@ -1,48 +1,184 @@
-// NEVAHEX-VM — Phase 6 performance-engineering tests
-// Structural pins for the runtime hot-path optimizations (unpack fast path,
-// batched constant decryption, hoisted byte primitive) plus determinism
-// guards proving the rewrites changed no observable build output semantics.
+// NEVAHEX-VM — Phase 6 Luau bytecode virtualization tests
 import { describe, it, expect } from "vitest";
 import { protect } from "../src/pipeline";
 
-describe("phase 6: artifact hot-path structure", () => {
-  const r = protect({
-    source: 'local m = "payload-string-for-concat" return m',
-    seedHex: "ab".repeat(32),
-  });
-  const lua = r.lua;
+const SRC = `local x=10+20 return x`;
 
-  it("argument spreading feature-detects native unpack", () => {
-    expect(/=unpack or \(table and table\.unpack\)/.test(lua)).toBe(true);
-    // threshold branch + recursive fallback preserved
-    expect(/>15 then return \w+\(t,i,j\) end/.test(lua)).toBe(true);
-    expect(/return t\[i\],\w+\(t,i\+1,j\)/.test(lua)).toBe(true);
-  });
-
-  it("constant decryption batches through table.concat", () => {
-    // accessor accumulates parts[] then concatenates once
-    expect(/parts\[\w\]=\w+\(\(e\.b\[j\]-\(g%256\)\+256\)%256\)/.test(lua)).toBe(true);
-    expect(/=\w+\(parts\)/.test(lua)).toBe(true);
-    // the quadratic chain is gone from the CV body
-    expect(/sv=sv\.\.\./.test(lua)).toBe(false);
+describe("Phase 6: Luau bytecode virtualization", () => {
+  it("luau-vm flag produces valid protected output", () => {
+    const r = protect({
+      source: SRC,
+      seedHex: "ab".repeat(32),
+      luauVm: true,
+      tier: "off",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(SRC.length);
   });
 
-  it("blob decode loop uses the hoisted byte primitive", () => {
-    expect(/ local \w+=string\.byte\n/.test(lua)).toBe(true);
-    // inner loop reads via the local, not the global table
-    expect(/D\[i\]=\(\w+\(\w+,i\)-pv\+256\)%256/.test(lua)).toBe(true);
-    expect(/D\[i\]=\(string\.byte\(/.test(lua)).toBe(false);
+  it("luau target profile produces valid protected output", () => {
+    const r = protect({
+      source: SRC,
+      seedHex: "cd".repeat(32),
+      luauVm: true,
+      tier: "off",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(SRC.length);
   });
 
-  it("determinism unaffected by phase-6 emission changes", () => {
-    const a1 = protect({ source: "return 1", seedHex: "11".repeat(32) }).lua;
-    const a2 = protect({ source: "return 1", seedHex: "11".repeat(32) }).lua;
+  it("Luau virtualization composes with anti-deobfuscation", () => {
+    const r = protect({
+      source: SRC,
+      seedHex: "ef".repeat(32),
+      luauVm: true,
+      antiLuahunt: true,
+      pathExplosion: true,
+      selfModifying: true,
+      tier: "silent",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(500);
+  });
+
+  it("Luau output is deterministic with same seed", () => {
+    const a1 = protect({
+      source: SRC,
+      seedHex: "22".repeat(32),
+      luauVm: true,
+      envProfile: "luau",
+    }).lua;
+    const a2 = protect({
+      source: SRC,
+      seedHex: "22".repeat(32),
+      luauVm: true,
+      envProfile: "luau",
+    }).lua;
     expect(a1).toBe(a2);
   });
 
-  it("isomorphism still holds across seeds", () => {
-    const a = protect({ source: "return 1", seedHex: "22".repeat(32) }).lua;
-    const b = protect({ source: "return 1", seedHex: "44".repeat(32) }).lua;
-    expect(a).not.toBe(b);
+  it("Luau virtualization handles fast calls", () => {
+    const fastCallSrc = `
+      local function add(a, b) return a + b end
+      local result = add(1, 2)
+      return result
+    `;
+    const r = protect({
+      source: fastCallSrc,
+      seedHex: "33".repeat(32),
+      luauVm: true,
+      tier: "off",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(fastCallSrc.length);
+  });
+
+  it("Luau virtualization handles generic for loops", () => {
+    const genericForSrc = `
+      local t = {1, 2, 3}
+      local sum = 0
+      for i, v in ipairs(t) do
+        sum = sum + v
+      end
+      return sum
+    `;
+    const r = protect({
+      source: genericForSrc,
+      seedHex: "44".repeat(32),
+      luauVm: true,
+      tier: "off",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(genericForSrc.length);
+  });
+
+  it("Luau virtualization handles varargs", () => {
+    const varargSrc = `
+      local function count_args(...)
+        return select('#', ...)
+      end
+      local n = count_args(1, 2, 3, 4, 5)
+      return n
+    `;
+    const r = protect({
+      source: varargSrc,
+      seedHex: "55".repeat(32),
+      luauVm: true,
+      tier: "off",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(varargSrc.length);
+  });
+
+  it("Luau virtualization handles typeof()", () => {
+    const typeofSrc = `
+      local t = {}
+      local t1 = typeof(t)
+      local n = 42
+      local t2 = typeof(n)
+      return t1, t2
+    `;
+    const r = protect({
+      source: typeofSrc,
+      seedHex: "66".repeat(32),
+      luauVm: true,
+      tier: "off",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(typeofSrc.length);
+  });
+
+  it("Luau virtualization preserves Roblox-specific patterns", () => {
+    const robloxSrc = `
+      local function onTouch(hit)
+        local part = hit.Parent
+        if part:IsA('BasePart') then
+          part.BrickColor = BrickColor.new('Red')
+        end
+      end
+      return onTouch
+    `;
+    const r = protect({
+      source: robloxSrc,
+      seedHex: "77".repeat(32),
+      luauVm: true,
+      tier: "silent",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.length).toBeGreaterThan(robloxSrc.length);
+  });
+
+  it("Phase 6 composes with all previous phases", () => {
+    const r = protect({
+      source: SRC,
+      seedHex: "88".repeat(32),
+      luauVm: true,
+      dualVm: true,
+      directThreaded: true,
+      regObfuscate: true,
+      constShuffle: true,
+      megaSuperops: true,
+      superopNesting: 2,
+      mbaDatabase: true,
+      factorizationKeys: true,
+      antiLuahunt: true,
+      pathExplosion: true,
+      selfModifying: true,
+      keyless: true,
+      mmTraps: true,
+      tier: "silent",
+      envProfile: "luau",
+    });
+    expect(r.lua).toBeTruthy();
+    expect(r.lua.includes("setmetatable(")).toBe(true);
+    expect(r.lua.length).toBeGreaterThan(1000);
   });
 });

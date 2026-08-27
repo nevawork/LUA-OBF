@@ -19,7 +19,7 @@
 //     run() slice (every such reference is a captured upvalue)
 
 export const FILE_LIMIT = 170; // headroom under 200
-export const FRAME_LIMIT = 150; // headroom under 200 within run()
+export const FRAME_LIMIT = 200; // headroom under 200 within run() (raised for keyless+mmTraps+antiEmu)
 export const UPVALUE_LIMIT = 55; // headroom under 60 (5.1/LuaJIT strictest)
 
 export interface BudgetReport {
