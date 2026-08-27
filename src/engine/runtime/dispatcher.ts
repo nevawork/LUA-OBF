@@ -108,32 +108,32 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     `${F.sp}=${F.sb}`,
     `end`,
   ]);
-  add(Op.LOADK, tier === "silent"
-    ? pickVariant(rng, [
-        () => [
-          `do`,
-          // Phase 3: constants decrypt on access via CV(pid, rec)
-          `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
-          `${F.sp}=${F.sp}+1`,
-          `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=${F.v}+${F.PB} else ${F.S}[${F.sp}]=${F.v} end`,
-          `end`,
-        ],
-        () => [
-          `do`,
-          `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
-          `${F.sp}=${F.sp}+1`,
-          `if ${F.poison} and type(${F.v})=='number' then`,
-          `${F.S}[${F.sp}]=${F.v}+${F.PB}`,
-          `else`,
-          `${F.S}[${F.sp}]=${F.v}`,
-          `end`,
-          `end`,
-        ],
-      ])
-    : pickVariant(rng, [
-        () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${N.cv}(${F.pid},${F.C}[${fA()}])`],
-        () => [`local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
-      ]));
+add(Op.LOADK, tier === "silent"
+     ? pickVariant(rng, [
+         () => [
+           `do`,
+           // Phase 3: constants decrypt on access via CV(pid, rec)
+           `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fB(Op.LOADK)}])`,
+           `${F.sp}=${F.sp}+1`,
+           `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=${F.v}+${F.PB} else ${F.S}[${F.sp}]=${F.v} end`,
+           `end`,
+         ],
+         () => [
+           `do`,
+           `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fB(Op.LOADK)}])`,
+           `${F.sp}=${F.sp}+1`,
+           `if ${F.poison} and type(${F.v})=='number' then`,
+           `${F.S}[${F.sp}]=${F.v}+${F.PB}`,
+           `else`,
+           `${F.S}[${F.sp}]=${F.v}`,
+           `end`,
+           `end`,
+         ],
+       ])
+     : pickVariant(rng, [
+         () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${N.cv}(${F.pid},${F.C}[${fB(Op.LOADK)}])`],
+         () => [`local ${F.v}=${N.cv}(${F.pid},${F.C}[${fB(Op.LOADK)}])`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
+       ]));
   add(Op.NIL, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=nil`]);
   add(Op.TRUE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=true`]);
   add(Op.FALSE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=false`]);
