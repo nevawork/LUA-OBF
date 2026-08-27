@@ -306,7 +306,8 @@ function emitRuntime(opts) {
                 body.push(` ${gl}`);
     }
     // environmental keying (hardened derive-not-compare)
-    const envLines = (0, envkeying_1.emitEnvKeyingBlock)(opts.envProfile ?? "universal", "sa", "sb");
+    const envProfile = opts.envProfile ?? "universal";
+    const envLines = (0, envkeying_1.emitEnvKeyingBlock)(envProfile, "sa", "sb");
     if (envLines)
         for (const el of envLines)
             body.push(` ${el}`);

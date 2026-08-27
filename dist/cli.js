@@ -35,8 +35,8 @@ switch (cmd) {
         if (!["strict", "silent", "off"].includes(tier))
             fail("tier must be TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|TIER_PARANOID_OFF|strict|silent|off");
         const target = (flagOf("--target") ?? "universal");
-        if (!["lua51", "luajit", "luau", "universal"].includes(target))
-            fail("target must be lua51|luajit|luau|universal");
+        if (!["lua51", "luajit", "luau", "luau_executor", "universal"].includes(target))
+            fail("target must be lua51|luajit|luau|luau_executor|universal");
         const envKeying = hasFlag("--env-keying") ? target : "universal";
         const result = (0, pipeline_1.protect)({
             source: source,

@@ -120,10 +120,6 @@ function protect(opts) {
     const pbias = 1 + rng.int(3);
     // ---- environmental keying (hardened derive-not-compare) ----
     const envProfile = opts.envProfile ?? "universal";
-    // Blob is encrypted with the EFFECTIVE seeds (manifest holds them; they are
-    // holder-side secrets). The file embeds BAKED-DOWN literals; at load time the
-    // runtime re-derives the fingerprint constant and adds it back, recovering
-    // the effective seeds. Wrong environment ⇒ wrong stream ⇒ cryptic failure.
     const encSeeds = seeds;
     const embeddedCipherLits = envProfile === "universal"
         ? null
@@ -299,7 +295,8 @@ function protect(opts) {
     const { flat } = (0, serializer_1.deserializeBlob)((0, serializer_1.decryptBlob)(blob, encSeeds), { opencode });
     const cappedIntegrity = (0, antitamper_1.planIntegritySlices)(flat);
     // ---- emit runtime ----
-    const antiEmu = envProfile !== "luau"
+    const isLuauProfile = envProfile === "luau" || envProfile === "luau_executor";
+    const antiEmu = !isLuauProfile
         ? { ...antiemulation_1.DEFAULT_ANTI_EMULATION }
         : null;
     const emitted = (0, emitter_1.emitRuntime)({
@@ -314,7 +311,7 @@ function protect(opts) {
         envProfile,
         antiEmulation: antiEmu,
         cipherLiterals: embeddedCipherLits,
-        dynLoad: opts.dynLoad === true && envProfile !== "luau",
+        dynLoad: opts.dynLoad === true && !isLuauProfile,
         layered: opts.layered === true,
         fieldKeys,
         opencode,

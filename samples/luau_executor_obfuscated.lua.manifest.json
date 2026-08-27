@@ -2,7 +2,7 @@
   "format": "nevahex-manifest",
   "version": 3,
   "tier": "silent",
-  "envProfile": "universal",
+  "envProfile": "luau_executor",
   "integritySlices": 5,
   "fingerprint": {
     "perm": [
@@ -141,14 +141,14 @@
     ]
   },
   "layerSeals": {
-    "l1_shell": 83099200,
-    "l2_vm": 954962937,
-    "l3_consts": 286595445
+    "l1_shell": 941792732,
+    "l2_vm": 123983225,
+    "l3_consts": 229697676
   },
   "watermark": {
     "len": 0,
     "crc16": 0
   },
-  "auth": "48e0bc1393469f3c89c99ac482bd4843584bffba2e92f30cbd3a1698bf64d082",
-  "createdAt": "2026-08-27T22:18:38.106Z"
+  "auth": "774b8ec17e4a7345eb43e7012fad0ed2000fb03d29f802245bba0c73e91ed6b9",
+  "createdAt": "2026-08-27T22:18:26.576Z"
 }

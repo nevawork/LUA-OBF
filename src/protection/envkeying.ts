@@ -16,13 +16,14 @@
 // Fingerprint inputs (pure-Lua, sandbox-safe): _VERSION plus presence/absence
 // bits of a stable set of globals. Mixed with a keyed additive rolling hash.
 
-export type EnvProfile = "lua51" | "luajit" | "luau" | "universal";
+export type EnvProfile = "lua51" | "luajit" | "luau" | "luau_executor" | "universal";
 
 /** canonical fingerprints per profile */
 export const PROFILES: Record<EnvProfile, { version: string; bits: string[] }> = {
   lua51: { version: "Lua 5.1", bits: ["unpack", "setfenv", "getfenv", "loadstring"] },
   luajit: { version: "LuaJIT", bits: ["jit", "bit", "ffi"] },
   luau: { version: "Luau", bits: ["task", "game", "workspace", "typeof"] },
+  luau_executor: { version: "Luau", bits: ["game", "workspace", "task", "getgenv", "hookfunction"] },
   universal: { version: "", bits: [] },
 };
 

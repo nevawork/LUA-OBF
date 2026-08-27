@@ -34,9 +34,9 @@ switch (cmd) {
     const tier = normalizeTier((flagOf("--tier") ?? "silent") as never);
     if (!["strict", "silent", "off"].includes(tier)) fail("tier must be TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|TIER_PARANOID_OFF|strict|silent|off");
     const target = (flagOf("--target") ?? "universal") as string;
-    if (!["lua51", "luajit", "luau", "universal"].includes(target))
-      fail("target must be lua51|luajit|luau|universal");
-    const envKeying = hasFlag("--env-keying") ? (target as import("./protection/envkeying").EnvProfile) : "universal";
+    if (!["lua51", "luajit", "luau", "luau_executor", "universal"].includes(target))
+      fail("target must be lua51|luajit|luau|luau_executor|universal");
+    const envKeying = hasFlag("--env-keying") ? (target as "luau_executor" | "universal") : "universal";
     const result = protect({
       source: source!,
       tier,

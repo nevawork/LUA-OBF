@@ -417,7 +417,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     if (guardLines) for (const gl of guardLines) body.push(` ${gl}`);
   }
   // environmental keying (hardened derive-not-compare)
-  const envLines = emitEnvKeyingBlock(opts.envProfile ?? "universal", "sa", "sb");
+  const envProfile = opts.envProfile ?? "universal";
+  const envLines = emitEnvKeyingBlock(envProfile, "sa", "sb");
   if (envLines) for (const el of envLines) body.push(` ${el}`);
   // Environmental Entropy Pool (Phase 3.1)
   if (opts.entropyPool !== false && (opts.envProfile ?? "universal") !== "universal") {
