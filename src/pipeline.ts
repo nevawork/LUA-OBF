@@ -18,7 +18,7 @@ import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
 import { DEFAULT_ANTI_EMULATION } from "./protection/antiemulation";
 import { verifyGeneratedDispatch } from "./testing/dispatch-check";
 import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
-import { makeOpenCodeParams } from "./engine/runtime/opencode";
+import { makeOpenCodeParams, initialRk } from "./engine/runtime/opencode";
 import { fuseSuperOps, FUSED_ID_BASE, FusedSpec } from "./engine/vm/superops";
 
 export interface ProtectOptions {
@@ -59,6 +59,11 @@ export interface ProtectOptions {
    * a decoy number pool with rng-chosen indices. Default OFF; --keyless.
    */
   keyless?: boolean;
+  /**
+   * APEX W1.1 stage-2: deprecated, no-op (superseded by --v3 / Hex3).
+   * Retained for build-line stability: older CI flags still pass.
+   */
+  stage2?: boolean;
   /**
    * holder mode: include the nonce + cipher seeds in the manifest so watermark
    * extraction can run. Default OFF — artifacts must never ship their own key
@@ -208,12 +213,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
       while (usedPhys.has(phys)) phys = 500 + rng.int(40000);
       usedPhys.add(phys);
       fusedForEmit.push({ phys, members: spec.members });
-/**
-   * APEX W1.1 stage-2: emit the inner deserializer VM + masked program
-   * instead of the flat decode loop. Behind --stage2 flag.
-   */
-  stage2?: boolean;
-}
+    }
+  }
 
   // ---- Phase 2 dispatch-hardening material ----
   // rolling-key opcode encoder + physical set of jump ops (their B operand
@@ -283,9 +284,15 @@ export function protect(opts: ProtectOptions): ProtectResult {
     prologueShares,
   });
   const blob = encryptBlob(plain, encSeeds);
+  if (process.env.NEVAHEX_DEBUG_OPS) {
+    try { require("fs").writeFileSync("/tmp/kilo/blob.bin", blob); } catch {}
+  }
 
   // ---- Phase 5: ciphertext-integrity windows over the ENCRYPTED blob ----
   const blobSlices = tier !== "off" ? planBlobSlices(blob) : [];
+  if (process.env.NEVAHEX_DEBUG_OPS) {
+    try { require("fs").writeFileSync("/tmp/kilo/slices.json", JSON.stringify(blobSlices)); } catch {}
+  }
 
   // ---- integrity slices over decoded representation ----
   // mirror must reverse operand whitening ⇒ pass the build's rolling-key params
@@ -320,8 +327,27 @@ export function protect(opts: ProtectOptions): ProtectResult {
   });
 
   // ---- build-time dispatch self-verification (fail loud, not cryptic) ----
-  const usedPhysicalOps = new Set<number>();
-  for (const p of flat) for (const q of p.code) usedPhysicalOps.add(q[0]);
+  // The decoded representation's q[0] is opE (rolling-key encoded). The
+  // dispatch arms test against DECODED physical values, so we must translate
+  // every (pid, ins_index) opE back to its physical opcode using the same
+  // per-frame chain the runtime uses. The translation also produces a
+  // position-dependent set of physical ops (each instruction's opE lives in
+  // a different rk_i window); the check accepts that an arm literal is hit
+  // for ANY expected position.
+  const opEToPhys = new Map<number, number>();
+  for (const p of flat) {
+    let lrk = opencode ? initialRk(opencode, flat.indexOf(p) + 1) : 0;
+    for (const ins of p.code) {
+      const opE = ins[0];
+      const phys = (opE - lrk + 65536) % 65536;
+      opEToPhys.set(opE, phys);
+      if (opencode) lrk = (lrk + opencode.ainc) % 65536;
+    }
+  }
+  const usedPhysicalOps = new Set<number>(opEToPhys.values());
+  if (process.env.NEVAHEX_DUMP_LUA) {
+    try { require("fs").writeFileSync(process.env.NEVAHEX_DUMP_LUA, emitted.lua); } catch {}
+  }
   const check = verifyGeneratedDispatch(emitted.lua, perm, usedPhysicalOps, {
     encoded: true,
     extraReal: fusedForEmit.map((s) => s.phys),

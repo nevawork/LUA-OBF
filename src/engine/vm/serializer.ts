@@ -262,29 +262,23 @@ function writeProto(
   putUvarint(buf, keys.B1);
   putUvarint(buf, keys.B2);
   putUvarint(buf, keys.C);
-  // ---- constants: payloads masked under the per-proto stream (Phase 3) ----
-  const g = { v: constSeed(constKey, pid) };
+  // ---- constants: payloads masked under per-constant per-proto stream (Phase 3) ----
   putUvarint(buf, p.consts.length);
   for (const c of p.consts) {
+    const cg = { v: constSeed(constKey, pid) };
     if (c === null) buf.push(0);
     else if (c === true) buf.push(1);
     else if (c === false) buf.push(2);
     else if (typeof c === "number") {
-      // E3: non-finite constants use dedicated single-byte tags. The old text
-      // encodings were broken ("(0/0)" → tonumber()=nil on standard Lua) and
-      // version-sensitive ("1e999" overflow parsing). Tags carry no payload;
-      // the runtime maps them to 0/0 and math.huge directly.
       if (Number.isNaN(c)) buf.push(7);
       else if (c === Number.POSITIVE_INFINITY) buf.push(8);
       else if (c === Number.NEGATIVE_INFINITY) buf.push(9);
       else {
-        // finite: decimal round-trip (JS shortest exact repr guarantees
-        // double recovery via strtod on every target)
         buf.push(5);
         const s = String(c);
         putUvarint(buf, s.length);
         for (let i = 0; i < s.length; i++) {
-          buf.push((s.charCodeAt(i) + constMaskByte(g)) & 0xff);
+          buf.push((s.charCodeAt(i) + constMaskByte(cg)) & 0xff);
         }
       }
     } else {
@@ -292,7 +286,7 @@ function writeProto(
       const bytes = Buffer.from(c as string, "latin1");
       putUvarint(buf, bytes.length);
       for (const byte of bytes) {
-        buf.push((byte + constMaskByte(g)) & 0xff);
+        buf.push((byte + constMaskByte(cg)) & 0xff);
       }
     }
   }

@@ -87,8 +87,8 @@ export class Compiler {
     for (let i = 0; i < consts.length; i++) {
       if (consts[i] === v && typeof consts[i] === typeof v) return i;
     }
-    (this.fs.proto.consts as unknown[]).push(v);
-    return (this.fs.proto.consts as unknown[]).length;
+    consts.push(v);
+    return consts.length - 1;
   }
 
   private compileFunc(fb: FuncBody): void {

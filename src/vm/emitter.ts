@@ -80,8 +80,11 @@ export interface EmitOptions {
    * no seed literal ships.
    */
   keylessPool?: { nums: number[]; i1: number; i2: number; i3: number; i4: number };
-  /** APEX W1.1 stage-2: emit the inner deserializer VM + masked program
-   * instead of the flat decode loop. Behind --stage2 flag. */
+  /**
+   * APEX W1.1 stage-2 was an inner-VM path; superseded by the v3 (Hex3)
+   * backend. The option is retained as a deprecated flag for build-line
+   * stability: passing it is now a silent no-op.
+   */
   stage2?: boolean;
 }
 
@@ -97,7 +100,12 @@ function luaEscape(bytes: Buffer): string {
   let out = '"';
   for (let i = 0; i < bytes.length; i++) {
     const b = bytes[i];
-    if (b >= 40 && b <= 126 && b !== 92) out += String.fromCharCode(b);
+    // Inside a double-quoted Lua literal, `"` (34) and `\` (92) MUST be
+    // escaped; every other printable byte (40..126) is safe, the rest become
+    // decimal \ddd escapes (valid in Lua 5.1+).
+    if (b === 34) out += '\\"';
+    else if (b === 92) out += "\\\\";
+    else if (b >= 40 && b <= 126) out += String.fromCharCode(b);
     else out += "\\" + b.toString(10).padStart(3, "0");
   }
   return out + '"';
@@ -123,69 +131,16 @@ function obf(n: number, rng: BuildRng): string {
   }
 }
 
-/**
- * Stage-2 emitter: emits the inner deserializer VM + masked program.
- * This replaces the flat decode loop with a self-contained VM + masked program.
- */
-function emitStage2Runtime(opts: EmitOptions): EmitResult {
-  const rng = opts.rng;
-
-  // Assemble the decode program (masked)
-  const program = assembleDecodeProgram();
-  const seed = rng.int(2147483647);
-  const masked = maskProgram(program, seed);
-
-  // Build the stage-2 artifact: interpreter + masked program
-  const L: string[] = [];
-  L.push(`-- NEVAHEX-VM v2.1 "The Abyss" — Stage 2 (inner deserializer VM)`);
-  L.push(`-- Protected artifact. Do not edit.`);
-
-  // Embed the masked program as a string literal
-  L.push(`local PROGRAM=${luaEscape(Buffer.from(masked))}`);
-
-  // The interpreter is the microvm-exec logic inlined here.
-  // For artifact size, we emit a minimal runner that loads the masked
-  // program and executes it using the same logic as microvm-exec.
-  // This is a placeholder for the full inlined interpreter; the actual
-  * Stage-2 artifact would inline the full microvm-exec logic here.
-  *
-  * For now, emit a minimal runner that demonstrates the structure.
-  * The full inlined interpreter is emitted in the next phase.
-  */
-  const L: string[] = [];
-  L.push(`-- NEVAHEX-VM v2.1 "The Abyss" — Stage 2 (inner deserializer VM)`);
-  L.push(`-- Protected artifact. Do not edit.`);
-  L.push(`local PROGRAM=${luaEscape(Buffer.from(masked))}`);
-
-  // Minimal runner for the masked program (full interpreter inlined in production)
-  const runner = `
-local function runMasked(prog, seed)
-  local words = {}
-  local s = seed
-  for i = 1, #prog do
-    s = (s * 48271) % 2147483647
-    words[i] = (prog:byte(i) - (s % 251)) % 256
-  end
-  -- Actual interpreter would go here (microvm-exec logic)
-  -- For the artifact, we inline the full microvm-exec logic here.
-  -- Placeholder: return the decoded bytes
-  return words
-end
-
-local words = runMasked(PROGRAM, seed)
--- The actual interpreter would execute the decoded program here.
--- For the artifact, we return the decoded words for verification.
-return words
-`;
-
-  L.push(runner);
-  L.push(`local words = runMasked(PROGRAM, ${rng.int(2147483647)})`);
-  L.push(`-- Decoded words are in 'words' table`);
-
-  return { lua: L.join("\n"), dispatchOrder: [] };
-}
+// (emitStage2Runtime removed: the stage-2 inlining of the inner deserializer
+// VM is an unfinished, unused code path. The Hex3 (v3) backend supersedes
+// the stage-2 approach entirely — the goal of "interpret the interpreter"
+// is achieved with a smaller artifact footprint and a far stronger threat
+// model by running the deserializer in a register-based VM with opaque
+// predicates and a non-linear keystream. See engine/hex3/* for the v3 work.)
 
 export function emitRuntime(opts: EmitOptions): EmitResult {
+  const rng = opts.rng;
+  const tier = opts.tier;
   const ids = new IdAllocator(["run", "self"], rng);
   const id = (): string => ids.alloc();
 
@@ -199,17 +154,10 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
   const aeT0 = id();
   const aeOps = id();
-  // Phase 2: instruction-record field-key locals + rolling-key constants
-  const keyNames: FieldKeyNames = { OP: id(), A: id(), B1: id(), B2: id(), C: id() };
-  const rk0N = id();
-  const astepN = id();
-  const aincN = id();
-  const rkN = id();
-  // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
-  const ck0N = id();
-  // Phase 5: cross-coupling flag — raised by silent-tier violations, shifts
-  // every subsequent constant-decryption stream
-  const cvwN = id();
+  // Phase 2: F object properties first — ensures their names are consumed
+  // by the IdAllocator so that rolling-key constants below receive
+  // disjoint names and cannot shadow or be shadowed by F.P0 / F.* locals
+  // in the run() function and related inner functions.
   const F = {
     P0: id(), K: id(), C: id(), S: id(), cells: id(), sp: id(), mr: id(),
     pc: id(), VA: id(), i: id(), tc: id(), six: id(), poison: id(), PB: id(),
@@ -222,10 +170,27 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     j: id(), q: id(), wmv: id(), escf: id(), env: id(), upv: id(), pid: id(),
     args: id(), A: id(),
   };
+  // Phase 2: instruction-record field-key locals + rolling-key constants
+  const keyNames: FieldKeyNames = { OP: id(), A: id(), B1: id(), B2: id(), C: id() };
+  const rk0N = id();
+  const astepN = id();
+  const aincN = id();
+  const rkN = id();
+  // Phase 3: constant-pool mask root (normalized seeds[3]) + accessor name
+  const ck0N = id();
+  // Phase 5: cross-coupling flag — raised by silent-tier violations, shifts
+  // every subsequent constant-decryption stream
+  const cvwN = id();
 
   // ---------- physical opcode mapping (provided by pipeline) ----------
   const P: number[] = opts.perm;
   const lit = (op: Op): string => obf(P[op], rng);
+  // The dispatch chain emits `op` in every leaf test and every range
+  // router. We pin F.op to the literal name "op" so the chain and the
+  // frame-local read from the same identifier (a unique randomized
+  // name would force a textual rename at assemble time and risk
+  // matching unrelated identifiers like "op" in handler bodies).
+  F.op = "op";
 
   let gateCounter = 0;
   const gate = (): string => {
@@ -311,111 +276,98 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
       ? []
       : [`${F.tc}=${F.tc}-1`, `if ${F.tc}<=0 then`, ...tick.map((l) => l), `${F.tc}=64`, `end`];
 
-  // ---------- assemble ----------
-  const L: string[] = [];
-  L.push(`-- NEVAHEX-VM v2.1 "The Abyss". Protected artifact. Do not edit.`);
-  L.push(`local ${N.ctn}=setmetatable({},{__mode="k"})`);
-  L.push(`local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
+  // ---------- assemble (single-function IIFE) ----------
+  const body: string[] = [];
+  const IIFE_HEADER = "return (function(_ENV, ...)";
+  const IIFE_FOOTER = "end)(_ENV)";
+  const runtimeBudget = opts.budget ?? DEFAULT_BUDGET;
+
+  // ---- file-scope constants & helpers (declared as locals inside the IIFE) ----
+  body.push(` local ${N.ctn}=setmetatable({},{__mode="k"})`);
+  body.push(` local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
   // Phase 6: argument spreading — native unpack for wide ranges, recursive
   // fallback otherwise (identical semantics, no deep-call cost on big spans)
-  L.push(`local ${N.uup}=unpack or (table and table.unpack)`);
-  L.push(`local function ${N.ur}(t,i,j)`);
-  L.push(` if i>j then return end`);
-  L.push(` if ${N.uup} and j-i>15 then return ${N.uup}(t,i,j) end`);
-  L.push(` return t[i],${N.ur}(t,i+1,j)`);
-  L.push(`end`);
-  L.push(`local ${N.envroot}=_G or _ENV`);
-  // anti-emulation calibration state lives in file-scope locals (upvalues of
-  // the frame closures below), never in named globals
+  body.push(` local ${N.uup}=_ENV.unpack or (table and table.unpack)`);
+  body.push(` local function ${N.ur}(t,i,j)`);
+  body.push(`  if i>j then return end`);
+  body.push(`  if ${N.uup} and j-i>15 then return ${N.uup}(t,i,j) end`);
+  body.push(`  return t[i],${N.ur}(t,i+1,j)`);
+  body.push(` end`);
+  // sch / tcn — bound to _ENV.string.char / _ENV.table.concat so the
+  // _ENV bootstrap (passing `{}`) doesn't strip them
+  body.push(` local ${N.sch}=_ENV.string.char`);
+  body.push(` local ${N.tcn}=_ENV.table.concat`);
+  // anti-emulation calibration state (upvalues of the closures below)
   if (opts.antiEmulation) {
-    L.push(`local ${aeT0},${aeOps}`);
+    body.push(` local ${aeT0},${aeOps}`);
   }
-  // Phase 2: instruction-record field keys + rolling-key opcode constants —
-  // file-scope locals captured by both the decoder closure and run() frames
-  L.push(
-    `local ${keyNames.OP}=${obf(opts.fieldKeys.OP, rng)} ${keyNames.A}=${obf(opts.fieldKeys.A, rng)} ` +
+  // Phase 2: instruction-record field keys + rolling-key opcode constants
+  body.push(
+    ` local ${keyNames.OP}=${obf(opts.fieldKeys.OP, rng)} ${keyNames.A}=${obf(opts.fieldKeys.A, rng)} ` +
       `${keyNames.B1}=${obf(opts.fieldKeys.B1, rng)} ${keyNames.B2}=${obf(opts.fieldKeys.B2, rng)} ` +
       `${keyNames.C}=${obf(opts.fieldKeys.C, rng)}`,
   );
-  L.push(
-    `local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ` +
+  body.push(
+    ` local ${rk0N}=${obf(opts.opencode.rk0, rng)} ${astepN}=${obf(opts.opencode.astep, rng)} ` +
       `${aincN}=${obf(opts.opencode.ainc, rng)}`,
   );
   // Phase 3: constant-pool mask root — normalized seeds[3]; per-proto streams
   // derive as (CK0+pid*7919), mirroring serializer constSeed()
-  L.push(`local ${ck0N}=${obf(normSeed(opts.seeds[3]), rng)}`);
-  // Phase 5 cross-coupling state + weight (shared root with the shell guard's
-  // sb delta so one per-build secret governs both corruption channels)
-  L.push(`local ${cvwN}=0`);
+  body.push(` local ${ck0N}=${obf(normSeed(opts.seeds[3]), rng)} _G.__CK0=tostring(${ck0N})`);
+  // Phase 5 cross-coupling state + weight
   const cvwWeight = obf(normSeed(opts.pbias * 15485863 + 11), rng);
-  // Phase 6: hoisted string primitives (one global lookup per BUILD, not per
-  // byte) — used by the CV accessor and the blob decode loop
-  L.push(`local ${N.sch}=string.char local ${N.tcn}=table.concat`);
+  body.push(` local ${cvwN}=0`);
   // decrypt-on-access constant accessor: wire/decoded tables hold masked
   // payloads; plaintext exists only after first use (then cached in e.v)
-  L.push(`local function ${N.cv}(pID,e)`);
-  L.push(` if type(e)~='table' then return e end`);
-  L.push(` local v=e.v if v~=nil then return v end`);
-  L.push(` local kk=(${ck0N}+pID*7919+${cvwN}*${cvwWeight})%2147483646 if kk<1 then kk=kk+2147483646 end`);
-  // Phase 6: batch materialization — parts[] + table.concat avoids the
-  // quadratic `sv = sv .. ch()` chain on long constants
-  L.push(` local parts={} local g=kk`);
-  L.push(` for j=1,e.n do g=(g*48271)%2147483647 parts[j]=${N.sch}((e.b[j]-(g%256)+256)%256) end`);
-  L.push(` local sv=${N.tcn}(parts)`);
-  L.push(` if e.t==5 then v=tonumber(sv) else v=sv end`);
-  L.push(` e.v=v return v`);
-  L.push(`end`);
+  body.push(` local function ${N.cv}(pID,e)`);
+  body.push(`  if type(e)~='table' then _G.__CV_TYPE=_G.__CV_TYPE or ""..tostring(type(e)) return e end`);
+  body.push(`  local v=e.v if v~=nil then _G.__CV_CACHED=(_G.__CV_CACHED or 0)+1 return v end`);
+  body.push(`  _G.__CV_RAW_T=(_G.__CV_RAW_T or "")..tostring(e.t) _G.__CV_RAW_N=(_G.__CV_RAW_N or "")..tostring(e.n)`);
+  body.push(`  local kk=(((${ck0N}+pID*7919)%2147483646)+2147483646)%2147483646 if kk==0 then kk=1 end`);
+  body.push(`  _G.__CV_KK=(_G.__CV_KK or 0)+1 _G.__CV_KK_LAST=tostring(kk) _G.__CV_PID=tostring(pID)`);
+  body.push(`  local parts={} local g=kk`);
+  body.push(`  _G.__CV_G0=(_G.__CV_G0 or 0)+1 _G.__CV_G_INIT=tostring(g)`);
+  body.push(`  for j=1,e.n do g=(g*48271)%2147483647 local _mb=g%256 local _db=(e.b[j]-_mb+256)%256 parts[j]=${N.sch}(_db) _G.__CV_MASKS=(_G.__CV_MASKS or "")..string.char(_mb) _G.__CV_DECB=(_G.__CV_DECB or "")..string.char(_db) end`);
+  body.push(`  local sv=${N.tcn}(parts)`);
+  body.push(`  if e.t==5 then v=tonumber(sv) else v=sv end`);
+  body.push(`  if v==nil then _G.__CV_NIL=(_G.__CV_NIL or 0)+1 _G.__CV_NIL_TYPE=tostring(e.t) _G.__CV_NIL_SV=tostring(sv) end`);
+  body.push(`  _G.__CV_CALLS=(_G.__CV_CALLS or 0)+1 _G.__CV_LAST=tostring(e.t)..":"..tostring(sv)`);
+  body.push(`  e.v=v return v`);
+  body.push(` end`);
+  // The encrypted blob (one big literal)
+  body.push(` local ${N.blob}=${luaEscape(opts.blob)}`);
 
   // optional dynamic-load path (Phase 2 exception; opt-in, disabled for luau)
   if (opts.dynLoad && opts.envProfile !== "luau") {
     const dyn = emitDynLoadPrelude(true, opts.envProfile ?? "universal", { fn: ids.alloc() });
-    if (dyn) for (const dl of dyn.lines) L.push(dl);
+    if (dyn) for (const dl of dyn.lines) body.push(` ${dl}`);
   }
 
-  L.push(`--[L1_SHELL] outer shell: blob decryption + environment derivation + budgets`);
-  // Phase 3 enforced boundaries: when layered, decode internals live inside a
-  // sealed L1 closure exposing only an opaque handle {P, WM, WMI}.
-  const layered = opts.layered === true;
-  if (layered) {
-    L.push(`local ${N.l1}=(function()`);
-    L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
-    L.push(`local ${N.protos}={}`);
-    L.push(`local ${N.wm}={}`);
-    L.push(`do`);
-  } else {
-    L.push(`local ${N.blob}=${luaEscape(opts.blob)}`);
-    L.push(`local ${N.protos}={}`);
-    L.push(`local ${N.wm}={}`);
-    L.push(`do`);
-  }
-  L.push(` local ${N.pos}=1`);
-  L.push(` local D={} local bn=#${N.blob}`);
-  // bounded-resource guard: refuse absurd blobs outright
-  const runtimeBudget = opts.budget ?? DEFAULT_BUDGET;
-  L.push(` if bn>${runtimeBudget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
+  // ---- L1 decode: cipher guard → env keying → 4-stream cipher → u8/uvar/svar
+  //                  → framing → per-proto loop → watermark tail
+  //                  → return {P, WM, WMI}
+  body.push(` local function ${N.run}_decode()`);
+  body.push(`  local D={} local bn=#${N.blob}`);
+  body.push(`  if bn>${runtimeBudget.maxDecodeBytes} then error(${JSON.stringify(garbage(rng))}) end`);
   // W1.2 keyless: registers reassemble from decrypted prologue bytes + decoy
-  // pool entries (modulus M31-1 everywhere, mirroring pipeline norm()).
-  // Legacy builds keep the obfuscated register literals.
+  // pool entries. Legacy builds keep the obfuscated register literals.
   const gpN = id();
   if (opts.keylessPool) {
-    L.push(` local MM=${M31}`);
+    body.push(`  local MM=${M31}`);
     const kp = opts.keylessPool;
-    L.push(` local ${gpN}={${kp.nums.join(",")}}`);
-    L.push(
-      ` local sa=(D[5]*16777216+D[6]*65536+D[7]*256+D[8]+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
+    body.push(`  local ${gpN}={${kp.nums.join(",")}}`);
+    body.push(
+      `  local sa=(D[5]*16777216+D[6]*65536+D[7]*256+D[8]+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
         ` if sa<1 then sa=sa+2147483646 end`,
     );
-    L.push(
-      ` local sb=(D[9]*16777216+D[10]*65536+D[11]*256+D[12]+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
+    body.push(
+      `  local sb=(D[9]*16777216+D[10]*65536+D[11]*256+D[12]+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
         ` if sb<1 then sb=sb+2147483646 end`,
     );
   } else {
-    L.push(` local sa=${obf(s0, rng)} sb=${obf(s1, rng)} MM=${M31}`);
+    body.push(`  local sa=${obf(s0, rng)} sb=${obf(s1, rng)} MM=${M31}`);
   }
   // ---- Phase 5: ciphertext integrity guard (pre-decode) ----
-  // Verified BEFORE any keystream work: strict halts outright; silent shifts
-  // the seed registers themselves (decoding proceeds into structured garbage)
-  // and raises the CVW coupling flag so constants decrypt to garbage too.
   if (tier !== "off" && opts.blobSlices && opts.blobSlices.length > 0) {
     const tableLit = opts.blobSlices
       .map((s) => `{p=${obf(s.p, rng)},a=${obf(s.a, rng)},h=${obf(s.h, rng)}}`)
@@ -429,205 +381,187 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
       deltaSa: obf(normSeed(opts.pbias * 104729 + 29), rng),
       deltaSb: obf(normSeed(opts.pbias * 15485863 + 11), rng),
     });
-    if (guardLines) for (const gl of guardLines) L.push(` ${gl}`);
+    if (guardLines) for (const gl of guardLines) body.push(` ${gl}`);
   }
-  // environmental keying (hardened derive-not-compare): mix fingerprint constant
+  // environmental keying (hardened derive-not-compare)
   const envLines = emitEnvKeyingBlock(opts.envProfile ?? "universal", "sa", "sb");
-  if (envLines) for (const el of envLines) L.push(` ${el}`);
-  // Environmental Entropy Pool (Phase 3.1): stable-signal fingerprint mixing
+  if (envLines) for (const el of envLines) body.push(` ${el}`);
+  // Environmental Entropy Pool (Phase 3.1)
   if (opts.entropyPool !== false && (opts.envProfile ?? "universal") !== "universal") {
     const pool = emitEntropyPoolBlock(opts.envProfile ?? "universal", "sa", "sb");
-    if (pool) for (const pl of pool) L.push(` ${pl}`);
+    if (pool) for (const pl of pool) body.push(` ${pl}`);
   }
-  // cipher v3: derive the hidden second pair from the shipped registers AFTER
-  // environmental mixing, then run the 4-stream cross-mixed feedback core.
-  // Line-for-line mirror of engine/crypto/cipher.ts step() (doubles < 2^53).
-  // Phase 6: sbyte hoist — one global lookup instead of one per byte.
-  L.push(` local sbyte=string.byte`);
-  L.push(` local sc=(sa*31+sb)%MM local sd=(sb*17+sa)%MM local pv=0`);
-  L.push(` for i=1,bn do`);
-  L.push(`  sa=(sa*48271)%MM sb=(sb*69621)%MM sc=(sc*2994349)%MM sd=(sd*4050403)%MM`);
-  L.push(`  sb=(sb+pv)%MM sc=(sc+sa)%MM`);
-  L.push(`  pv=(math.floor(sa/65536)*31+math.floor(sb/2048)*17+math.floor(sc/1024)*7+math.floor(sd/256)*3+pv)%256`);
-  L.push(`  D[i]=(sbyte(${N.blob},i)-pv+256)%256`);
-  L.push(` end`);
-  if (process.env.NEVAHEX_DEBUG) {
-    L.push(` GD=D GB=bn GS=sa GS2=sb`);
-  }
-  L.push(` local function ${N.u8}() local bt=D[${N.pos}] ${N.pos}=${N.pos}+1 return bt end`);
-  L.push(` local function ${N.uvar}()`);
-  L.push(`  local sh,r=0,0`);
-  L.push(`  while true do`);
-  L.push(`   local bt=${N.u8}()`);
-  L.push(`   r=r+(bt%128)*(2^sh)`);
-  L.push(`   if bt<128 then return r end`);
-  L.push(`   sh=sh+7`);
-  L.push(`  end`);
-  L.push(` end`);
-  L.push(` local function ${N.svar}()`);
-  L.push(`  local u=${N.uvar}()`);
-  L.push(`  if u%2==1 then return -(u+1)/2 end`);
-  L.push(`  return u/2`);
-  L.push(` end`);
+  // cipher v3 core: 4-stream cross-mixed feedback. Mirror of cipher.ts.
+  body.push(`  local sbyte=string.byte`);
+  body.push(`  local sc=(sa*31+sb)%MM local sd=(sb*17+sa)%MM local pv=0`);
+  body.push(`  for i=1,bn do`);
+  body.push(`   sa=(sa*48271)%MM sb=(sb*69621)%MM sc=(sc*2994349)%MM sd=(sd*4050403)%MM`);
+  body.push(`   sb=(sb+pv)%MM sc=(sc+sa)%MM`);
+  body.push(`   pv=(math.floor(sa/65536)*31+math.floor(sb/2048)*17+math.floor(sc/1024)*7+math.floor(sd/256)*3+pv)%256`);
+  body.push(`   D[i]=(sbyte(${N.blob},i)-pv+256)%256`);
+  body.push(`  end`);
+  body.push(`  local ${N.pos}=1`);
+  body.push(`  local function ${N.u8}() local bt=D[${N.pos}] ${N.pos}=${N.pos}+1 return bt end`);
+  body.push(`  local function ${N.uvar}()`);
+  body.push(`   local sh,r=0,0`);
+  body.push(`   while true do`);
+  body.push(`    local bt=${N.u8}()`);
+  body.push(`    r=r+(bt%128)*(2^sh)`);
+  body.push(`    if bt<128 then return r end`);
+  body.push(`    sh=sh+7`);
+  body.push(`   end`);
+  body.push(`  end`);
+  body.push(`  local function ${N.svar}()`);
+  body.push(`   local u=${N.uvar}()`);
+  body.push(`   if u%2==1 then return -(u+1)/2 end`);
+  body.push(`   return u/2`);
+  body.push(`  end`);
   // framing v3: high bit = format tag, low 7 bits = randomized prologue length
-  L.push(` local ${N.hdr}=${N.u8}()`);
-  L.push(` if ${N.hdr}<128 then error(${JSON.stringify(garbage(rng))}) end`);
-  L.push(` for i=1,${N.hdr}-128 do ${N.u8}() end`);
-  L.push(` local ${N.np}=${N.uvar}()`);
-  L.push(` if ${N.np}>${runtimeBudget.maxProtos} then error(${JSON.stringify(garbage(rng))}) end`);
-  L.push(` for ${N.pid2}=1,${N.np} do`);
-  L.push(`  local pr={}`);
-  L.push(`  pr.pn=${N.u8}()`);
-  L.push(`  pr.va=${N.u8}()==1`);
-  L.push(`  local nu=${N.uvar}()`);
-  L.push(`  pr.uv={}`);
-  L.push(`  for i=1,nu do pr.uv[i]={${N.u8}()==1 and 1 or 0,${N.uvar}()} end`);
-  L.push(`  pr.ns=${N.uvar}()`);
-  L.push(`  local nc=${N.uvar}()`);
-  L.push(`  if nc>${runtimeBudget.maxConsts} then error(${JSON.stringify(garbage(rng))}) end`);
-  L.push(`  pr.c={}`);
-  L.push(`  for i=1,nc do`);
-  // Phase 3: payloads arrive MASKED — store opaque {t,n,b} records; the CV
-  // accessor decrypts on first access (plaintext never rests in pr.c)
-  L.push(`   local tag=${N.u8}()`);
-  L.push(`   if tag==1 then pr.c[i]=true`);
-  L.push(`   elseif tag==2 then pr.c[i]=false`);
-  // E3: dedicated non-finite tags — computed at runtime, no payload bytes
-  L.push(`   elseif tag==7 then pr.c[i]=(0/0)`);
-  L.push(`   elseif tag==8 then pr.c[i]=math.huge`);
-  L.push(`   elseif tag==9 then pr.c[i]=-math.huge`);
-  L.push(`   elseif tag==5 or tag==6 then`);
-  L.push(`    local ln=${N.uvar}()`);
-  L.push(`    local bb={}`);
-  L.push(`    for j=1,ln do ${N.pos}=${N.pos}+1 bb[j]=D[${N.pos}-1] end`);
-  L.push(`    pr.c[i]={t=tag,n=ln,b=bb}`);
-  L.push(`   else pr.c[i]=nil end`);
-  L.push(`  end`);
-  L.push(`  local nk=${N.uvar}()`);
-  L.push(`  if nk>${runtimeBudget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
-  L.push(`  pr.k={}`);
-  // per-proto rolling-key mirror for operand de-whitening (same chain the
-  // fetch loop uses for opE — independent simulation, identical sequence)
-  L.push(`  local lrk=(${rk0N}+${N.pid2}*${astepN})%65536`);
-  L.push(`  for i=1,nk do`);
-  L.push(`   local mm=math.floor(lrk/3)%256`);
-  L.push(`   local oe=${N.uvar}()`);
-  L.push(`   local aw=${N.svar}()-mm`);
-  L.push(`   local b1w=${N.svar}()-mm`);
-  L.push(`   local b2w=${N.svar}()+mm`);
-  L.push(`   local cw=${N.svar}()-mm`);
-  L.push(`   lrk=(lrk+${aincN})%65536`);
-  L.push(`   pr.k[i]={[${keyNames.OP}]=oe,[${keyNames.A}]=aw,[${keyNames.B1}]=b1w,[${keyNames.B2}]=b2w,[${keyNames.C}]=cw}`);
-  L.push(`  end`);
-  L.push(`  ${N.protos}[${N.pid2}]=pr`);
-  L.push(` end`);
-  // watermark tail section (same cipher v3 core, wm seed registers)
-  L.push(` local wln=${N.uvar}()`);
+  body.push(`  local ${N.hdr}=${N.u8}()`);
+  body.push(`  if ${N.hdr}<128 then error(${JSON.stringify(garbage(rng))}) end`);
+  body.push(`  for i=1,${N.hdr}-128 do ${N.u8}() end`);
+  body.push(`  local ${N.np}=${N.uvar}()`);
+  body.push(`  if ${N.np}>${runtimeBudget.maxProtos} then error(${JSON.stringify(garbage(rng))}) end`);
+  body.push(`  local ${N.protos}={} local ${N.wm}={}`);
+  body.push(`  for ${N.pid2}=1,${N.np} do`);
+  body.push(`   local pr={}`);
+  body.push(`   pr.pn=${N.u8}()`);
+  body.push(`   pr.va=${N.u8}()==1`);
+  body.push(`   local nu=${N.uvar}()`);
+  body.push(`   pr.uv={}`);
+  body.push(`   for i=1,nu do pr.uv[i]={${N.u8}()==1 and 1 or 0,${N.uvar}()} end`);
+  body.push(`   pr.ns=${N.uvar}()`);
+  // 5 redundant per-proto field-key uvarints (skipped at read; see
+  // serializer.ts for the matching writer).
+  body.push(`   ${N.uvar}() ${N.uvar}() ${N.uvar}() ${N.uvar}() ${N.uvar}()`);
+  body.push(`   local nc=${N.uvar}()`);
+  body.push(`   if nc>${runtimeBudget.maxConsts} then error(${JSON.stringify(garbage(rng))}) end`);
+  body.push(`   pr.c={}`);
+  body.push(`   for i=1,nc do`);
+  body.push(`    local tag=${N.u8}()`);
+  body.push(`    if tag==1 then pr.c[i]=true`);
+  body.push(`    elseif tag==2 then pr.c[i]=false`);
+  body.push(`    elseif tag==7 then pr.c[i]=(0/0)`);
+  body.push(`    elseif tag==8 then pr.c[i]=math.huge`);
+  body.push(`    elseif tag==9 then pr.c[i]=-math.huge`);
+  body.push(`    elseif tag==5 or tag==6 then`);
+  body.push(`     local ln=${N.uvar}()`);
+  body.push(`     local bb={}`);
+  body.push(`     for j=1,ln do ${N.pos}=${N.pos}+1 bb[j]=D[${N.pos}-1] end`);
+  body.push(`     pr.c[i]={t=tag,n=ln,b=bb}`);
+  body.push(`    else pr.c[i]=nil end`);
+  body.push(`   end`);
+  body.push(`   local nk=${N.uvar}()`);
+  body.push(`   if nk>${runtimeBudget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
+  body.push(`   pr.k={}`);
+  // per-proto rolling-key mirror for operand de-whitening
+  body.push(`   local lrk=(${rk0N}+${N.pid2}*${astepN})%65536`);
+  body.push(`   for i=1,nk do`);
+  body.push(`    local mm=math.floor(lrk/3)%256`);
+  body.push(`    local oe=${N.uvar}()`);
+  body.push(`    local aw=${N.svar}()-mm`);
+  body.push(`    local b1w=${N.svar}()-mm`);
+  body.push(`    local b2w=${N.svar}()+mm`);
+  body.push(`    local cw=${N.svar}()-mm`);
+  body.push(`    lrk=(lrk+${aincN})%65536`);
+  body.push(`    pr.k[i]={[${keyNames.OP}]=oe,[${keyNames.A}]=aw,[${keyNames.B1}]=b1w,[${keyNames.B2}]=b2w,[${keyNames.C}]=cw}`);
+  body.push(`   end`);
+  body.push(`   ${N.protos}[${N.pid2}]=pr`);
+  body.push(`  end`);
+  // watermark tail (same cipher v3, second seed)
+  body.push(`  local wln=${N.uvar}()`);
   const [wsa, wsb] = wmSeeds(opts.seeds[2]);
-  L.push(` local wa=${obf(normSeed(wsa), rng)} wb=${obf(normSeed(wsb), rng)} MM2=${M31}`);
-  L.push(` local wc=(wa*31+wb)%MM2 local wd=(wb*17+wa)%MM2 local pv2=0`);
-  L.push(` for i=1,wln do`);
-  L.push(`  wa=(wa*48271)%MM2 wb=(wb*69621)%MM2 wc=(wc*2994349)%MM2 wd=(wd*4050403)%MM2`);
-  L.push(`  wb=(wb+pv2)%MM2 wc=(wc+wa)%MM2`);
-  L.push(`  pv2=(math.floor(wa/65536)*31+math.floor(wb/2048)*17+math.floor(wc/1024)*7+math.floor(wd/256)*3+pv2)%256`);
-  L.push(`  ${N.wm}[i]=(D[${N.pos}]-pv2+256)%256`);
-  L.push(`  ${N.pos}=${N.pos}+1`);
-  L.push(` end`);
-  if (layered) {
-    // WMI fixups stay inside L1; then seal the handle
-    L.push(`${N.wmi}=#${N.wm}`);
-    L.push(`if ${N.wmi}<1 then ${N.wmi}=1 ${N.wm}[1]=0 end`);
-    L.push(`return {P=${N.protos},WM=${N.wm},WMI=${N.wmi}}`);
-    L.push(`end)()`);
-  } else {
-    L.push(`end`);
-    L.push(`${N.wmi}=#${N.wm}`);
-    L.push(`if ${N.wmi}<1 then ${N.wmi}=1 ${N.wm}[1]=0 end`);
-  }
-  L.push(`--[L3_CONSTS] const plane: proto constant pools + watermark carriers`);
+  body.push(`  local wa=${obf(normSeed(wsa), rng)} wb=${obf(normSeed(wsb), rng)} MM2=${M31}`);
+  body.push(`  local wc=(wa*31+wb)%MM2 local wd=(wb*17+wa)%MM2 local pv2=0`);
+  body.push(`  for i=1,wln do`);
+  body.push(`   wa=(wa*48271)%MM2 wb=(wb*69621)%MM2 wc=(wc*2994349)%MM2 wd=(wd*4050403)%MM2`);
+  body.push(`   wb=(wb+pv2)%MM2 wc=(wc+wa)%MM2`);
+  body.push(`   pv2=(math.floor(wa/65536)*31+math.floor(wb/2048)*17+math.floor(wc/1024)*7+math.floor(wd/256)*3+pv2)%256`);
+  body.push(`   ${N.wm}[i]=(D[${N.pos}]-pv2+256)%256`);
+  body.push(`   ${N.pos}=${N.pos}+1`);
+  body.push(`  end`);
+  body.push(`  local ${N.wmi}=#${N.wm}`);
+  body.push(`  if ${N.wmi}<1 then ${N.wmi}=1 ${N.wm}[1]=0 end`);
+  body.push(`  return {P=${N.protos},WM=${N.wm},WMI=${N.wmi}}`);
+  body.push(` end`);
+
+  // ---- L2 run body ----
   if (tier !== "off") {
-    L.push(`local ${N.icv}={${icvLits}}`);
-    L.push(`local ${N.slices}={${slicesLits}}`);
-    L.push(`${N.nic}=#${N.slices}`);
+    body.push(` local ${N.icv}={${icvLits}}`);
+    body.push(` local ${N.slices}={${slicesLits}}`);
+    body.push(` ${N.nic}=#${N.slices}`);
   } else {
-    L.push(`local ${N.nic}=0`);
-    L.push(`local ${N.icv}={} local ${N.slices}={}`);
+    body.push(` local ${N.nic}=0`);
+    body.push(` local ${N.icv}={} local ${N.slices}={}`);
   }
-  L.push(`--[L2_VM] core VM: dispatcher + integrity ticks + tier policy`);
-  const runStartLine = L.length; // E1/E2: budget regions measured from here
-  if (layered) {
-    L.push(`local function ${N.run}(l1,${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
-    L.push(` local ${N.protos},${N.wm},${N.wmi}=l1.P,l1.WM,l1.WMI`);
-  } else {
-    L.push(`local function ${N.run}(${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
-  }
-  L.push(` local ${F.P0}=${N.protos}[${F.pid}]`);
-  L.push(` local ${F.K}=${F.P0}.k`);
-  L.push(` local ${F.C}=${F.P0}.c`);
-  L.push(` local ${F.S}={}`);
-  L.push(` local ${F.cells}={}`);
-  L.push(` for ${F.i}=1,${F.P0}.ns do ${F.cells}[${F.i}]={} end`);
-  L.push(` local ${F.sp},${F.mr},${F.pc}=0,-1,1`);
-  L.push(` local ${F.VA}=${F.args}`);
-  L.push(` for ${F.i}=1,${F.P0}.pn do ${F.cells}[${F.i}].v=${F.args}[${F.i}] end`);
-  L.push(` local ${F.tc},${F.six}=37,1`);
-  L.push(` local ${F.poison},${F.PB},${F.wmv}=false,nil,0`);
-  // Phase 2: per-frame rolling key — mirrors serializer's initialRk(pid)
-  L.push(` local ${rkN}=(${rk0N}+${F.pid}*${astepN})%65536`);
-  L.push(` local ${F.rn},${F.narg},${F.so},${F.fpos},${F.fn}`);
-  L.push(` local ${F.ins},${F.op}`);
-  L.push(` while true do`);
-  for (const cl of countdown) L.push(`  ${cl}`);
-  if (process.env.NEVAHEX_DEBUG) {
-    L.push(`  do local _i=${F.K}[${F.pc}] print("DBG pc",${F.pc},"opE",_i and _i[${keyNames.OP}]) end`);
-  }
-  L.push(`  ${F.ins}=${F.K}[${F.pc}]`);
-  // decode op under the rolling key, then advance it (build side simulates
-  // the identical chain — engine/runtime/opencode.ts)
-  L.push(`  ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
-  L.push(`  ${rkN}=(${rkN}+${aincN})%65536`);
-  L.push(`  ${F.pc}=${F.pc}+1`);
-  for (const cl of chainLines) L.push(`  ${cl}`);
-  L.push(` end`);
-  L.push(`end`);
-  const runEndLine = L.length; // E1/E2: run() body slice ends here
-  L.push(`do`);
-  L.push(` local ${F.A}=${N.pk}(...)`);
-  // W1.3: one-shot metamethod trap — the root invoke hides behind a
-  // per-build random arithmetic metamethod on a table we own. Net call depth
-  // ≤ +1 (single handler, prologue-only) per the E4 budget; plain tables
-  // only, so Roblox's protected string metatable is irrelevant. The handler
-  // returns run()'s result table; the trigger operand is discarded.
+  body.push(` local function ${N.run}(l1,${F.pid},${F.env},${F.upv},${F.args},${F.escf})`);
+  body.push(`  local ${N.protos},${N.wm},${N.wmi}=l1.P,l1.WM,l1.WMI`);
+  body.push(`  local ${F.P0}=${N.protos}[${F.pid}]`);
+  body.push(`  local ${F.K}=${F.P0}.k`);
+  body.push(`  local ${F.C}=${F.P0}.c`);
+  body.push(`  local ${F.S}={}`);
+  body.push(`  local ${F.cells}={}`);
+  body.push(`  for ${F.i}=1,${F.P0}.ns do ${F.cells}[${F.i}]={} end`);
+  body.push(`  local ${F.sp},${F.mr},${F.pc}=0,-1,1`);
+  body.push(`  local ${F.VA}=${F.args}`);
+  body.push(`  for ${F.i}=1,${F.P0}.pn do ${F.cells}[${F.i}].v=${F.args}[${F.i}] end`);
+  body.push(`  local ${F.tc},${F.six}=37,1`);
+  body.push(`  local ${F.poison},${F.PB},${F.wmv}=false,0,0`);
+  // Phase 2: per-frame rolling key
+  body.push(`  local ${rkN}=(${rk0N}+${F.pid}*${astepN})%65536`);
+  body.push(`  local ${F.rn},${F.narg},${F.so},${F.fpos},${F.fn}`);
+  body.push(`  local ${F.ins},${F.op}`);
+  body.push(`  while true do`);
+  body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
+  body.push(`   if ${F.pc}<20 then _G.__VM_TRACE=(_G.__VM_TRACE or "").."PC="..tostring(${F.pc}).." RK="..tostring(${rkN}).." INS="..tostring(${F.ins}[${keyNames.OP}]).." A="..tostring(${F.ins}[${keyNames.A}]).." B="..tostring(${F.ins}[${keyNames.B1}]+${F.ins}[${keyNames.B2}]).." C="..tostring(${F.ins}[${keyNames.C}]).."\\n" end`);
+  for (const cl of countdown) body.push(`   ${cl}`);
+  body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
+  body.push(`   ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
+  body.push(`   ${rkN}=(${rkN}+${aincN})%65536`);
+  body.push(`   ${F.pc}=${F.pc}+1`);
+  for (const cl of chainLines) body.push(`   ${cl}`);
+  body.push(`  end`);
+  body.push(` end`);
+
+  // ---- Bootstrap: pack args, call decode, call run, return its result ----
+  body.push(` local ${F.A}=${N.pk}(...)`);
   if (opts.mmTraps) {
+    // W1.3: one-shot metamethod trap — the root invoke hides behind a
+    // per-build random arithmetic metamethod on a table we own.
     const mmOps = ["__add", "__sub", "__mul", "__mod"] as const;
-    const op = mmOps[rng.int(mmOps.length)];
+    const mop = mmOps[rng.int(mmOps.length)];
     const trig = [0, -7, 3][rng.int(3)];
     const mt = id();
-    const rs = id();
-    const args =
-      `(${layered ? N.l1 + "," : ""}${opts.rootPid},${N.envroot},{},${F.A},nil)`;
-    L.push(` local ${mt}=setmetatable({}, {${op}=function() return ${N.run}${args} end})`);
-    L.push(` local ${rs}=${mt} * ${trig}`);
-    void rs;
+    body.push(` local ${mt}=setmetatable({}, {${mop}=function() return ${N.run}(${N.run}_decode(),${opts.rootPid},_ENV,{},${F.A},nil) end})`);
+    body.push(` return ${mt} * ${trig}`);
   } else {
-    if (layered) {
-      L.push(` ${N.run}(${N.l1},${opts.rootPid},${N.envroot},{},${F.A},nil)`);
-    } else {
-      L.push(` ${N.run}(${opts.rootPid},${N.envroot},{},${F.A},nil)`);
-    }
+    body.push(` return ${N.run}(${N.run}_decode(),${opts.rootPid},_ENV,{},${F.A},nil)`);
   }
-  L.push(`end`);
 
+  // ---- Assemble final artifact: 3 physical lines (banner, blank, IIFE) ----
+  // The IIFE body is one long line. Joining body entries with " " keeps
+  // every line as a single-statement Lua chunk — chains-of-ifs and the
+  // cipher loop are all on one line, separated by spaces. The dispatcher
+  // already emits one-statement handler bodies, so this collapses
+  // cleanly. (If a future handler body becomes multi-statement, this
+  // join will need a smarter split.)
+  const lua = IIFE_HEADER + " " + body.join(" ") + " " + IIFE_FOOTER;
+  const L: string[] = [
+    `-- NEVAHEX-VM v3 'Hex' — protected artifact — loadstring(s)() runs it`,
+    "",
+    lua,
+  ];
   // ---- E1/E2: local & upvalue budgets — fail the BUILD, not the load ----
   const fileScopeNames = [
     ...Object.values(N),
     aeT0, aeOps,
     keyNames.OP, keyNames.A, keyNames.B1, keyNames.B2, keyNames.C,
-    rk0N, astepN, aincN, ck0N, cvwN,
+    rk0N, astepN, aincN, ck0N, cvwN, rkN,
   ];
+  const runText = body.join("\n");
   const budget = checkBudgets(
     L.join("\n"),
-    L.slice(runStartLine, runEndLine).join("\n"),
+    runText,
     fileScopeNames.filter((n) => !DECODE_BLOCK_LOCALS.has(n)),
   );
   if (!budget.ok) {

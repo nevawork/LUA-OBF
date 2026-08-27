@@ -289,7 +289,8 @@ class Parser {
         }
         for (;;) {
             const op = this.peek();
-            if (op.type !== lexer_1.Tok.Op || !(op.value in BINPRI))
+            // infix operators arrive as Op tokens; 'and'/'or' arrive as Keywords
+            if ((op.type !== lexer_1.Tok.Op && op.type !== lexer_1.Tok.Keyword) || !BINPRI[op.value])
                 break;
             const [lp, rp] = BINPRI[op.value];
             if (lp <= limit)

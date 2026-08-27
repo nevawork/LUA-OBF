@@ -108,32 +108,32 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     `${F.sp}=${F.sb}`,
     `end`,
   ]);
-  add(Op.LOADK, tier === "silent"
-    ? pickVariant(rng, [
-        () => [
-          `do`,
-          // Phase 3: constants decrypt on access via CV(pid, rec)
-          `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
-          `${F.sp}=${F.sp}+1`,
-          `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=${F.v}+${F.PB} else ${F.S}[${F.sp}]=${F.v} end`,
-          `end`,
-        ],
-        () => [
-          `do`,
-          `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
-          `${F.sp}=${F.sp}+1`,
-          `if ${F.poison} and type(${F.v})=='number' then`,
-          `${F.S}[${F.sp}]=${F.v}+${F.PB}`,
-          `else`,
-          `${F.S}[${F.sp}]=${F.v}`,
-          `end`,
-          `end`,
-        ],
-      ])
-    : pickVariant(rng, [
-        () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${N.cv}(${F.pid},${F.C}[${fA()}])`],
-        () => [`local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
-      ]));
+add(Op.LOADK, tier === "silent"
+      ? pickVariant(rng, [
+          () => [
+            `do`,
+            // Phase 3: constants decrypt on access via CV(pid, rec)
+            `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
+            `${F.sp}=${F.sp}+1`,
+            `if ${F.poison} and type(${F.v})=='number' then ${F.S}[${F.sp}]=${F.v}+${F.PB} else ${F.S}[${F.sp}]=${F.v} end`,
+            `end`,
+          ],
+          () => [
+            `do`,
+            `local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`,
+            `${F.sp}=${F.sp}+1`,
+            `if ${F.poison} and type(${F.v})=='number' then`,
+            `${F.S}[${F.sp}]=${F.v}+${F.PB}`,
+            `else`,
+            `${F.S}[${F.sp}]=${F.v}`,
+            `end`,
+            `end`,
+          ],
+        ])
+      : pickVariant(rng, [
+          () => [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${N.cv}(${F.pid},${F.C}[${fA()}])`],
+          () => [`local ${F.v}=${N.cv}(${F.pid},${F.C}[${fA()}])`, `${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=${F.v}`],
+        ]));
   add(Op.NIL, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=nil`]);
   add(Op.TRUE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=true`]);
   add(Op.FALSE, [`${F.sp}=${F.sp}+1`, `${F.S}[${F.sp}]=false`]);
@@ -453,7 +453,7 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
     `end`,
     `end`,
   ]);
-  add(Op.ESCAPE, [`error(${ctx.escapeGarbageLit})`]);
+  add(Op.ESCAPE, [`error(${ctx.escapeGarbageLit}.."::ESCAPE-OP="..tostring(op))`]);
 
   // Per-build handler synthesis (spec Phase 1, DPA defense): decoy arms with
   // literals outside the physical opcode range — never dispatched. Phase 2:
@@ -597,7 +597,7 @@ export function assembleChain(
       chainLines.push(`if ${h.test} then`);
       chainLines.push(...h.body);
       chainLines.push(`else`);
-      chainLines.push(`error(${fallbackLit})`);
+      chainLines.push(`error(${fallbackLit}.."::FALLBACK-OP="..tostring(op))`);
       chainLines.push(`end`);
       return;
     }

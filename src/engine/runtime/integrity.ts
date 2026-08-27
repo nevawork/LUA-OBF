@@ -41,7 +41,7 @@ export function emitIntegrityCheck(n: IntegrityNames, responseLines: string[]): 
     `local ${n.h}=(2166136261%1000000007)`,
     `for ${n.j}=${n.sl}.a,${n.sl}.b do`,
     `local ${n.q}=${n.seg}[${n.j}]`,
-    `if ${n.q} then ${n.h}=(${n.h}*16777619+${n.q}[${OP}]*31+${n.q}[${A}]*7+(${n.q}[${B1}]+${n.q}[${B2}])*3+${n.q}[${C}])%1000000007 end`,
+    `if ${n.q} then ${n.h}=(${n.h}*31+${n.q}[${OP}]*31+${n.q}[${A}]*7+(${n.q}[${B1}]+${n.q}[${B2}])*3+${n.q}[${C}])%1000000007 end`,
     `end`,
     `if ${n.h}~=${n.icv}[${n.sl}.i] then`,
     ...responseLines,

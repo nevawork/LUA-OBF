@@ -43,7 +43,7 @@ export function emitCipherGuard(
     ` for _bs=1,#BS do`,
     `  local sl=BS[_bs]`,
     `  local hh=(2166136261%1000000007)`,
-    `  for j=sl.p,sl.p+sl.a-1 do hh=(hh*16777619+string.byte(${n.blobVar},j))%1000000007 end`,
+    `  for j=sl.p,sl.p+sl.a-1 do hh=(hh*31+string.byte(${n.blobVar},j))%1000000007 end`,
     `  if hh~=sl.h then`,
   ];
   if (tier === "strict") {
@@ -55,6 +55,7 @@ export function emitCipherGuard(
       `   ${n.saVar}=(${n.saVar}+${n.deltaSa})%${M31} if ${n.saVar}<1 then ${n.saVar}=${n.saVar}+${M31 - 1} end`,
       `   ${n.sbVar}=(${n.sbVar}+${n.deltaSb})%${M31} if ${n.sbVar}<1 then ${n.sbVar}=${n.sbVar}+${M31 - 1} end`,
       `   ${n.cvwVar}=1`,
+      `   _G.__CGM=1`,
     );
   }
   lines.push(`  end`, ` end`, `end`);

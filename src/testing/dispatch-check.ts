@@ -65,11 +65,11 @@ export function verifyGeneratedDispatch(
   const problems: string[] = [];
 
   // ---- extract chain arms ----
-  // literal may contain one nesting level: ((15+256)-256)
-  const LIT = String.raw`\((?:[^()]|\([^()]*\))*\)`;
+  // literal may contain up to two nesting levels: ((15+256)-256)
+  const LIT = String.raw`\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)`;
   const arms: { litRaw: string; litVal: number | string; gate: string }[] = [];
   const re = new RegExp(
-    `(elseif|if) op==(${LIT}|[\\d*+\\-/ ]+?)( and \\S.*)? then`,
+    `(elseif|if) op==(${LIT}|[\\d*+\\-/() ]+?)( and \\S*?)? then`,
     "g",
   );
   let m: RegExpExecArray | null;
@@ -166,7 +166,7 @@ export function verifyGeneratedDispatch(
         `encoded mode: expected ≥3 rolling-key expressions (init+decode+step), found ${rkHits}`,
       );
     }
-    if (!/if op<=\d+ then/.test(lua)) {
+    if (!/if \w+<=\d+ then/.test(lua)) {
       problems.push(`encoded mode: no range router found (binary-search tree missing?)`);
     }
     if (!/pr\.k\[i\]=\{\[/.test(lua)) {

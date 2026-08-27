@@ -82,7 +82,8 @@ describe("cipher v3 core", () => {
         [normSeed(2147483645), normSeed(3)],
         [normSeed(98765), normSeed(98765)], // colliding registers branch
       ];
-      const lua = await luaFactory!.createEngine();
+      const factory = new luaFactory!();
+      const lua = await factory.createEngine();
       try {
         await lua.doString(LUA_MIRROR);
         for (const [a, b] of cases) {
@@ -92,8 +93,10 @@ describe("cipher v3 core", () => {
           lua.global.set("sbIn", b);
           lua.global.set("nIn", n);
           await lua.doString("ksRes = ks_mirror(saIn, sbIn, nIn)");
-          const got = lua.global.getTable("ksRes");
-          const lu = Array.from({ length: n }, (_, i) => got[i + 1]);
+          // Get a string back via a comma-joined concat
+          await lua.doString("ksStr = table.concat(ksRes, ',')");
+          const ksStr = lua.global.get("ksStr") as string;
+          const lu = ksStr.split(",").map(Number);
           expect(lu).toEqual(js);
         }
       } finally {
