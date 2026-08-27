@@ -35,8 +35,9 @@ switch (cmd) {
         if (!["strict", "silent", "off"].includes(tier))
             fail("tier must be TIER_PARANOID_STRICT|TIER_PARANOID_SILENT|TIER_PARANOID_OFF|strict|silent|off");
         const target = (flagOf("--target") ?? "universal");
-        if (!["lua51", "luajit", "luau", "luau_executor", "universal"].includes(target))
-            fail("target must be lua51|luajit|luau|luau_executor|universal");
+        if (!["lua51", "luajit", "luau", "luau_executor", "roblox_executor", "universal"].includes(target))
+            fail("target must be lua51|luajit|luau|luau_executor|roblox_executor|universal");
+        const isExecutorTarget = ["luau", "luau_executor", "roblox_executor"].includes(target);
         const envKeying = hasFlag("--env-keying") ? target : "universal";
         const result = (0, pipeline_1.protect)({
             source: source,
@@ -44,7 +45,7 @@ switch (cmd) {
             seedHex: flagOf("--seed"),
             watermark: flagOf("--watermark"),
             envProfile: envKeying,
-            antiEmulation: target !== "luau" && !hasFlag("--no-anti-emu"),
+            antiEmulation: !isExecutorTarget && !hasFlag("--no-anti-emu"),
             flatten: !hasFlag("--no-flatten"),
             mbaPlus: !hasFlag("--no-mba"),
             dynLoad: hasFlag("--dyn-load") && target !== "luau",

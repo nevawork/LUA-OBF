@@ -26,10 +26,10 @@ export interface DynLoadEmit {
  */
 export function emitDynLoadPrelude(
   enabled: boolean,
-  envProfile: "lua51" | "luajit" | "luau" | "luau_executor" | "universal",
+  envProfile: "lua51" | "luajit" | "luau" | "luau_executor" | "roblox_executor" | "universal",
   names: DynLoadNames,
 ): DynLoadEmit | null {
-  if (!enabled || envProfile === "luau" || envProfile === "luau_executor") return null;
+  if (!enabled || envProfile === "luau" || envProfile === "luau_executor" || envProfile === "roblox_executor") return null;
 
   const lines = [
     `local ${names.fn}`,

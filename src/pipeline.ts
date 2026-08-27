@@ -500,8 +500,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const cappedIntegrity = planIntegritySlices(flat);
 
   // ---- emit runtime ----
-  const isLuauProfile = envProfile === "luau" || envProfile === "luau_executor";
-  const antiEmu = !isLuauProfile
+  const isExecutorProfile = ["luau", "luau_executor", "roblox_executor"].includes(envProfile);
+  const antiEmu = !isExecutorProfile
     ? { ...DEFAULT_ANTI_EMULATION }
     : null;
   const emitted = emitRuntime({
@@ -516,7 +516,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     envProfile,
     antiEmulation: antiEmu,
     cipherLiterals: embeddedCipherLits,
-    dynLoad: opts.dynLoad === true && !isLuauProfile,
+    dynLoad: opts.dynLoad === true && !isExecutorProfile,
     layered: opts.layered === true,
     fieldKeys,
     opencode,

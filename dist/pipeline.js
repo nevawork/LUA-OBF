@@ -295,8 +295,8 @@ function protect(opts) {
     const { flat } = (0, serializer_1.deserializeBlob)((0, serializer_1.decryptBlob)(blob, encSeeds), { opencode });
     const cappedIntegrity = (0, antitamper_1.planIntegritySlices)(flat);
     // ---- emit runtime ----
-    const isLuauProfile = envProfile === "luau" || envProfile === "luau_executor";
-    const antiEmu = !isLuauProfile
+    const isExecutorProfile = ["luau", "luau_executor", "roblox_executor"].includes(envProfile);
+    const antiEmu = !isExecutorProfile
         ? { ...antiemulation_1.DEFAULT_ANTI_EMULATION }
         : null;
     const emitted = (0, emitter_1.emitRuntime)({
@@ -311,7 +311,7 @@ function protect(opts) {
         envProfile,
         antiEmulation: antiEmu,
         cipherLiterals: embeddedCipherLits,
-        dynLoad: opts.dynLoad === true && !isLuauProfile,
+        dynLoad: opts.dynLoad === true && !isExecutorProfile,
         layered: opts.layered === true,
         fieldKeys,
         opencode,
