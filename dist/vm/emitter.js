@@ -73,6 +73,8 @@ function emitRuntime(opts) {
         ch: id(), pos: id(), u8: id(), uvar: id(), svar: id(), np: id(),
         run: id(), pid2: id(), icv: id(), slices: id(), nic: id(), wm: id(), wmi: id(),
         l1: id(), hdr: id(), cv: id(), uup: id(), sch: id(), tcn: id(),
+        egf: id(), egft: id(),
+        envAlias: id(), uTbl: id(), sStr: id(), sTbl: id(),
     };
     // anti-emulation calibration state: file-scope locals (per-build names),
     // NOT globals — the old __ae_t0/__ae_ops names were a static signature.
@@ -214,18 +216,39 @@ function emitRuntime(opts) {
     // ---- file-scope constants & helpers (declared as locals inside the IIFE) ----
     body.push(` local ${N.ctn}=setmetatable({},{__mode="k"})`);
     body.push(` local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
+    // E7: safe environment accessor — Roblox/Luau executors and sandboxed
+    // environments may pass a nil _ENV (or a stripped {} with no string/table
+    // tables). Direct property access on nil raises "attempt to index nil with
+    // 'X'". We resolve through a helper that tolerates nil env and missing
+    // fields, then alias the resolved functions locally so the rest of the
+    // artifact is a single, stable call site per builtin.
+    body.push(` local function ${N.egf}(e,k) if type(e)~="table" then return end return rawget(e,k) end`);
+    body.push(` local function ${N.egft}(e,k) local v=${N.egf}(e,k) return type(v)=="table" and v end`);
+    // N.envAlias: the live env handle, or {} if nil/missing. Never nil.
+    body.push(` local ${N.envAlias}=type(${envGlobal})=="table" and ${envGlobal} or {}`);
     // Phase 6: argument spreading — native unpack for wide ranges, recursive
-    // fallback otherwise (identical semantics, no deep-call cost on big spans)
-    body.push(` local ${N.uup}=type(${envGlobal}.unpack)=="function" and ${envGlobal}.unpack or (type(table)=="table" and type(table.unpack)=="function" and table.unpack)`);
+    // fallback otherwise (identical semantics, no deep-call cost on big spans).
+    // Resolution chain (all safe — never indexes nil):
+    //   1. env.unpack             (Luau/Roblox executor puts unpack at top level)
+    //   2. env.table.unpack       (Lua 5.1 style: table.unpack)
+    //   3. table.unpack            (local table global — last resort)
+    // If none resolve, N.uup is nil and N.ur falls through to the recursive
+    // path which is always valid.
+    body.push(` local ${N.uTbl}=${N.egft}(${N.envAlias},"table")`);
+    body.push(` local ${N.uup}=${N.egf}(${N.envAlias},"unpack") or ${N.egf}(${N.uTbl},"unpack") or (type(table)=="table" and type(table.unpack)=="function" and table.unpack)`);
     body.push(` local function ${N.ur}(t,i,j)`);
     body.push(`  if i>j then return end`);
     body.push(`  if ${N.uup} and j-i>15 then return ${N.uup}(t,i,j) end`);
     body.push(`  return t[i],${N.ur}(t,i+1,j)`);
     body.push(` end`);
-    // sch / tcn — bound to envGlobal.string.char / envGlobal.table.concat so the
-    // envGlobal bootstrap (passing `{}`) doesn't strip them
-    body.push(` local ${N.sch}=${envGlobal}.string.char`);
-    body.push(` local ${N.tcn}=${envGlobal}.table.concat`);
+    // sch / tcn — bound to string.char / table.concat via the safe accessor.
+    // Fallback chain tolerates nil envGlobal AND nil _G: we never index nil
+    // because rawget and the type guard reject non-table inputs, and the
+    // final fallback uses the language builtins which Luau/Lua always expose.
+    body.push(` local ${N.sStr}=${N.egf}(${N.egft}(${N.envAlias},"string"),"char") or (type(_G)=="table" and ${N.egf}(${N.egft}(_G,"string"),"char")) or string.char`);
+    body.push(` local ${N.sTbl}=${N.egf}(${N.egft}(${N.envAlias},"table"),"concat") or (type(_G)=="table" and ${N.egf}(${N.egft}(_G,"table"),"concat")) or table.concat`);
+    body.push(` local ${N.sch}=${N.sStr}`);
+    body.push(` local ${N.tcn}=${N.sTbl}`);
     // anti-emulation calibration state (upvalues of the closures below)
     if (opts.antiEmulation) {
         body.push(` local ${aeT0},${aeT1},${aeT2},${aeT3},${aeT4},${aeOps},${aeAllocOps},${aeMemOps},${aeArithOps},${aeTotalOps},${aeHookFlag},${aeEnvScore}`);
@@ -505,11 +528,11 @@ function emitRuntime(opts) {
         // Map metamethod to its corresponding operator
         const opMap = { "__add": "+", "__sub": "-", "__mul": "*", "__mod": "%" };
         const op = opMap[mop];
-        body.push(` local ${mt}=setmetatable({}, {${mop}=function() return ${N.run}(${N.run}_decode(),${opts.rootPid},${envGlobal},{},${F.A},nil) end})`);
+        body.push(` local ${mt}=setmetatable({}, {${mop}=function() return ${N.run}(${N.run}_decode(),${opts.rootPid},${N.envAlias},{},${F.A},nil) end})`);
         body.push(` return ${mt} ${op} ${trig}`);
     }
     else {
-        body.push(` return ${N.run}(${N.run}_decode(),${opts.rootPid},${envGlobal},{},${F.A},nil)`);
+        body.push(` return ${N.run}(${N.run}_decode(),${opts.rootPid},${N.envAlias},{},${F.A},nil)`);
     }
     // ---- Assemble final artifact: 3 physical lines (banner, blank, IIFE) ----
     // The IIFE body is one long line. Joining body entries with " " keeps

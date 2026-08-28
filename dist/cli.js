@@ -38,7 +38,9 @@ switch (cmd) {
         if (!["lua51", "luajit", "luau", "luau_executor", "roblox_executor", "universal"].includes(target))
             fail("target must be lua51|luajit|luau|luau_executor|roblox_executor|universal");
         const isExecutorTarget = ["luau", "luau_executor", "roblox_executor"].includes(target);
-        const envKeying = hasFlag("--env-keying") ? target : "universal";
+        const envKeying = hasFlag("--env-keying")
+            ? target
+            : (isExecutorTarget ? target : "universal");
         const result = (0, pipeline_1.protect)({
             source: source,
             tier,
