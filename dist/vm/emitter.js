@@ -493,8 +493,11 @@ function emitRuntime(opts) {
         const mop = mmOps[rng.int(mmOps.length)];
         const trig = [0, -7, 3][rng.int(3)];
         const mt = id();
+        // Map metamethod to its corresponding operator
+        const opMap = { "__add": "+", "__sub": "-", "__mul": "*", "__mod": "%" };
+        const op = opMap[mop];
         body.push(` local ${mt}=setmetatable({}, {${mop}=function() return ${N.run}(${N.run}_decode(),${opts.rootPid},_ENV,{},${F.A},nil) end})`);
-        body.push(` return ${mt} * ${trig}`);
+        body.push(` return ${mt} ${op} ${trig}`);
     }
     else {
         body.push(` return ${N.run}(${N.run}_decode(),${opts.rootPid},_ENV,{},${F.A},nil)`);
