@@ -246,7 +246,7 @@ function protect(opts) {
     // prologue layout + pool cross-reference instead of evaluating two parens.
     let prologueShares;
     let keylessPool;
-    if (opts.keyless !== false) {
+    if (opts.keyless === true) {
         const u32 = () => {
             const v = rng.int(256) * 16777216 +
                 rng.int(256) * 65536 +

@@ -462,7 +462,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // prologue layout + pool cross-reference instead of evaluating two parens.
   let prologueShares: [number, number] | undefined;
   let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number; i5: number; i6: number } | undefined;
-  if (opts.keyless !== false) {
+  if (opts.keyless === true) {
     const u32 = (): number => {
       const v =
         rng.int(256) * 16777216 +
