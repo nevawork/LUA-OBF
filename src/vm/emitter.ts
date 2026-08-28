@@ -332,8 +332,13 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // artifact is a single, stable call site per builtin.
   body.push(` local function ${N.egf}(e,k) if type(e)~="table" then return end return rawget(e,k) end`);
   body.push(` local function ${N.egft}(e,k) local v=${N.egf}(e,k) return type(v)=="table" and v end`);
-  // N.envAlias: the live env handle, or {} if nil/missing. Never nil.
-  body.push(` local ${N.envAlias}=type(${envGlobal})=="table" and ${envGlobal} or {}`);
+  // N.envAlias: the live env handle, or a best-effort fallback. Roblox/Luau
+  // executors may pass a nil _ENV (loadstring with custom env, sandboxed
+  // execution, etc.). We try _ENV → _G → {} in that order. _G is the
+  // standard global table alias in Roblox/Luau and is usually populated
+  // even when _ENV is stripped. The final `or {}` guarantees a non-nil
+  // table so the VM never tries to index nil.
+  body.push(` local ${N.envAlias}=(type(${envGlobal})=="table" and ${envGlobal}) or (type(_G)=="table" and _G) or {}`);
   // Phase 6: argument spreading — native unpack for wide ranges, recursive
   // fallback otherwise (identical semantics, no deep-call cost on big spans).
   // Resolution chain (all safe — never indexes nil):
