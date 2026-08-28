@@ -3,7 +3,7 @@
 return (function(nveAEcM7Od, ...)
  local qaaESHh=setmetatable({},{__mode="k"})
  local function Q_oDIc53(...) local n=select('#',...) return {n=n,...} end
-  local OaDQ4GeT = type(_ENV.unpack) == "function" and _ENV.unpack or (type(table) == "table" and type(table.unpack) == "function" and table.unpack)
+  local OaDQ4GeT=type(_ENV.unpack) == "function" and _ENV.unpack or (type(table) == "table" and type(table.unpack) == "function" and table.unpack)
  local function wiI7lGoFyz0(t,i,j)
   if i>j then return end
   if OaDQ4GeT and j-i>15 then return OaDQ4GeT(t,i,j) end

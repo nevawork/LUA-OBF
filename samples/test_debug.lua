@@ -3,7 +3,7 @@
 return (function(uuzixykH5, ...)
  local e53QJMOnHW8=setmetatable({},{__mode="k"})
  local function Fx7mkVrSJ(...) local n=select('#',...) return {n=n,...} end
-  local urjEFpX = type(_ENV.unpack) == "function" and _ENV.unpack or (type(table) == "table" and type(table.unpack) == "function" and table.unpack)
+ local urjEFpX=type(_ENV.unpack) == "function" and _ENV.unpack or (type(table) == "table" and type(table.unpack) == "function" and table.unpack)
  local function qdjWowrC(t,i,j)
   if i>j then return end
   if urjEFpX and j-i>15 then return urjEFpX(t,i,j) end

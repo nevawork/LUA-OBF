@@ -3,7 +3,7 @@
 return (function(YwjcDDYR9L2, ...)
  local YYJj6NK=setmetatable({},{__mode="k"})
  local function uR1y2AN(...) local n=select('#',...) return {n=n,...} end
-  local HsSit4n = type(_ENV.unpack) == "function" and _ENV.unpack or (type(table) == "table" and type(table.unpack) == "function" and table.unpack)
+ local HsSit4n=type(_ENV.unpack) == "function" and _ENV.unpack or (type(table) == "table" and type(table.unpack) == "function" and table.unpack)
  local function l5OG0J(t,i,j)
   if i>j then return end
   if HsSit4n and j-i>15 then return HsSit4n(t,i,j) end
