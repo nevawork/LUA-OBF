@@ -3,7 +3,7 @@
 return (function(X_H5xl, ...)
  local sLtWBTed=setmetatable({},{__mode="k"})
  local function p55kTlRK(...) local n=select('#',...) return {n=n,...} end
- local PuRe45jU=_G.unpack or (table and table.unpack)
+ local PuRe45jU=type(_G.unpack)=="function" and _G.unpack or (type(table)=="table" and type(table.unpack)=="function" and table.unpack)
  local function hAHXa9(t,i,j)
   if i>j then return end
   if PuRe45jU and j-i>15 then return PuRe45jU(t,i,j) end
