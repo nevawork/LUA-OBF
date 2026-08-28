@@ -43,8 +43,9 @@ class Parser {
   private unaryPri: number;
 
   constructor(private toks: Token[], version: LuaVersion = "lua51") {
-    this.binPri = version === "lua51" || version === "luau" ? BINPRI_LUA51 : BINPRI_LUA53;
-    this.unaryPri = version === "lua51" || version === "luau" ? UNARY_PRI_LUA51 : UNARY_PRI_LUA53;
+    const isLuau = version === "lua51" || version === "luau" || version === "roblox_executor";
+    this.binPri = isLuau ? BINPRI_LUA51 : BINPRI_LUA53;
+    this.unaryPri = isLuau ? UNARY_PRI_LUA51 : UNARY_PRI_LUA53;
   }
 
   private peek(k = 0): Token {

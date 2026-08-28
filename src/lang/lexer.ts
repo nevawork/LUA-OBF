@@ -15,7 +15,7 @@ export interface Token {
   col: number;
 }
 
-export type LuaVersion = "lua51" | "lua53" | "lua54" | "luau";
+export type LuaVersion = "lua51" | "lua53" | "lua54" | "luau" | "roblox_executor";
 
 const KEYWORDS = new Set([
   "and", "break", "do", "else", "elseif", "end", "false", "for", "function",
@@ -43,6 +43,7 @@ export function getOperators(version: LuaVersion): string[] {
     case "lua53": return OPERATORS_LUA53;
     case "lua54": return OPERATORS_LUA54;
     case "luau": return OPERATORS_LUAU;
+    case "roblox_executor": return OPERATORS_LUAU;
   }
 }
 

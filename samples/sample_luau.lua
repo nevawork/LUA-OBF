@@ -1,36 +1,61 @@
 --[[
-    Sample: Basic Luau script for Roblox
-    This script demonstrates features compatible with Roblox/Luau environment.
-    Note: Luau does NOT support native bitwise operators (& | ~ << >>).
-    Use bit32 library for bitwise operations instead.
+    Sample: Luau (Roblox) compatible script
+    This script demonstrates features compatible with Luau/Roblox environment.
+    Uses bit32 library for bitwise operations (no native bitwise operators).
+    Compatible with Roblox Luau VM and Roblox executors.
 ]]
+
+-- Luau globals (defined before use)
+local Vector3 = {
+    new = function(x, y, z) return { x = x, y = y, z = z, Magnitude = math.sqrt(x*x + y*y + z*z) } end,
+    zero = { x = 0, y = 0, z = 0, Magnitude = 0 }
+}
+
+local TweenInfo = {
+    new = function(time, style, direction) return { time = time, style = style, direction = direction } end
+}
+
+local Enum = {
+    EasingStyle = { Quad = "Quad", Linear = "Linear" },
+    EasingDirection = { Out = "Out", In = "In" },
+    KeyCode = { E = "E", W = "W", A = "A", S = "S", Space = "Space" }
+}
 
 -- Simulated Roblox environment for testing
 local game = {
-    Workspace = {
-        Terrain = {
-            Size = {x = 4, y = 1, z = 4},
-            Anchored = true
+    GetService = function(self, name)
+        local services = {
+            Workspace = { Gravity = 196.2 },
+            Players = {
+                LocalPlayer = {
+                    UserId = 123456,
+                    Name = "TestPlayer",
+                    Character = {
+                        Humanoid = { WalkSpeed = 16, JumpPower = 50 },
+                        HumanoidRootPart = { Position = Vector3.new(0, 5, 0) }
+                    }
+                }
+            },
+            RunService = {
+                Heartbeat = { Connect = function() end },
+                RenderStepped = { Connect = function() end }
+            },
+            TweenService = {
+                Create = function(self, obj, info, props)
+                    return { Play = function() end, Completed = { Wait = function() end } }
+                end
+            },
+            UserInputService = {
+                InputBegan = { Connect = function() end }
+            },
+            ReplicatedStorage = {},
+            ServerStorage = {}
         }
-    },
-    Players = {
-        LocalPlayer = {
-            UserId = 123456,
-            Name = "TestPlayer",
-            Data = {}
-        }
-    },
-    ReplicatedStorage = {},
-    ServerStorage = {}
+        return services[name] or {}
+    end
 }
 
-local task = {
-    wait = function(n) return n end,
-    spawn = function(f, ...) f(...) end,
-    delay = function(n, f) f() end
-}
-
--- Utility functions (standard Lua/Luau syntax without type annotations)
+-- Utility functions using Luau/bit32
 local function fibonacci(n)
     if n <= 1 then
         return n
@@ -82,19 +107,6 @@ local function calculateStats(tbl)
     }
 end
 
-local function processPlayerData(player)
-    local data = player.Data or {}
-    local values = {}
-
-    for _, v in pairs(data) do
-        if type(v) == "number" then
-            table.insert(values, v)
-        end
-    end
-
-    return calculateStats(values)
-end
-
 -- Bitwise operations using bit32 library (Luau standard)
 local function bitwiseExample(a, b)
     local band = bit32.band(a, b)
@@ -114,19 +126,28 @@ local function bitwiseExample(a, b)
 end
 
 local function maxValue(a, b)
-    if a > b then
-        return a
-    else
-        return b
-    end
+    if a > b then return a else return b end
 end
 
 local function minValue(a, b)
-    if a < b then
-        return a
-    else
-        return b
-    end
+    if a < b then return a else return b end
+end
+
+-- Roblox-style utilities
+local function calculateDistance(pos1, pos2)
+    local dx = pos1.x - pos2.x
+    local dy = pos1.y - pos2.y
+    local dz = pos1.z - pos2.z
+    return math.sqrt(dx*dx + dy*dy + dz*dz)
+end
+
+local function createTween(object, properties, duration, easingStyle, easingDirection)
+    local tweenInfo = TweenInfo.new(duration, easingStyle, easingDirection)
+    local tween = {
+        Play = function() end,
+        Completed = { Wait = function() end }
+    }
+    return tween
 end
 
 -- Main execution
@@ -141,11 +162,11 @@ print("Stats:", string.format(
     stats.sum, stats.count, stats.min, stats.max
 ))
 
--- Bitwise example
+-- Bitwise operations using bit32 library
 local bitwise = bitwiseExample(5, 3)
 print("Bitwise 5 & 3:", bitwise.band)
 print("Bitwise 5 | 3:", bitwise.bor)
-print("Bitwise 5 ~ 3:", bitwise.bxor)
+print("Bitwise 5 ^ 3:", bitwise.bxor)
 print("Bitwise ~5:", bitwise.bnot)
 print("Bitwise 5 << 2:", bitwise.lshift)
 print("Bitwise 3 >> 1:", bitwise.rshift)
@@ -171,17 +192,10 @@ for index, fruit in ipairs(fruits) do
     print(string.format("%d: %s", index, fruit))
 end
 
--- Local constants (Luau extension - in standard Lua use variables)
-local DEFAULT_TIMEOUT = 30
-local MAX_RETRIES = 3
-
-print("Default timeout:", DEFAULT_TIMEOUT)
-print("Max retries:", MAX_RETRIES)
-
--- Task spawn example
-task.spawn(function()
-    print("Running in task")
-end)
+-- Generic for loop with pairs
+for key, value in pairs({a = 1, b = 2, c = 3}) do
+    print(key, value)
+end
 
 -- Closure example
 local function createCounter(initial)
@@ -223,15 +237,29 @@ local v2 = Vec2.new(3, 4)
 local v3 = v1 + v2
 print("Vector sum:", tostring(v3))
 
--- Return module
+-- Roblox-style task library
+local task = {
+    wait = function(n) return n end,
+    spawn = function(f, ...) f(...) end,
+    delay = function(n, f) f() end
+}
+
+-- Task spawn example
+task.spawn(function()
+    print("Running in task")
+end)
+
+-- Return module for reuse
 return {
     fibonacci = fibonacci,
     isPrime = isPrime,
     calculateStats = calculateStats,
-    processPlayerData = processPlayerData,
     bitwiseExample = bitwiseExample,
     maxValue = maxValue,
     minValue = minValue,
+    calculateDistance = calculateDistance,
+    createTween = createTween,
     createCounter = createCounter,
-    Vec2 = Vec2
+    Vec2 = Vec2,
+    task = task
 }

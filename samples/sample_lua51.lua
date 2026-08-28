@@ -1,6 +1,10 @@
--- Sample: Basic Lua 5.1 script demonstrating various features
--- This script tests obfuscation with Lua 5.1 operators
+--[[
+    Sample: Lua 5.1 compatible script
+    This script demonstrates features compatible with standard Lua 5.1.
+    No bitwise operators, no goto, no bit32 library.
+]]
 
+-- Utility functions (standard Lua 5.1 syntax)
 local function fibonacci(n)
     if n <= 1 then
         return n
@@ -52,48 +56,102 @@ local function calculateStats(tbl)
     }
 end
 
+local function maxValue(a, b)
+    if a > b then
+        return a
+    else
+        return b
+    end
+end
+
+local function minValue(a, b)
+    if a < b then
+        return a
+    else
+        return b
+    end
+end
+
+-- Main execution
+print("Fibonacci(10):", fibonacci(10))
+print("Is 17 prime?", isPrime(17))
+
 local numbers = {7, 14, 21, 28, 35, 42, 49, 56, 63, 70}
 local stats = calculateStats(numbers)
 
-print("Fibonacci(10):", fibonacci(10))
-print("Is 17 prime?", isPrime(17))
 print("Stats:", string.format(
-    "sum=%.2f, count=%d, min=%.2f, max=%.2f, mean=%.2f, stddev=%.2f",
-    stats.sum, stats.count, stats.min, stats.max, stats.mean, stats.stddev
+    "sum=%.2f, count=%d, min=%.2f, max=%.2f",
+    stats.sum, stats.count, stats.min, stats.max
 ))
 
-local factorial = 1
-for i = 1, 10 do
-    factorial = factorial * i
-end
-print("10! =", factorial)
+-- Math utilities
+print("Max(5, 10):", maxValue(5, 10))
+print("Min(5, 10):", minValue(5, 10))
 
-local function reverseString(str)
-    local result = ""
-    for i = #str, 1, -1 do
-        result = result .. str:sub(i, i)
-    end
-    return result
-end
-
-print("Reversed 'hello':", reverseString("hello"))
-
-local env = {
-    version = "1.0.0",
-    author = "Test",
-    config = {
-        enabled = true,
-        timeout = 30,
-        options = {"a", "b", "c"}
-    }
+-- Table iteration
+local config = {
+    enabled = true,
+    timeout = 30,
+    name = "TestConfig"
 }
 
-print("Environment version:", env.version)
-print("Config enabled:", env.config.enabled)
+for key, value in pairs(config) do
+    print(string.format("Config %s: %s", tostring(key), tostring(value)))
+end
 
+-- Generic for loop with ipairs
+local fruits = {"apple", "banana", "cherry", "orange"}
+for index, fruit in ipairs(fruits) do
+    print(string.format("%d: %s", index, fruit))
+end
+
+-- Closure example
+local function createCounter(initial)
+    local count = initial or 0
+    return function()
+        count = count + 1
+        return count
+    end
+end
+
+local counter = createCounter(0)
+print("Counter:", counter(), counter(), counter())
+
+-- Metatable example
+local Vec2 = {}
+Vec2.__index = Vec2
+
+function Vec2.new(x, y)
+    local self = setmetatable({}, Vec2)
+    self.x = x
+    self.y = y
+    return self
+end
+
+function Vec2:add(other)
+    return Vec2.new(self.x + other.x, self.y + other.y)
+end
+
+function Vec2:__add(other)
+    return self:add(other)
+end
+
+function Vec2:__tostring()
+    return string.format("(%g, %g)", self.x, self.y)
+end
+
+local v1 = Vec2.new(1, 2)
+local v2 = Vec2.new(3, 4)
+local v3 = v1 + v2
+print("Vector sum:", tostring(v3))
+
+-- Return module
 return {
     fibonacci = fibonacci,
     isPrime = isPrime,
     calculateStats = calculateStats,
-    reverseString = reverseString
+    maxValue = maxValue,
+    minValue = minValue,
+    createCounter = createCounter,
+    Vec2 = Vec2
 }

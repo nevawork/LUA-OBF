@@ -34,6 +34,7 @@ function getOperators(version) {
         case "lua53": return OPERATORS_LUA53;
         case "lua54": return OPERATORS_LUA54;
         case "luau": return OPERATORS_LUAU;
+        case "roblox_executor": return OPERATORS_LUAU;
     }
 }
 class LuaSyntaxError extends Error {

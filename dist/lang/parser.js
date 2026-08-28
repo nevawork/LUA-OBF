@@ -38,8 +38,9 @@ class Parser {
     unaryPri;
     constructor(toks, version = "lua51") {
         this.toks = toks;
-        this.binPri = version === "lua51" || version === "luau" ? BINPRI_LUA51 : BINPRI_LUA53;
-        this.unaryPri = version === "lua51" || version === "luau" ? UNARY_PRI_LUA51 : UNARY_PRI_LUA53;
+        const isLuau = version === "lua51" || version === "luau" || version === "roblox_executor";
+        this.binPri = isLuau ? BINPRI_LUA51 : BINPRI_LUA53;
+        this.unaryPri = isLuau ? UNARY_PRI_LUA51 : UNARY_PRI_LUA53;
     }
     peek(k = 0) {
         return this.toks[Math.min(this.pos + k, this.toks.length - 1)];
