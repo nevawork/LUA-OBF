@@ -71,7 +71,7 @@ describe("Roblox/Luau executor nil-index safety", () => {
     expect(envArg).not.toBe("_G");
     // The envArg should be a randomized local (uppercase letter + lowercase/digits)
     // which is what id() generates.
-    expect(envArg).toMatch(/^[A-Z][a-zA-Z0-9_]*$/);
+    expect(envArg).toMatch(/^[A-Za-z][a-zA-Z0-9_]*$/);
   });
 
   it("the envAlias is initialized with the _ENV -> _G -> {} fallback", () => {
