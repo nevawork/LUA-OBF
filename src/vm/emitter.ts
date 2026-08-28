@@ -617,7 +617,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const envParam = id();
   const iiFEHeader = `return (function(${envParam}, ...)`;
   const iiFEFooter = `end)(${envParam})`;
-  const lua = iiFEHeader + " " + body.join("; ") + " " + iiFEFooter;
+  const lua = iiFEHeader + "\n" + body.join("\n") + "\n" + iiFEFooter;
   const banner = `-- NEVAHEX-VM v3 'Hex' — protected artifact — ${garbage(rng).slice(0, 12)}() runs it`;
   const L: string[] = [
     banner,
