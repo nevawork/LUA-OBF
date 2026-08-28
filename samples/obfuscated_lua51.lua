@@ -3,7 +3,7 @@
 return (function(BuJoZE, ...)
  local O8FWRBL=setmetatable({},{__mode="k"})
  local function oszAJbZA(...) local n=select('#',...) return {n=n,...} end
- local cCeVVK8Cni=_G.unpack or (table and table.unpack)
+  local cCeVVK8Cni=type(_G.unpack)=="function"and _G.unpack or (type(table)=="table"and type(table.unpack)=="function"and table.unpack)
  local function wj6biUmXIpR(t,i,j)
   if i>j then return end
   if cCeVVK8Cni and j-i>15 then return cCeVVK8Cni(t,i,j) end

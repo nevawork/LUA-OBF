@@ -3,7 +3,7 @@
 return (function(CHH64st9, ...)
  local ildjkb=setmetatable({},{__mode="k"})
  local function XbFHB5(...) local n=select('#',...) return {n=n,...} end
- local nJ0vtR5b=_ENV.unpack or (table and table.unpack)
+ local nJ0vtR5b = type(_ENV.unpack) == "function" and _ENV.unpack or (type(table) == "table" and type(table.unpack) == "function" and table.unpack)
  local function cncnoT(t,i,j)
   if i>j then return end
   if nJ0vtR5b and j-i>15 then return nJ0vtR5b(t,i,j) end
