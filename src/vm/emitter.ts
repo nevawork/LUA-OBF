@@ -11,7 +11,8 @@
 // emitRuntime returns; breaches throw with a named report.
 import { BuildRng } from "../gen/prng";
 import { Op } from "./opcodes";
-import { Seeds, normSeed, wmSeeds, InstrFieldKeys } from "./serializer";
+import { Seeds, normSeed, wmSeeds, InstrFieldKeys, decryptBlob, deserializeBlob } from "./serializer";
+import { writeFileSync } from "fs";
 import { IdAllocator } from "../engine/runtime/identifiers";
 import { Tier, tierViolationLines } from "../engine/runtime/tiers";
 import { emitIntegrityCheck, IntegrityNames } from "../engine/runtime/integrity";
@@ -654,6 +655,19 @@ body.push(` local function ${N.cv}(pID,e)`);
         budget.problems.join("\n  "),
     );
   }
+
+  try {
+    writeFileSync(
+      "scripts/_dbg.json",
+      JSON.stringify({
+        perm: opts.perm,
+        opencode: opts.opencode,
+        fieldKeys: opts.fieldKeys,
+        seeds: opts.seeds,
+        blob: Array.from(opts.blob),
+      }),
+    );
+  } catch {}
 
   return { lua: L.join("\n"), dispatchOrder };
 }
