@@ -895,6 +895,9 @@ export function assembleChain(
   const sorted = handlers.slice().sort((a, b) => a.phys - b.phys);
   const chainLines: string[] = [];
   const order: number[] = [];
+  if (process.env.NEVAHEX_DEBUG) {
+    console.log("assembleChain: sorted length", sorted.length, "sorted phys:", sorted.map(h => h.phys));
+  }
 
   /** emits a complete `if…else…end` block covering exactly `arr` */
   const emitBlock = (arr: Handler[], depth: number): void => {

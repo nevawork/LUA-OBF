@@ -238,6 +238,10 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   // ---------- handlers (engine/runtime/dispatcher) ----------
   const allOps = Object.values(Op).filter(v => typeof v === "number") as number[];
   const validOps = allOps.filter(op => P[op] !== undefined);
+  if (process.env.NEVAHEX_DEBUG) {
+    console.log("validOps:", validOps.length, validOps);
+    console.log("P length:", P.length, "P:", P);
+  }
   const handlers = buildHandlers({
     N: N as unknown as Record<string, string>,
     F: F as unknown as Record<string, string>,
@@ -252,6 +256,10 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     fused: opts.fused,
     validOps,
   });
+  if (process.env.NEVAHEX_DEBUG) {
+    console.log("handlers count:", handlers.length);
+    console.log("handler phys values:", handlers.map(h => h.phys).sort((a,b) => a-b));
+  }
   const { chainLines, dispatchOrder } = assembleChain(
     handlers,
     rng,
@@ -380,7 +388,11 @@ body.push(` local function ${N.cv}(pID,e)`);
   body.push(`  e.v=v return v`);
   body.push(` end`);
   // The encrypted blob (one big literal)
-  body.push(` local ${N.blob}=${luaEscape(opts.blob)}`);
+  const blobStr = luaEscape(opts.blob);
+  if (process.env.NEVAHEX_DEBUG_OPS) {
+    try { require("fs").writeFileSync("/tmp/kilo/blob-escaped.txt", blobStr); } catch {}
+  }
+  body.push(` local ${N.blob}=${blobStr}`);
 
   // optional dynamic-load path (Phase 2 exception; opt-in, disabled for luau)
   if (opts.dynLoad && opts.envProfile !== "luau") {

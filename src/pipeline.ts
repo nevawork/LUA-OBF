@@ -538,6 +538,9 @@ export function protect(opts: ProtectOptions): ProtectResult {
     ? { ...DEFAULT_ANTI_EMULATION }
     : null;
   const luaVersion: "lua51" | "luau" = targetLuaVersion;
+  if (process.env.NEVAHEX_DEBUG_OPS) {
+    try { require("fs").writeFileSync("/tmp/kilo/blob-before-emit.bin", blob); } catch {}
+  }
   const emitted = emitRuntime({
     seeds,
     tier,

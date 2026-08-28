@@ -323,6 +323,12 @@ function protect(opts) {
         ? { ...antiemulation_1.DEFAULT_ANTI_EMULATION }
         : null;
     const luaVersion = targetLuaVersion;
+    if (process.env.NEVAHEX_DEBUG_OPS) {
+        try {
+            require("fs").writeFileSync("/tmp/kilo/blob-before-emit.bin", blob);
+        }
+        catch { }
+    }
     const emitted = (0, emitter_1.emitRuntime)({
         seeds,
         tier,

@@ -295,7 +295,11 @@ function writeProto(
   // The SAME chain also whitens operands (Phase 3): each field is shifted by
   // m=⌊rk/3⌋%256; split-jump shares counter-shift so B1+B2 stays invariant.
   let rk = oc ? initialRk(oc, pid) : 0;
-  for (const ins of p.code) {
+  for (let pc = 0; pc < p.code.length; pc++) {
+    const ins = p.code[pc];
+    if (process.env.NEVAHEX_DEBUG) {
+      console.log(`  pid=${pid} pc=${pc} phys=${ins[0]} rk=${rk} enc=${oc ? encodeOp(ins[0], rk) : ins[0]}`);
+    }
     const opE = oc ? encodeOp(ins[0], rk) : ins[0];
     const m = oc ? Math.floor(rk / 3) % 256 : 0;
     rk = stepRk(oc ?? { rk0: 0, astep: 1, astep2: 1, ainc: 1 }, rk);
