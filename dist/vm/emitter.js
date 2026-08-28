@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emitRuntime = emitRuntime;
+const opcodes_1 = require("./opcodes");
 const serializer_1 = require("./serializer");
 const identifiers_1 = require("../engine/runtime/identifiers");
 const tiers_1 = require("../engine/runtime/tiers");
@@ -138,6 +139,8 @@ function emitRuntime(opts) {
         }
     };
     // ---------- handlers (engine/runtime/dispatcher) ----------
+    const allOps = Object.values(opcodes_1.Op).filter(v => typeof v === "number");
+    const validOps = allOps.filter(op => P[op] !== undefined);
     const handlers = (0, dispatcher_1.buildHandlers)({
         N: N,
         F: F,
@@ -145,11 +148,12 @@ function emitRuntime(opts) {
         rng,
         tier,
         lit,
-        phys: (op) => P[op],
+        phys: (op) => P[op] ?? 0,
         gate,
         escapeGarbageLit: JSON.stringify(garbage(rng)),
         synthCount: 2 + rng.int(4),
         fused: opts.fused,
+        validOps,
     });
     const { chainLines, dispatchOrder } = (0, dispatcher_1.assembleChain)(handlers, rng, JSON.stringify(garbage(rng)));
     if (process.env.NEVAHEX_DEBUG) {
@@ -505,7 +509,7 @@ function emitRuntime(opts) {
     const envParam = id();
     const iiFEHeader = `return (function(${envParam}, ...)`;
     const iiFEFooter = `end)(${envParam})`;
-    const lua = iiFEHeader + " " + body.join(" ") + " " + iiFEFooter;
+    const lua = iiFEHeader + " " + body.join("; ") + " " + iiFEFooter;
     const banner = `-- NEVAHEX-VM v3 'Hex' — protected artifact — ${garbage(rng).slice(0, 12)}() runs it`;
     const L = [
         banner,

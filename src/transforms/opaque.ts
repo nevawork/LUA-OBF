@@ -84,7 +84,7 @@ function makeFalseGuard(rng: { int(n: number): number; bool(): boolean }): Expr 
       };
     }
     case 2: {
-      // (x|x) - x == 0 — always true; not ⇒ false
+      // x - x == 0 — always true; not ⇒ false
       return {
         kind: "Unop",
         op: "not",
@@ -94,12 +94,7 @@ function makeFalseGuard(rng: { int(n: number): number; bool(): boolean }): Expr 
           left: {
             kind: "Binop",
             op: "-",
-            left: {
-              kind: "Binop",
-              op: "|",
-              left: { kind: "Number", value: 7, raw: "" },
-              right: { kind: "Number", value: 7, raw: "" },
-            },
+            left: { kind: "Number", value: 7, raw: "" },
             right: { kind: "Number", value: 7, raw: "" },
           },
           right: { kind: "Number", value: 0, raw: "" },

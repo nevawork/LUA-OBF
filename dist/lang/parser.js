@@ -317,6 +317,31 @@ class Parser {
             const right = this.parseExpr(rp);
             left = { kind: "Binop", op: op.value, left, right };
         }
+        // Handle call suffixes after binary operators (e.g., (func)())
+        for (;;) {
+            const t2 = this.peek();
+            if (t2.type === lexer_1.Tok.Op && (t2.value === "(" || t2.value === "{")) {
+                // Don't consume the token here - let parseArgs handle it
+                const args = this.parseArgs();
+                left = { kind: "Call", fn: left, args };
+                continue;
+            }
+            if (t2.type === lexer_1.Tok.Op && t2.value === "[") {
+                this.next();
+                const idx = this.parseExpr();
+                this.expectOp("]");
+                left = { kind: "Index", obj: left, index: idx };
+                continue;
+            }
+            if (t2.type === lexer_1.Tok.Op && t2.value === ":") {
+                this.next();
+                const method = this.expectName();
+                const args = this.parseArgs();
+                left = { kind: "MethodCall", receiver: left, method, args };
+                continue;
+            }
+            break;
+        }
         return left;
     }
     parseSimpleExpr() {

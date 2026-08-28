@@ -234,6 +234,8 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   };
 
   // ---------- handlers (engine/runtime/dispatcher) ----------
+  const allOps = Object.values(Op).filter(v => typeof v === "number") as number[];
+  const validOps = allOps.filter(op => P[op] !== undefined);
   const handlers = buildHandlers({
     N: N as unknown as Record<string, string>,
     F: F as unknown as Record<string, string>,
@@ -241,11 +243,12 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
     rng,
     tier,
     lit,
-    phys: (op: Op): number => P[op],
+    phys: (op: Op): number => P[op] ?? 0,
     gate,
     escapeGarbageLit: JSON.stringify(garbage(rng)),
     synthCount: 2 + rng.int(4),
     fused: opts.fused,
+    validOps,
   });
   const { chainLines, dispatchOrder } = assembleChain(
     handlers,
@@ -614,7 +617,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const envParam = id();
   const iiFEHeader = `return (function(${envParam}, ...)`;
   const iiFEFooter = `end)(${envParam})`;
-  const lua = iiFEHeader + " " + body.join(" ") + " " + iiFEFooter;
+  const lua = iiFEHeader + " " + body.join("; ") + " " + iiFEFooter;
   const banner = `-- NEVAHEX-VM v3 'Hex' — protected artifact — ${garbage(rng).slice(0, 12)}() runs it`;
   const L: string[] = [
     banner,
