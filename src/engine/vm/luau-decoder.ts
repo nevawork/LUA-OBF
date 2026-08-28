@@ -10,6 +10,8 @@ export interface LuauDecodeOptions {
   allowUnknown?: boolean;
   /** Maximum proto depth (default: 100) */
   maxDepth?: number;
+  /** Handle oversized structures (default: false) */
+  allowOversized?: boolean;
 }
 
 const DEFAULT_OPTIONS: Required<LuauDecodeOptions> = {

@@ -16,12 +16,10 @@
 // fixed decode program), which is what makes byte-lane masking safe.
 import { OP } from "./microvm";
 
-type Fixup = { wordIndex: number; label: string };
-
 export class Asm {
   words: number[] = [];
   private labels = new Map<string, number>();
-  private fixups: Fixup[] = [];
+  private fixups: { wordIndex: number; label: string }[] = [];
 
   emit(op: number, a = 0, b = 0, c = 0): void {
     this.words.push(op & 255, a & 255, b & 255, c & 255);
@@ -77,10 +75,6 @@ export class Asm {
     this.jumpTo(OP.JMP, 1, 0, 0, label);
   }
 
-  mark(label: string): void {
-    this.labels.set(label, this.words.length);
-  }
-
   resolve(): number[] {
     for (const f of this.fixups) {
       const instrIndex = this.labels.get(f.label);
@@ -91,9 +85,4 @@ export class Asm {
     }
     return this.words.slice();
   }
-}
-
-export interface Fixup {
-  wordIndex: number;
-  label: string;
 }
