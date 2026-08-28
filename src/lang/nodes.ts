@@ -156,7 +156,7 @@ export interface Binop {
 }
 export interface Unop {
   kind: "Unop";
-  op: "-" | "not" | "#";
+  op: "-" | "not" | "#" | "~";
   operand: Expr;
 }
 export interface NameRef {

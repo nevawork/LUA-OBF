@@ -1,28 +1,52 @@
-// NEVAHEX-VM — Lua 5.1 recursive-descent parser
-import { lex, Tok, Token, LuaSyntaxError } from "./lexer";
+// NEVAHEX-VM — Lua parser
+import { lex, Tok, Token, LuaSyntaxError, LuaVersion } from "./lexer";
 import {
   Block, Chunk, Expr, Stat, FuncBody, Suffixed, TableField,
 } from "./nodes";
 
-// binary operator priorities (lua 5.1 lparser.c)
-const BINPRI: Record<string, [number, number]> = {
+const BINPRI_LUA51: Record<string, [number, number]> = {
   "or": [1, 1],
   "and": [2, 2],
   "<": [3, 3], ">": [3, 3], "<=": [3, 3], ">=": [3, 3], "~=": [3, 3], "==": [3, 3],
-  "..": [5, 4], // right associative
+  "..": [5, 4],
   "+": [6, 6], "-": [6, 6],
   "*": [7, 7], "/": [7, 7], "%": [7, 7],
-  "^": [10, 9], // right associative
+  "^": [10, 9],
 };
-const UNARY_PRI = 8;
 
-export function parse(src: string): Chunk {
-  return new Parser(lex(src)).parseChunk();
+const BINPRI_LUA53: Record<string, [number, number]> = {
+  "or": [1, 1],
+  "and": [2, 2],
+  "<": [3, 3], ">": [3, 3], "<=": [3, 3], ">=": [3, 3], "~=": [3, 3], "==": [3, 3],
+  "|": [4, 4],
+  "~": [5, 5],
+  "&": [6, 6],
+  "<<": [7, 7], ">>": [7, 7],
+  "..": [9, 8],
+  "+": [10, 10], "-": [10, 10],
+  "*": [11, 11], "/": [11, 11], "%": [11, 11],
+  "^": [14, 13],
+};
+
+const BINPRI_LUA54 = BINPRI_LUA53;
+
+const UNARY_PRI_LUA51 = 8;
+const UNARY_PRI_LUA53 = 12;
+
+export function parse(src: string, version: LuaVersion = "lua51"): Chunk {
+  return new Parser(lex(src, version), version).parseChunk();
 }
 
 class Parser {
   private pos = 0;
-  constructor(private toks: Token[]) {}
+  private binPri: Record<string, [number, number]>;
+  private unaryPri: number;
+
+  constructor(private toks: Token[], version: LuaVersion = "lua51") {
+    const isLuau = version === "lua51" || version === "luau" || version === "roblox_executor";
+    this.binPri = isLuau ? BINPRI_LUA51 : BINPRI_LUA53;
+    this.unaryPri = isLuau ? UNARY_PRI_LUA51 : UNARY_PRI_LUA53;
+  }
 
   private peek(k = 0): Token {
     return this.toks[Math.min(this.pos + k, this.toks.length - 1)];
@@ -276,7 +300,7 @@ class Parser {
     if ((t.type === Tok.Op && (t.value === "-" || t.value === "#")) ||
         (t.type === Tok.Keyword && t.value === "not")) {
       this.next();
-      const operand = this.parseExpr(UNARY_PRI);
+      const operand = this.parseExpr(this.unaryPri);
       left = { kind: "Unop", op: t.value as "-" | "#" | "not", operand };
     } else {
       left = this.parseSimpleExpr();
@@ -284,12 +308,37 @@ class Parser {
     for (;;) {
       const op = this.peek();
       // infix operators arrive as Op tokens; 'and'/'or' arrive as Keywords
-      if ((op.type !== Tok.Op && op.type !== Tok.Keyword) || !BINPRI[op.value]) break;
-      const [lp, rp] = BINPRI[op.value];
+      if ((op.type !== Tok.Op && op.type !== Tok.Keyword) || !this.binPri[op.value]) break;
+      const [lp, rp] = this.binPri[op.value];
       if (lp <= limit) break;
       this.next();
       const right = this.parseExpr(rp);
       left = { kind: "Binop", op: op.value, left, right };
+    }
+    // Handle call suffixes after binary operators (e.g., (func)())
+    for (;;) {
+      const t2 = this.peek();
+      if (t2.type === Tok.Op && (t2.value === "(" || t2.value === "{")) {
+        // Don't consume the token here - let parseArgs handle it
+        const args = this.parseArgs();
+        left = { kind: "Call", fn: left, args };
+        continue;
+      }
+      if (t2.type === Tok.Op && t2.value === "[") {
+        this.next();
+        const idx = this.parseExpr();
+        this.expectOp("]");
+        left = { kind: "Index", obj: left, index: idx };
+        continue;
+      }
+      if (t2.type === Tok.Op && t2.value === ":") {
+        this.next();
+        const method = this.expectName();
+        const args = this.parseArgs();
+        left = { kind: "MethodCall", receiver: left, method, args };
+        continue;
+      }
+      break;
     }
     return left;
   }

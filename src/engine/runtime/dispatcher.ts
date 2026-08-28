@@ -68,6 +68,8 @@ export interface DispatchCtx {
    * member slots afterwards.
    */
   fused?: Array<{ phys: number; members: Op[] }>;
+  /** valid logical ops for this build (e.g., Luau ops excluded in non-Luau) */
+  validOps?: number[];
 }
 
 /** logical ops whose B operand is a relative jump offset (shares summed) */
@@ -80,9 +82,12 @@ const pickVariant = (rng: BuildRng, pool: BodyFactory[]): string[] =>
   pool[rng.int(pool.length)]();
 
 export function buildHandlers(ctx: DispatchCtx): Handler[] {
-  const { N, F, tier, lit, phys, gate, keys, rng } = ctx;
+  const { N, F, tier, lit, phys, gate, keys, rng, validOps } = ctx;
   const hs: Handler[] = [];
   const K = keys;
+  const isValidOp = validOps
+    ? (op: number) => validOps.includes(op)
+    : () => true;
 
   /** operand expressions under the keyed record layout */
   const fA = (): string => `${F.ins}[${K.A}]`;
@@ -93,6 +98,7 @@ export function buildHandlers(ctx: DispatchCtx): Handler[] {
       : `${F.ins}[${K.B1}]`;
 
   const add = (op: Op, body: string[]): void => {
+    if (!isValidOp(op)) return;
     hs.push({ op, phys: phys(op), test: `op==${lit(op)}${gate()}`, body });
   };
 

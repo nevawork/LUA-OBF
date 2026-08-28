@@ -16,13 +16,15 @@
 // Fingerprint inputs (pure-Lua, sandbox-safe): _VERSION plus presence/absence
 // bits of a stable set of globals. Mixed with a keyed additive rolling hash.
 
-export type EnvProfile = "lua51" | "luajit" | "luau" | "universal";
+export type EnvProfile = "lua51" | "luajit" | "luau" | "luau_executor" | "roblox_executor" | "universal";
 
 /** canonical fingerprints per profile */
 export const PROFILES: Record<EnvProfile, { version: string; bits: string[] }> = {
   lua51: { version: "Lua 5.1", bits: ["unpack", "setfenv", "getfenv", "loadstring"] },
   luajit: { version: "LuaJIT", bits: ["jit", "bit", "ffi"] },
   luau: { version: "Luau", bits: ["task", "game", "workspace", "typeof"] },
+  luau_executor: { version: "Luau", bits: ["game", "workspace", "task", "getgenv", "hookfunction"] },
+  roblox_executor: { version: "Luau", bits: ["game", "workspace", "script", "getgenv", "hookfunction", "newcclosure", "islclosure"] },
   universal: { version: "", bits: [] },
 };
 
@@ -53,9 +55,11 @@ export function emitEnvKeyingBlock(profile: EnvProfile, saVar: string, sbVar: st
   const p = PROFILES[profile];
   // deterministic DJB2 over version string + present-bits, in Lua
   const lines: string[] = [];
+  // Convert JavaScript array to Lua table syntax
+  const luaTable = "{" + p.bits.map(b => '"' + b + '"').join(",") + "}";
   lines.push(`do`);
   lines.push(`  local __fp=_VERSION or ""`);
-  lines.push(`  local __bits=${JSON.stringify(p.bits)}`);
+  lines.push(`  local __bits=${luaTable}`);
   lines.push(`  local __acc=5381`);
   lines.push(`  for i=1,#__fp do __acc=(__acc*33+string.byte(__fp,i))%1000000007 end`);
   lines.push(`  for _,bn in ipairs(__bits) do`);

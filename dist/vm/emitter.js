@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emitRuntime = emitRuntime;
+const opcodes_1 = require("./opcodes");
 const serializer_1 = require("./serializer");
 const identifiers_1 = require("../engine/runtime/identifiers");
 const tiers_1 = require("../engine/runtime/tiers");
@@ -63,6 +64,10 @@ function emitRuntime(opts) {
     const tier = opts.tier;
     const ids = new identifiers_1.IdAllocator(["run", "self"], rng);
     const id = () => ids.alloc();
+    const usesBitwise = opts.luaVersion && ["lua53", "lua54"].includes(opts.luaVersion);
+    const isLua51 = opts.luaVersion === "lua51";
+    const envGlobal = isLua51 ? "_G" : "_ENV";
+    const shiftExpr = (v, by) => usesBitwise ? `${v}${by}` : `math.floor(${v}/${by})`;
     const N = {
         ctn: id(), pk: id(), ur: id(), envroot: id(), blob: id(), protos: id(),
         ch: id(), pos: id(), u8: id(), uvar: id(), svar: id(), np: id(),
@@ -136,6 +141,8 @@ function emitRuntime(opts) {
         }
     };
     // ---------- handlers (engine/runtime/dispatcher) ----------
+    const allOps = Object.values(opcodes_1.Op).filter(v => typeof v === "number");
+    const validOps = allOps.filter(op => P[op] !== undefined);
     const handlers = (0, dispatcher_1.buildHandlers)({
         N: N,
         F: F,
@@ -143,11 +150,12 @@ function emitRuntime(opts) {
         rng,
         tier,
         lit,
-        phys: (op) => P[op],
+        phys: (op) => P[op] ?? 0,
         gate,
         escapeGarbageLit: JSON.stringify(garbage(rng)),
         synthCount: 2 + rng.int(4),
         fused: opts.fused,
+        validOps,
     });
     const { chainLines, dispatchOrder } = (0, dispatcher_1.assembleChain)(handlers, rng, JSON.stringify(garbage(rng)));
     if (process.env.NEVAHEX_DEBUG) {
@@ -208,16 +216,16 @@ function emitRuntime(opts) {
     body.push(` local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
     // Phase 6: argument spreading — native unpack for wide ranges, recursive
     // fallback otherwise (identical semantics, no deep-call cost on big spans)
-    body.push(` local ${N.uup}=_ENV.unpack or (table and table.unpack)`);
+    body.push(` local ${N.uup}=${envGlobal}.unpack or (table and table.unpack)`);
     body.push(` local function ${N.ur}(t,i,j)`);
     body.push(`  if i>j then return end`);
     body.push(`  if ${N.uup} and j-i>15 then return ${N.uup}(t,i,j) end`);
     body.push(`  return t[i],${N.ur}(t,i+1,j)`);
     body.push(` end`);
-    // sch / tcn — bound to _ENV.string.char / _ENV.table.concat so the
-    // _ENV bootstrap (passing `{}`) doesn't strip them
-    body.push(` local ${N.sch}=_ENV.string.char`);
-    body.push(` local ${N.tcn}=_ENV.table.concat`);
+    // sch / tcn — bound to ${envGlobal}.string.char / ${envGlobal}.table.concat so the
+    // ${envGlobal} bootstrap (passing `{}`) doesn't strip them
+    body.push(` local ${N.sch}=${envGlobal}.string.char`);
+    body.push(` local ${N.tcn}=${envGlobal}.table.concat`);
     // anti-emulation calibration state (upvalues of the closures below)
     if (opts.antiEmulation) {
         body.push(` local ${aeT0},${aeT1},${aeT2},${aeT3},${aeT4},${aeOps},${aeAllocOps},${aeMemOps},${aeArithOps},${aeTotalOps},${aeHookFlag},${aeEnvScore}`);
@@ -246,11 +254,15 @@ function emitRuntime(opts) {
     body.push(`  _G.__CV_RAW_T=(_G.__CV_RAW_T or "")..tostring(e.t) _G.__CV_RAW_N=(_G.__CV_RAW_N or "")..tostring(e.n)`);
     body.push(`  local kk=(((${ck0N}+pID*7919)%2147483646)+2147483646)%2147483646 if kk==0 then kk=1 end`);
     body.push(`  _G.__CV_KK=(_G.__CV_KK or 0)+1 _G.__CV_KK_LAST=tostring(kk) _G.__CV_PID=tostring(pID)`);
-    body.push(`  local parts={} local g=kk`);
-    body.push(`  _G.__CV_G0=(_G.__CV_G0 or 0)+1 _G.__CV_G_INIT=tostring(g)`);
-    body.push(`  for j=1,e.n do g=(g*48271)%2147483647 local _mb=g%256 local _db=(e.b[j]-_mb+256)%256 parts[j]=${N.sch}(_db) _G.__CV_MASKS=(_G.__CV_MASKS or "")..string.char(_mb) _G.__CV_DECB=(_G.__CV_DECB or "")..string.char(_db) end`);
-    body.push(`  local sv=${N.tcn}(parts)`);
-    body.push(`  if e.t==5 then v=tonumber(sv) else v=sv end`);
+    body.push(`  if e.t==5 or e.t==6 then`);
+    body.push(`   local parts={} local g=kk`);
+    body.push(`   _G.__CV_G0=(_G.__CV_G0 or 0)+1 _G.__CV_G_INIT=tostring(g)`);
+    body.push(`   for j=1,e.n do g=(g*48271)%2147483647 local _mb=g%256 local _db=(e.b[j]-_mb+256)%256 parts[j]=${N.sch}(_db) _G.__CV_MASKS=(_G.__CV_MASKS or "")..string.char(_mb) _G.__CV_DECB=(_G.__CV_DECB or "")..string.char(_db) end`);
+    body.push(`   local sv=${N.tcn}(parts)`);
+    body.push(`   if e.t==5 then v=tonumber(sv) else v=sv end`);
+    body.push(`  else`);
+    body.push(`   if e.t==1 then v=true elseif e.t==2 then v=false elseif e.t==7 then v=0/0 elseif e.t==8 then v=math.huge elseif e.t==9 then v=-math.huge else v=nil end`);
+    body.push(`  end`);
     body.push(`  if v==nil then _G.__CV_NIL=(_G.__CV_NIL or 0)+1 _G.__CV_NIL_TYPE=tostring(e.t) _G.__CV_NIL_SV=tostring(sv) end`);
     body.push(`  _G.__CV_CALLS=(_G.__CV_CALLS or 0)+1 _G.__CV_LAST=tostring(e.t)..":"..tostring(sv)`);
     body.push(`  e.v=v return v`);
@@ -278,9 +290,9 @@ function emitRuntime(opts) {
         body.push(`  local MM=${M31}`);
         const kp = opts.keylessPool;
         body.push(`  local ${gpN}={${kp.nums.join(",")}}`);
-        body.push(`  local sa=((D[5]*16777216+D[6]*65536+D[7]*256+D[8])${kp.i5 ? `^${gpN}[${kp.i5}]` : ""}+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
+        body.push(`  local hdr=D[1] local pl=(hdr%128) local sa=((D[pl+2]*16777216+D[pl+3]*65536+D[pl+3]*256+D[pl+4])${kp.i5 ? `^${gpN}[${kp.i5}]` : ""}+${gpN}[${kp.i1}]-${gpN}[${kp.i2}])%2147483646` +
             ` if sa<1 then sa=sa+2147483646 end`);
-        body.push(`  local sb=((D[9]*16777216+D[10]*65536+D[11]*256+D[12])${kp.i6 ? `^${gpN}[${kp.i6}]` : ""}+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
+        body.push(`  local sb=((D[pl+5]*16777216+D[pl+6]*65536+D[pl+7]*256+D[pl+6])${kp.i6 ? `^${gpN}[${kp.i6}]` : ""}+${gpN}[${kp.i3}]-${gpN}[${kp.i4}])%2147483646` +
             ` if sb<1 then sb=sb+2147483646 end`);
     }
     else {
@@ -306,7 +318,8 @@ function emitRuntime(opts) {
                 body.push(` ${gl}`);
     }
     // environmental keying (hardened derive-not-compare)
-    const envLines = (0, envkeying_1.emitEnvKeyingBlock)(opts.envProfile ?? "universal", "sa", "sb");
+    const envProfile = opts.envProfile ?? "universal";
+    const envLines = (0, envkeying_1.emitEnvKeyingBlock)(envProfile, "sa", "sb");
     if (envLines)
         for (const el of envLines)
             body.push(` ${el}`);
@@ -389,7 +402,7 @@ function emitRuntime(opts) {
     body.push(`    local b1w=${N.svar}()-mm`);
     body.push(`    local b2w=${N.svar}()+mm`);
     body.push(`    local cw=${N.svar}()-mm`);
-    body.push(`    lrk=(lrk+${aincN}+(lrk>>3))%65536`);
+    body.push(`    lrk=(lrk+${aincN}+${shiftExpr("lrk", "8")})%65536`);
     body.push(`    pr.k[i]={[${keyNames.OP}]=oe,[${keyNames.A}]=aw,[${keyNames.B1}]=b1w,[${keyNames.B2}]=b2w,[${keyNames.C}]=cw}`);
     body.push(`   end`);
     body.push(`   ${N.protos}[${N.pid2}]=pr`);
@@ -461,7 +474,7 @@ function emitRuntime(opts) {
         body.push(`   ${cl}`);
     body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
     body.push(`   ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
-    body.push(`   ${rkN}=(${rkN}+${aincN}+(${rkN}>>3))%65536`);
+    body.push(`   ${rkN}=(${rkN}+${aincN}+${shiftExpr(rkN, "8")})%65536`);
     body.push(`   ${F.pc}=${F.pc}+1`);
     // Phase 5: MBA-scrambled dispatch with computed jump
     if (rng.bool()) {
@@ -486,11 +499,14 @@ function emitRuntime(opts) {
         const mop = mmOps[rng.int(mmOps.length)];
         const trig = [0, -7, 3][rng.int(3)];
         const mt = id();
-        body.push(` local ${mt}=setmetatable({}, {${mop}=function() return ${N.run}(${N.run}_decode(),${opts.rootPid},_ENV,{},${F.A},nil) end})`);
-        body.push(` return ${mt} * ${trig}`);
+        // Map metamethod to its corresponding operator
+        const opMap = { "__add": "+", "__sub": "-", "__mul": "*", "__mod": "%" };
+        const op = opMap[mop];
+        body.push(` local ${mt}=setmetatable({}, {${mop}=function() return ${N.run}(${N.run}_decode(),${opts.rootPid},${envGlobal},{},${F.A},nil) end})`);
+        body.push(` return ${mt} ${op} ${trig}`);
     }
     else {
-        body.push(` return ${N.run}(${N.run}_decode(),${opts.rootPid},_ENV,{},${F.A},nil)`);
+        body.push(` return ${N.run}(${N.run}_decode(),${opts.rootPid},${envGlobal},{},${F.A},nil)`);
     }
     // ---- Assemble final artifact: 3 physical lines (banner, blank, IIFE) ----
     // The IIFE body is one long line. Joining body entries with " " keeps
@@ -502,7 +518,7 @@ function emitRuntime(opts) {
     const envParam = id();
     const iiFEHeader = `return (function(${envParam}, ...)`;
     const iiFEFooter = `end)(${envParam})`;
-    const lua = iiFEHeader + " " + body.join(" ") + " " + iiFEFooter;
+    const lua = iiFEHeader + "\n" + body.join("\n") + "\n" + iiFEFooter;
     const banner = `-- NEVAHEX-VM v3 'Hex' — protected artifact — ${garbage(rng).slice(0, 12)}() runs it`;
     const L = [
         banner,

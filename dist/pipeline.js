@@ -27,6 +27,7 @@ const mba_database_1 = require("./transforms/mba-database");
 const mba_synthesizer_1 = require("./transforms/mba-synthesizer");
 const anti_luahunt_1 = require("./protection/anti-luahunt");
 const path_explosion_1 = require("./protection/path-explosion");
+const luraph_vm_1 = require("./engine/obfuscator/luraph-vm");
 /** stable canonical JSON (sorted object keys) for tagging; exported for verifier tooling */
 function canonicalManifestJson(v) {
     if (Array.isArray(v))
@@ -39,7 +40,8 @@ function canonicalManifestJson(v) {
 }
 const DOMAINS = ["blob0", "blob1", "wm", "aux"];
 function protect(opts) {
-    const chunk = (0, parser_1.parse)(opts.source);
+    const targetLuaVersion = opts.envProfile === "luau" || opts.envProfile === "luau_executor" || opts.envProfile === "roblox_executor" ? "luau" : "lua51";
+    const chunk = (0, parser_1.parse)(opts.source, targetLuaVersion);
     const tier = opts.tier ?? "silent";
     // ---- per-build CSPRNG material (Addendum 0.3: deterministic, CSPRNG-seeded) ----
     const nonce = opts.seedHex
@@ -54,7 +56,11 @@ function protect(opts) {
     if (opts.flatten !== false)
         (0, transforms_1.flattenControlFlow)(chunk, { keys: () => 1 + rng.int(100000) });
     (0, transforms_1.injectOpaqueJunk)(chunk, opts.junkDensity ?? 0.12, rng);
-    if (opts.mbaPlus !== false)
+    // MBA+ generates bitwise operations (&, |, ~) which are NOT supported in Luau.
+    // Luau has no native bitwise operators - only bit32 library functions.
+    // Disable MBA+ for Luau targets to prevent parser/compiler failures.
+    const isLuauTarget = opts.envProfile && ["luau", "luau_executor", "roblox_executor"].includes(opts.envProfile);
+    if (opts.mbaPlus !== false && !isLuauTarget)
         (0, transforms_1.applyMbaPlus)(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
     // ---- Phase 3: SMT-resistant MBA database ----
     // Precompute the MBA database and optionally generate factorization keys.
@@ -120,10 +126,6 @@ function protect(opts) {
     const pbias = 1 + rng.int(3);
     // ---- environmental keying (hardened derive-not-compare) ----
     const envProfile = opts.envProfile ?? "universal";
-    // Blob is encrypted with the EFFECTIVE seeds (manifest holds them; they are
-    // holder-side secrets). The file embeds BAKED-DOWN literals; at load time the
-    // runtime re-derives the fingerprint constant and adds it back, recovering
-    // the effective seeds. Wrong environment ⇒ wrong stream ⇒ cryptic failure.
     const encSeeds = seeds;
     const embeddedCipherLits = envProfile === "universal"
         ? null
@@ -157,6 +159,22 @@ function protect(opts) {
             };
             root = (0, luau_optimizer_1.optimizeLuauBytecode)(root, optimizeOpts);
         }
+    }
+    // ---- Phase 7: Luraph v14+ style VM for Roblox executors ----
+    // When luraph option is enabled, generate a Luraph-style table-based bytecode VM
+    // that is compatible with all Roblox executors (Delta, Synapse X, Krnl, etc.)
+    let luraphLua = null;
+    if (opts.luraph === true) {
+        const seed = rng.int(2147483646) + 1;
+        luraphLua = (0, luraph_vm_1.generateLuraph)(opts.source, root, seed, {
+            seed,
+            encryptBytecode: true,
+            encryptConstants: true,
+            useBit32: true,
+            useNaN: true,
+            usePolymorphic: true,
+            useSelfModify: true,
+        });
     }
     // ---- physical opcode permutation applied in-memory ----
     const baseLogicalCount = 51; // base ISA: MOVE(0) .. ESCAPE(50)
@@ -228,7 +246,7 @@ function protect(opts) {
     // prologue layout + pool cross-reference instead of evaluating two parens.
     let prologueShares;
     let keylessPool;
-    if (opts.keyless !== false) {
+    if (opts.keyless === true) {
         const u32 = () => {
             const v = rng.int(256) * 16777216 +
                 rng.int(256) * 65536 +
@@ -299,9 +317,11 @@ function protect(opts) {
     const { flat } = (0, serializer_1.deserializeBlob)((0, serializer_1.decryptBlob)(blob, encSeeds), { opencode });
     const cappedIntegrity = (0, antitamper_1.planIntegritySlices)(flat);
     // ---- emit runtime ----
-    const antiEmu = envProfile !== "luau"
+    const isExecutorProfile = ["luau", "luau_executor", "roblox_executor"].includes(envProfile);
+    const antiEmu = !isExecutorProfile
         ? { ...antiemulation_1.DEFAULT_ANTI_EMULATION }
         : null;
+    const luaVersion = targetLuaVersion;
     const emitted = (0, emitter_1.emitRuntime)({
         seeds,
         tier,
@@ -312,9 +332,10 @@ function protect(opts) {
         rootPid: 1,
         perm,
         envProfile,
+        luaVersion: luaVersion,
         antiEmulation: antiEmu,
         cipherLiterals: embeddedCipherLits,
-        dynLoad: opts.dynLoad === true && envProfile !== "luau",
+        dynLoad: opts.dynLoad === true && !isExecutorProfile,
         layered: opts.layered === true,
         fieldKeys,
         opencode,
@@ -408,7 +429,8 @@ function protect(opts) {
         manifest.fieldKeys = [fieldKeys.OP, fieldKeys.A, fieldKeys.B1, fieldKeys.B2, fieldKeys.C];
     }
     return {
-        lua: emitted.lua,
+        lua: luraphLua ?? emitted.lua,
+        luraphLua,
         manifest,
         stats: {
             protos: flat.length,

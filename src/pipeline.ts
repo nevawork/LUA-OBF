@@ -31,6 +31,7 @@ import { getMbaDatabase, getMbaStats } from "./transforms/mba-database";
 import { generateSemiprime, synthesizePartialPoint } from "./transforms/mba-synthesizer";
 import { generatePolymorphicHandlers, generateGadgetDetection, generatePathExplosionPredicates } from "./protection/anti-luahunt";
 import { injectPathExplosionPredicates, generateSelfModifyingCode } from "./protection/path-explosion";
+import { generateLuraph } from "./engine/obfuscator/luraph-vm";
 
 export interface ProtectOptions {
   source: string;
@@ -45,6 +46,8 @@ export interface ProtectOptions {
   envProfile?: EnvProfile;
   /** anti-emulation timing layer (default: off; ignored for luau profile) */
   antiEmulation?: boolean;
+  /** use executor-compatible VM instead of full VM */
+  executorVm?: boolean;
   /** corrected MBA+ algebra rewrites (spec summary item 8; default on) */
   mbaPlus?: boolean;
   /** optional string.dump+load dynamic path (Phase 2 exception; off for luau) */
@@ -157,6 +160,11 @@ export interface ProtectOptions {
    * Phase 6: enable Luau bytecode optimization.
    */
   luauOptimize?: boolean;
+  /**
+   * Phase 7: Luraph v14+ style VM for Roblox executors.
+   * Generates a table-based bytecode VM that works in Delta, Synapse X, Krnl, etc.
+   */
+  luraph?: boolean;
 }
 
 /** public manifest fields covered by the authenticity tag */
@@ -215,6 +223,7 @@ export interface Manifest {
 
 export interface ProtectResult {
   lua: string;
+  luraphLua: string | null;
   manifest: Manifest;
   stats: {
     protos: number;
@@ -228,7 +237,8 @@ export interface ProtectResult {
 const DOMAINS = ["blob0", "blob1", "wm", "aux"] as const;
 
 export function protect(opts: ProtectOptions): ProtectResult {
-  const chunk: Chunk = parse(opts.source);
+  const targetLuaVersion = opts.envProfile === "luau" || opts.envProfile === "luau_executor" || opts.envProfile === "roblox_executor" ? "luau" : "lua51";
+  const chunk: Chunk = parse(opts.source, targetLuaVersion);
   const tier: Tier = opts.tier ?? "silent";
 
   // ---- per-build CSPRNG material (Addendum 0.3: deterministic, CSPRNG-seeded) ----
@@ -246,7 +256,12 @@ export function protect(opts: ProtectOptions): ProtectResult {
   if (opts.flatten !== false)
     flattenControlFlow(chunk, { keys: () => 1 + rng.int(100000) });
   injectOpaqueJunk(chunk, opts.junkDensity ?? 0.12, rng);
-  if (opts.mbaPlus !== false)
+
+  // MBA+ generates bitwise operations (&, |, ~) which are NOT supported in Luau.
+  // Luau has no native bitwise operators - only bit32 library functions.
+  // Disable MBA+ for Luau targets to prevent parser/compiler failures.
+  const isLuauTarget = opts.envProfile && ["luau", "luau_executor", "roblox_executor"].includes(opts.envProfile);
+  if (opts.mbaPlus !== false && !isLuauTarget)
     applyMbaPlus(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
 
   // ---- Phase 3: SMT-resistant MBA database ----
@@ -320,10 +335,6 @@ export function protect(opts: ProtectOptions): ProtectResult {
 
   // ---- environmental keying (hardened derive-not-compare) ----
   const envProfile: EnvProfile = opts.envProfile ?? "universal";
-  // Blob is encrypted with the EFFECTIVE seeds (manifest holds them; they are
-  // holder-side secrets). The file embeds BAKED-DOWN literals; at load time the
-  // runtime re-derives the fingerprint constant and adds it back, recovering
-  // the effective seeds. Wrong environment ⇒ wrong stream ⇒ cryptic failure.
   const encSeeds: Seeds = seeds;
   const embeddedCipherLits: [number, number] | null = envProfile === "universal"
     ? null
@@ -360,6 +371,23 @@ export function protect(opts: ProtectOptions): ProtectResult {
       };
       root = optimizeLuauBytecode(root, optimizeOpts);
     }
+  }
+
+  // ---- Phase 7: Luraph v14+ style VM for Roblox executors ----
+  // When luraph option is enabled, generate a Luraph-style table-based bytecode VM
+  // that is compatible with all Roblox executors (Delta, Synapse X, Krnl, etc.)
+  let luraphLua: string | null = null;
+  if (opts.luraph === true) {
+    const seed = rng.int(2147483646) + 1;
+    luraphLua = generateLuraph(opts.source, root, seed, {
+      seed,
+      encryptBytecode: true,
+      encryptConstants: true,
+      useBit32: true,
+      useNaN: true,
+      usePolymorphic: true,
+      useSelfModify: true,
+    });
   }
 
   // ---- physical opcode permutation applied in-memory ----
@@ -434,7 +462,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   // prologue layout + pool cross-reference instead of evaluating two parens.
   let prologueShares: [number, number] | undefined;
   let keylessPool: { nums: number[]; i1: number; i2: number; i3: number; i4: number; i5: number; i6: number } | undefined;
-  if (opts.keyless !== false) {
+  if (opts.keyless === true) {
     const u32 = (): number => {
       const v =
         rng.int(256) * 16777216 +
@@ -504,9 +532,11 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const cappedIntegrity = planIntegritySlices(flat);
 
   // ---- emit runtime ----
-  const antiEmu = envProfile !== "luau"
+  const isExecutorProfile = ["luau", "luau_executor", "roblox_executor"].includes(envProfile);
+  const antiEmu = !isExecutorProfile
     ? { ...DEFAULT_ANTI_EMULATION }
     : null;
+  const luaVersion: "lua51" | "luau" = targetLuaVersion;
   const emitted = emitRuntime({
     seeds,
     tier,
@@ -517,9 +547,10 @@ export function protect(opts: ProtectOptions): ProtectResult {
     rootPid: 1,
     perm,
     envProfile,
+    luaVersion: luaVersion,
     antiEmulation: antiEmu,
     cipherLiterals: embeddedCipherLits,
-    dynLoad: opts.dynLoad === true && envProfile !== "luau",
+    dynLoad: opts.dynLoad === true && !isExecutorProfile,
     layered: opts.layered === true,
     fieldKeys,
     opencode,
@@ -619,7 +650,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
   }
 
   return {
-    lua: emitted.lua,
+    lua: luraphLua ?? emitted.lua,
+    luraphLua,
     manifest,
     stats: {
       protos: flat.length,

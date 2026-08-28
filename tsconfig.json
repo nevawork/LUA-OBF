@@ -32,6 +32,16 @@
     "src/engine/vm/microvm-asm.ts",
     "src/engine/vm/microvm-builders.ts",
     "src/engine/vm/microvm-exec.ts",
-    "src/engine/vm/microvm.ts"
+    "src/engine/vm/microvm.ts",
+    "src/engine/vm-executor/microvm-program-code.ts",
+    "src/engine/vm-executor/microvm-program-consts.ts",
+    "src/engine/vm-executor/microvm-program-frames.ts",
+    "src/engine/vm-executor/microvm-program-protos.ts",
+    "src/engine/vm-executor/microvm-program-wm.ts",
+    "src/engine/vm-executor/microvm-program.ts",
+    "src/engine/vm-executor/microvm-asm.ts",
+    "src/engine/vm-executor/microvm-builders.ts",
+    "src/engine/vm-executor/microvm-exec.ts",
+    "src/engine/obfuscator/roblox-obfuscator.ts"
   ]
 }
