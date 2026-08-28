@@ -5,7 +5,7 @@
 // so the protected artifact can be differentially checked in any Lua runtime
 // without needing a second interpreter: the expected values are derived from
 // the generator's own arithmetic, not from running the source.
-import { BuildRng } from "../engine/crypto/prng";
+import { BuildRng, sha256 } from "../engine/crypto/prng";
 
 export interface FuzzCase {
   name: string;
@@ -132,9 +132,6 @@ export class ProgramGenerator {
 /** generate N distinct cases deterministically */
 export function fuzzSuite(n: number, seedHex?: string): FuzzCase[] {
   // seed from provided hex or fixed default so runs are reproducible
-  const { randomNonce } = require("../engine/crypto/prng") as typeof import("../engine/crypto/prng");
-  const { sha256 } = require("../engine/crypto/prng") as typeof import("../engine/crypto/prng");
-  void randomNonce;
   const seed = Buffer.from(
     seedHex ?? "fuzz".repeat(16),
     seedHex ? "hex" : "utf8",

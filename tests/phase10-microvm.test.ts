@@ -39,17 +39,17 @@ const I = {
 describe("microvm exec: control flow & arithmetic", () => {
   it("sums 1..10 with an explicit guard loop (result in R2 = 55)", () => {
     // r1=i, r2=sum, r3=tmp, r4=one
-    const prog = [
-      ...I.ldi(4, 1),
-      ...I.ldi(1, 1),
-      ...I.ldi(2, 0),
-      ...I.ldi(3, 10),
-      ...I.jlt(3, 1, 8), // if 10 < i → end (instr index 8)
-      ...I.add(2, 2, 1),
-      ...I.add(1, 1, 4),
-      ...I.jmp(4),       // back to loop test (instr index 4)
-      ...I.halt(),
-    ]);
+    const prog = [].concat(
+      I.ldi(4, 1),
+      I.ldi(1, 1),
+      I.ldi(2, 0),
+      I.ldi(3, 10),
+      I.jlt(3, 1, 8), // if 10 < i → end (instr index 8)
+      I.add(2, 2, 1),
+      I.add(1, 1, 4),
+      I.jmp(4),       // back to loop test (instr index 4)
+      I.halt(),
+    );
     const res = execProgram(prog, new Uint8Array(0), {
       ...OPTS,
       debugRegs: [2],
@@ -59,13 +59,13 @@ describe("microvm exec: control flow & arithmetic", () => {
 
   it("JEQZ/JNEZ branch on booleans produced by EQI", () => {
     // EQI r5,0,? never used; craft: LDI r1,0; EQI r1,0,r2 (true); JNEZ r2 -> taken
-    const prog = [
-      ...I.ldi(1, 0),
-      ...I.eqi(1, 0, 2),   // r2 = (0 === 0) = true
-      ...I.jnez(2, 6),     // jump to instr 6
-      ...I.err(7),         // must be skipped
-      ...I.halt(),         // instr 6 → clean end
-    ]);
+    const prog = [].concat(
+      I.ldi(1, 0),
+      I.eqi(1, 0, 2),   // r2 = (0 === 0) = true
+      I.jnez(2, 6),     // jump to instr 6
+      I.err(7),         // must be skipped
+      I.halt(),         // instr 6 → clean end
+    );
     expect(() =>
       execProgram(prog, new Uint8Array(0), OPTS),
     ).not.toThrow();
@@ -75,33 +75,33 @@ describe("microvm exec: control flow & arithmetic", () => {
 describe("microvm exec: data-plane ops", () => {
   it("PAYLOAD + STRFROM + FLOAT reconstruct masked decimal constants", () => {
     const D = Uint8Array.from([0x31, 0x32, 0x2e, 0x35]); // "12.5"
-    const prog = [
-      ...I.ldi(13, 4),          // ln = 4
-      ...I.payload(14, 13),     // bb = bytes
-      ...I.strfrom(21, 14),     // sstr
-      ...I.float(17, 21),       // val
-      ...I.halt(),
-    ]);
+    const prog = [].concat(
+      I.ldi(13, 4),          // ln = 4
+      I.payload(14, 13),     // bb = bytes
+      I.strfrom(21, 14),     // sstr
+      I.float(17, 21),       // val
+      I.halt(),
+    );
     const res = execProgram(prog, D, { ...OPTS, debugRegs: [17] });
     expect(res.regsOut![17]).toBe(12.5);
     expect(res.pos).toBe(4);
   });
 
   it("NONFINITE produces NaN and ±Infinity", () => {
-    const base = [...I.nonfinite(18, 0), ...I.halt()];
+    const base = [].concat(I.nonfinite(18, 0), I.halt());
     expect(Number.isNaN(execProgram(base, new Uint8Array(0), { ...OPTS, debugRegs: [18] }).regsOut![18])).toBe(true);
-    const inf = execProgram([...I.nonfinite(18, 1), ...I.halt()], new Uint8Array(0), { ...OPTS, debugRegs: [18] });
+    const inf = execProgram([].concat(I.nonfinite(18, 1), I.halt()), new Uint8Array(0), { ...OPTS, debugRegs: [18] });
     expect(inf.regsOut![18]).toBe(Number.POSITIVE_INFINITY);
-    const ninf = execProgram([...I.nonfinite(18, 2), ...I.halt()], new Uint8Array(0), { ...OPTS, debugRegs: [18] });
+    const ninf = execProgram([].concat(I.nonfinite(18, 2), I.halt()), new Uint8Array(0), { ...OPTS, debugRegs: [18] });
     expect(ninf.regsOut![18]).toBe(Number.NEGATIVE_INFINITY);
   });
 
   it("ERR throws MicroError carrying the build-side id", () => {
     expect(() =>
-      execProgram([...I.err(3), ...I.halt()], new Uint8Array(0), OPTS),
+      execProgram([].concat(I.err(3), I.halt()), new Uint8Array(0), OPTS),
     ).toThrow(MicroError);
     try {
-      execProgram([...I.err(3)], new Uint8Array(0), OPTS);
+      execProgram(I.err(3), new Uint8Array(0), OPTS);
     } catch (e) {
       expect((e as MicroError).errId).toBe(3);
     }
@@ -117,17 +117,17 @@ describe("microvm asm: masking round-trip", () => {
   });
 
   it("masked program executes identically under its seed", () => {
-    const words = [
-      ...I.ldi(4, 1),
-      ...I.ldi(1, 1),
-      ...I.ldi(2, 0),
-      ...I.ldi(3, 5),
-      ...I.jlt(3, 1, 8),
-      ...I.add(2, 2, 1),
-      ...I.add(1, 1, 4),
-      ...I.jmp(4),
-      ...I.halt(),
-    ];
+    const words = [].concat(
+      I.ldi(4, 1),
+      I.ldi(1, 1),
+      I.ldi(2, 0),
+      I.ldi(3, 5),
+      I.jlt(3, 1, 8),
+      I.add(2, 2, 1),
+      I.add(1, 1, 4),
+      I.jmp(4),
+      I.halt(),
+    );
     const seed = 123456789;
     const plain = execProgram(words, new Uint8Array(0), { ...OPTS, debugRegs: [2] });
     const masked = execProgram(maskProgram(words, seed), new Uint8Array(0), {

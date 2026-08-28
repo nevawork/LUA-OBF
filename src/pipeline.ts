@@ -187,7 +187,8 @@ export function canonicalManifestJson(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(canonicalManifestJson).join(",")}]`;
   if (v && typeof v === "object") {
     const o = v as Record<string, unknown>;
-    return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canonicalManifestJson(o[k])}`).join(",")}}`;
+    const keys = Object.keys(o).sort().filter((k) => o[k] !== undefined);
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalManifestJson(o[k])}`).join(",")}}`;
   }
   return JSON.stringify(v);
 }
@@ -621,6 +622,8 @@ export function protect(opts: ProtectOptions): ProtectResult {
     mbaStats: opts.mbaDatabase === true ? getMbaStats() : undefined,
     factorizationEnabled: opts.factorizationKeys === true,
   };
+  if (opts.mbaDatabase !== true) delete authPayload.mbaStats;
+  if (opts.factorizationKeys !== true) delete authPayload.factorizationEnabled;
   const auth = hmacSha256(
     nonce,
     Buffer.from(canonicalManifestJson(authPayload), "utf8"),

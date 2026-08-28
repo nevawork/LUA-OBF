@@ -25,9 +25,9 @@
 // Caller pre-conditions: R.skel points to the current proto skeleton.
 // Caller post-conditions: skel.consts array has nc entries.
 
-import { OP } from "../microvm";
-import { R } from "../microvm-builders";
-import { Asm } from "../microvm-asm";
+import { OP } from "./microvm";
+import { R } from "./microvm-builders";
+import { Asm } from "./microvm-asm";
 
 export function emitConstLoop(a: Asm): void {
   // nc = uvarint; budget guard

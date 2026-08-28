@@ -4,9 +4,9 @@
 // prologue, read the proto count, and apply the proto-count budget guard.
 // A separate file per the v3 plan's R10 doctrine — this phase is unit-
 // testable in isolation before composition.
-import { OP } from "../microvm";
-import { R, modBy } from "../microvm-builders";
-import { Asm } from "../microvm-asm";
+import { OP } from "./microvm";
+import { R, modBy } from "./microvm-builders";
+import { Asm } from "./microvm-asm";
 
 /**
  * Read the framing header and store the proto count in R.np.

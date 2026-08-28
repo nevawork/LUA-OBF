@@ -14,9 +14,9 @@
 // the RDU8 result and push directly. The wm array is interpreter-global
 // (constructed in microvm-exec.ts:let wm: number[] = []).
 
-import { OP } from "../microvm";
-import { R } from "../microvm-builders";
-import { Asm } from "../microvm-asm";
+import { OP } from "./microvm";
+import { R } from "./microvm-builders";
+import { Asm } from "./microvm-asm";
 
 export function emitWatermark(a: Asm): void {
   // wln = uvarint

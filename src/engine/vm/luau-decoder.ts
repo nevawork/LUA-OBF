@@ -18,6 +18,7 @@ const DEFAULT_OPTIONS: Required<LuauDecodeOptions> = {
   verifyIntegrity: true,
   allowUnknown: false,
   maxDepth: 100,
+  allowOversized: false,
 };
 
 /**

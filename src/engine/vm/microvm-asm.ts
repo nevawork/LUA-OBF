@@ -86,3 +86,13 @@ export class Asm {
     return this.words.slice();
   }
 }
+
+export function maskProgram(words: number[], seed: number): number[] {
+  const mask = seed & 0xff;
+  return words.map((w) => (w ^ mask) & 0xff);
+}
+
+export function unmaskProgram(masked: number[], seed: number): number[] {
+  const mask = seed & 0xff;
+  return masked.map((w) => (w ^ mask) & 0xff);
+}

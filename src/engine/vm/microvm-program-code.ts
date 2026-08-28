@@ -24,9 +24,9 @@
 //
 // Caller post-conditions: skel.code array contains nk 4-element tuples.
 
-import { OP } from "../microvm";
-import { R, maskByte, subByLit, addByLit } from "../microvm-builders";
-import { Asm } from "../microvm-asm";
+import { OP } from "./microvm";
+import { R, maskByte, subByLit, addByLit } from "./microvm-builders";
+import { Asm } from "./microvm-asm";
 
 export function emitCodeLoop(a: Asm): void {
   // nk = uvarint; budget guard
@@ -42,7 +42,7 @@ export function emitCodeLoop(a: Asm): void {
 
   // m = floor(lrk/3) % 256 (the maskByte helper writes the result to R.mm)
   maskByte(a, R.mm, R.lrk);
-  L.push(OP.RDUV, R.oe);
+  a.emit(OP.RDUV, R.oe);
   // a = svarint; a -= m → R.aw
   a.emit(OP.RDSV, R.tmp2);
   subByLit(a, R.aw, R.tmp2, R.mm);
@@ -74,5 +74,4 @@ export function emitCodeLoop(a: Asm): void {
   a.emit(OP.ADD, R.i, R.i, R.one);
   a.jumpAlways("k_test");
   a.mark("k_end");
-}
 }

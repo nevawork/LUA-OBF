@@ -75,19 +75,19 @@ describe("gate 0 / E1+E2: local & upvalue budgets", () => {
   });
 
   it("fails on upvalue breach when run() references too many file-scope names", () => {
-    const fileScopeNames = Array.from({ length: 45 }, (_, i) => `upv${i}`);
+    const fileScopeNames = Array.from({ length: 60 }, (_, i) => `upv${i}`);
     const runText = fileScopeNames.map((n) => `x=${n}`).join("\n") + "\nlocal q=1";
     const rep = checkBudgets("return 1", runText, fileScopeNames);
     expect(rep.ok).toBe(false);
-    expect(rep.upvaluesInRun).toBe(45);
+    expect(rep.upvaluesInRun).toBe(60);
     expect(rep.problems[0]).toContain("upvalues");
   });
 
   it("frame budget breach is reported independently", () => {
     let runText = "";
-    for (let i = 0; i < 160; i++) runText += `local w${i}=${i}\n`;
+    for (let i = 0; i < 210; i++) runText += `local w${i}=${i}\n`;
     const rep = checkBudgets("return 1", runText, []);
-    expect(rep.frameDeclared).toBe(160);
+    expect(rep.frameDeclared).toBe(210);
     expect(rep.problems.some((p) => p.includes("run() declares"))).toBe(true);
   });
 });

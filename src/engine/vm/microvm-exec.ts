@@ -155,7 +155,7 @@ export function execProgram(
         break;
       }
       case 26: {                                                       // STRFROM
-        const bytes = R[a] as number[];
+        const bytes = R[b] as number[];
         let s = "";
         for (let j = 1; j < bytes.length; ) {
           const chunk: number[] = [];

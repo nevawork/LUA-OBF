@@ -45,7 +45,7 @@ function assembleDecodeProgram(): number[] {
   const scratch2 = [R.tmp, R.tmp2, R.x47, R.x48, R.x49].filter(r => r !== scratch)[0];
 
   // save pid in x48, then burn pid as loop counter
-  a.mov(R.x48, R.pid);
+  a.emit(OP.MOV, R.x48, R.pid);
   a.emit(OP.LDI, R.x49, 0);
   a.mark("mul_loop");
   a.jumpIfZero(R.pid, "mul_done");

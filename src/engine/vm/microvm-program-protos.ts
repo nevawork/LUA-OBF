@@ -20,9 +20,9 @@
 //   (×5) wire field keys (OP, A, B1, B2, C): each uvarint
 //   <defer to consts+code emitters>
 
-import { OP } from "../microvm";
-import { R } from "../microvm-builders";
-import { Asm } from "../microvm-asm";
+import { OP } from "./microvm";
+import { R } from "./microvm-builders";
+import { Asm } from "./microvm-asm";
 import { emitConstLoop } from "./microvm-program-consts";
 import { emitCodeLoop } from "./microvm-program-code";
 

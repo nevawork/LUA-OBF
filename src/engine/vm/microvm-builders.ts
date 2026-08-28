@@ -38,13 +38,13 @@ export function boot(a: Asm): void {
 /** Countdown: while R[reg] > 0, do body() and decrement. */
 export function countdown(a: Asm, reg: number, body: () => void): void {
   a.mark(`cd_${reg}_test`);
-  a.jumpTo(OP.JNEZ, 1, [reg], `cd_${reg}_body`);
-  a.jumpTo(OP.JMP, 0, [], `cd_${reg}_end`);
+  a.jumpTo(OP.JNEZ, 2, 0, 0, `cd_${reg}_body`);
+  a.jumpTo(OP.JMP, 1, 0, 0, `cd_${reg}_end`);
   a.mark(`cd_${reg}_body`);
   body();
   a.emit(OP.LDI, R.tmp2, 1);
   a.emit(OP.SUB, reg, reg, R.tmp2);
-  a.jumpTo(OP.JMP, 0, [], `cd_${reg}_test`);
+  a.jumpTo(OP.JMP, 1, 0, 0, `cd_${reg}_test`);
   a.mark(`cd_${reg}_end`);
 }
 
@@ -55,16 +55,16 @@ export function guardedLoop(
   body: () => void,
 ): void {
   a.mark(`gl_${counterReg}_test`);
-  a.jumpTo(OP.JLT, 2, [boundReg, varReg], `gl_${counterReg}_end`);
+  a.jumpTo(OP.JLT, 3, 0, 0, `gl_${counterReg}_end`);
   body();
   a.emit(OP.ADD, counterReg, counterReg, R.tmp2);
-  a.jumpTo(OP.JMP, 0, [], `gl_${counterReg}_test`);
+  a.jumpTo(OP.JMP, 1, 0, 0, `gl_${counterReg}_test`);
   a.mark(`gl_${counterReg}_end`);
 }
 
 /** Guard: if R[varReg] > R[limit], jump to errLbl. Used for budget checks. */
 export function guardLeq(a: Asm, limit: number, varReg: number, errLbl: string): void {
-  a.jumpTo(OP.JLT, 2, [limit, varReg], errLbl + "_ok");
+  a.jumpTo(OP.JLT, 3, 0, 0, errLbl + "_ok");
   a.emit(OP.ERR, 0);
   a.mark(errLbl + "_ok");
 }
