@@ -216,14 +216,14 @@ function emitRuntime(opts) {
     body.push(` local function ${N.pk}(...) local n=select('#',...) return {n=n,...} end`);
     // Phase 6: argument spreading — native unpack for wide ranges, recursive
     // fallback otherwise (identical semantics, no deep-call cost on big spans)
-    body.push(` local ${N.uup}=${envGlobal}.unpack or (table and table.unpack)`);
+    body.push(` local ${N.uup}=type(${envGlobal}.unpack)=="function" and ${envGlobal}.unpack or (type(table)=="table" and type(table.unpack)=="function" and table.unpack)`);
     body.push(` local function ${N.ur}(t,i,j)`);
     body.push(`  if i>j then return end`);
     body.push(`  if ${N.uup} and j-i>15 then return ${N.uup}(t,i,j) end`);
     body.push(`  return t[i],${N.ur}(t,i+1,j)`);
     body.push(` end`);
-    // sch / tcn — bound to ${envGlobal}.string.char / ${envGlobal}.table.concat so the
-    // ${envGlobal} bootstrap (passing `{}`) doesn't strip them
+    // sch / tcn — bound to envGlobal.string.char / envGlobal.table.concat so the
+    // envGlobal bootstrap (passing `{}`) doesn't strip them
     body.push(` local ${N.sch}=${envGlobal}.string.char`);
     body.push(` local ${N.tcn}=${envGlobal}.table.concat`);
     // anti-emulation calibration state (upvalues of the closures below)
