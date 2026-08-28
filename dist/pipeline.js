@@ -40,7 +40,8 @@ function canonicalManifestJson(v) {
 }
 const DOMAINS = ["blob0", "blob1", "wm", "aux"];
 function protect(opts) {
-    const chunk = (0, parser_1.parse)(opts.source);
+    const targetLuaVersion = opts.envProfile === "luau" || opts.envProfile === "luau_executor" || opts.envProfile === "roblox_executor" ? "luau" : "lua51";
+    const chunk = (0, parser_1.parse)(opts.source, targetLuaVersion);
     const tier = opts.tier ?? "silent";
     // ---- per-build CSPRNG material (Addendum 0.3: deterministic, CSPRNG-seeded) ----
     const nonce = opts.seedHex
@@ -320,6 +321,7 @@ function protect(opts) {
     const antiEmu = !isExecutorProfile
         ? { ...antiemulation_1.DEFAULT_ANTI_EMULATION }
         : null;
+    const luaVersion = targetLuaVersion;
     const emitted = (0, emitter_1.emitRuntime)({
         seeds,
         tier,
@@ -330,6 +332,7 @@ function protect(opts) {
         rootPid: 1,
         perm,
         envProfile,
+        luaVersion: luaVersion,
         antiEmulation: antiEmu,
         cipherLiterals: embeddedCipherLits,
         dynLoad: opts.dynLoad === true && !isExecutorProfile,

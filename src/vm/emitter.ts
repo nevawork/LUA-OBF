@@ -46,6 +46,8 @@ export interface EmitOptions {
   perm: number[];
   /** environment keying profile (default universal = disabled) */
   envProfile?: EnvProfile;
+  /** Lua version for operator compatibility (lua51, lua53, lua54, luau) */
+  luaVersion?: "lua51" | "lua53" | "lua54" | "luau";
   /** anti-emulation timing layer config (null = disabled) */
   antiEmulation?: AntiEmulationConfig | null;
   /** bounded-resource budget */
@@ -153,6 +155,9 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   const tier = opts.tier;
   const ids = new IdAllocator(["run", "self"], rng);
   const id = (): string => ids.alloc();
+
+  const usesBitwise = opts.luaVersion && ["lua53", "lua54"].includes(opts.luaVersion);
+  const shiftExpr = (v: string, by: string) => usesBitwise ? `${v}${by}` : `math.floor(${v}/${by})`;
 
   const N = {
     ctn: id(), pk: id(), ur: id(), envroot: id(), blob: id(), protos: id(),
@@ -497,7 +502,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   body.push(`    local b1w=${N.svar}()-mm`);
   body.push(`    local b2w=${N.svar}()+mm`);
   body.push(`    local cw=${N.svar}()-mm`);
-  body.push(`    lrk=(lrk+${aincN}+(lrk>>3))%65536`);
+  body.push(`    lrk=(lrk+${aincN}+${shiftExpr("lrk", "8")})%65536`);
   body.push(`    pr.k[i]={[${keyNames.OP}]=oe,[${keyNames.A}]=aw,[${keyNames.B1}]=b1w,[${keyNames.B2}]=b2w,[${keyNames.C}]=cw}`);
   body.push(`   end`);
   body.push(`   ${N.protos}[${N.pid2}]=pr`);
@@ -568,7 +573,7 @@ export function emitRuntime(opts: EmitOptions): EmitResult {
   for (const cl of countdown) body.push(`   ${cl}`);
   body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
   body.push(`   ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
-  body.push(`   ${rkN}=(${rkN}+${aincN}+(${rkN}>>3))%65536`);
+  body.push(`   ${rkN}=(${rkN}+${aincN}+${shiftExpr(rkN, "8")})%65536`);
   body.push(`   ${F.pc}=${F.pc}+1`);
   // Phase 5: MBA-scrambled dispatch with computed jump
   if (rng.bool()) {

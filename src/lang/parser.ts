@@ -1,32 +1,51 @@
-// NEVAHEX-VM — Lua 5.1 recursive-descent parser
-import { lex, Tok, Token, LuaSyntaxError } from "./lexer";
+// NEVAHEX-VM — Lua parser
+import { lex, Tok, Token, LuaSyntaxError, LuaVersion } from "./lexer";
 import {
   Block, Chunk, Expr, Stat, FuncBody, Suffixed, TableField,
 } from "./nodes";
 
-// binary operator priorities (lua 5.1 lparser.c)
-const BINPRI: Record<string, [number, number]> = {
+const BINPRI_LUA51: Record<string, [number, number]> = {
   "or": [1, 1],
   "and": [2, 2],
   "<": [3, 3], ">": [3, 3], "<=": [3, 3], ">=": [3, 3], "~=": [3, 3], "==": [3, 3],
-  "|": [4, 4],  // bitwise OR (Lua 5.3+)
-  "~": [5, 5],  // bitwise XOR (Lua 5.3+)
-  "&": [6, 6],  // bitwise AND (Lua 5.3+)
-  "<<": [7, 7], ">>": [7, 7],  // shifts (Lua 5.3+)
-  "..": [8, 7], // right associative
-  "+": [9, 9], "-": [9, 9],
-  "*": [10, 10], "/": [10, 10], "%": [10, 10],
-  "^": [13, 12], // right associative
+  "..": [5, 4],
+  "+": [6, 6], "-": [6, 6],
+  "*": [7, 7], "/": [7, 7], "%": [7, 7],
+  "^": [10, 9],
 };
-const UNARY_PRI = 11;
 
-export function parse(src: string): Chunk {
-  return new Parser(lex(src)).parseChunk();
+const BINPRI_LUA53: Record<string, [number, number]> = {
+  "or": [1, 1],
+  "and": [2, 2],
+  "<": [3, 3], ">": [3, 3], "<=": [3, 3], ">=": [3, 3], "~=": [3, 3], "==": [3, 3],
+  "|": [4, 4],
+  "~": [5, 5],
+  "&": [6, 6],
+  "<<": [7, 7], ">>": [7, 7],
+  "..": [9, 8],
+  "+": [10, 10], "-": [10, 10],
+  "*": [11, 11], "/": [11, 11], "%": [11, 11],
+  "^": [14, 13],
+};
+
+const BINPRI_LUA54 = BINPRI_LUA53;
+
+const UNARY_PRI_LUA51 = 8;
+const UNARY_PRI_LUA53 = 12;
+
+export function parse(src: string, version: LuaVersion = "lua51"): Chunk {
+  return new Parser(lex(src, version), version).parseChunk();
 }
 
 class Parser {
   private pos = 0;
-  constructor(private toks: Token[]) {}
+  private binPri: Record<string, [number, number]>;
+  private unaryPri: number;
+
+  constructor(private toks: Token[], version: LuaVersion = "lua51") {
+    this.binPri = version === "lua51" || version === "luau" ? BINPRI_LUA51 : BINPRI_LUA53;
+    this.unaryPri = version === "lua51" || version === "luau" ? UNARY_PRI_LUA51 : UNARY_PRI_LUA53;
+  }
 
   private peek(k = 0): Token {
     return this.toks[Math.min(this.pos + k, this.toks.length - 1)];
@@ -277,19 +296,19 @@ class Parser {
   private parseExpr(limit = 0): Expr {
     let left: Expr;
     const t = this.peek();
-    if ((t.type === Tok.Op && (t.value === "-" || t.value === "#" || t.value === "~")) ||
+    if ((t.type === Tok.Op && (t.value === "-" || t.value === "#")) ||
         (t.type === Tok.Keyword && t.value === "not")) {
       this.next();
-      const operand = this.parseExpr(UNARY_PRI);
-      left = { kind: "Unop", op: t.value as "-" | "#" | "~" | "not", operand };
+      const operand = this.parseExpr(this.unaryPri);
+      left = { kind: "Unop", op: t.value as "-" | "#" | "not", operand };
     } else {
       left = this.parseSimpleExpr();
     }
     for (;;) {
       const op = this.peek();
       // infix operators arrive as Op tokens; 'and'/'or' arrive as Keywords
-      if ((op.type !== Tok.Op && op.type !== Tok.Keyword) || !BINPRI[op.value]) break;
-      const [lp, rp] = BINPRI[op.value];
+      if ((op.type !== Tok.Op && op.type !== Tok.Keyword) || !this.binPri[op.value]) break;
+      const [lp, rp] = this.binPri[op.value];
       if (lp <= limit) break;
       this.next();
       const right = this.parseExpr(rp);

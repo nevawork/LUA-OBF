@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LuaSyntaxError = exports.Tok = void 0;
+exports.getOperators = getOperators;
 exports.lex = lex;
-// NEVAHEX-VM — Lua 5.1 lexer
+// NEVAHEX-VM — Lua lexer
 var Tok;
 (function (Tok) {
     Tok[Tok["Name"] = 0] = "Name";
@@ -17,10 +18,24 @@ const KEYWORDS = new Set([
     "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true",
     "until", "while",
 ]);
-const OPERATORS = [
+const OPERATORS_LUA51 = [
     "...", "..", ".", "==", "~=", "<=", ">=", "<", ">", "=", "+", "-", "*", "/",
-    "%", "^", "#", "|", "&", "~", "(", ")", "{", "}", "[", "]", ";", ":", ",",
+    "%", "^", "#", "(", ")", "{", "}", "[", "]", ";", ":", ",",
 ];
+const OPERATORS_LUA53 = [
+    "...", "..", ".", "==", "~=", "<=", ">=", "<", ">", "=", "+", "-", "*", "/",
+    "%", "^", "#", "|", "&", "~", "<<", ">>", "(", ")", "{", "}", "[", "]", ";", ":", ",",
+];
+const OPERATORS_LUA54 = OPERATORS_LUA53;
+const OPERATORS_LUAU = OPERATORS_LUA51;
+function getOperators(version) {
+    switch (version) {
+        case "lua51": return OPERATORS_LUA51;
+        case "lua53": return OPERATORS_LUA53;
+        case "lua54": return OPERATORS_LUA54;
+        case "luau": return OPERATORS_LUAU;
+    }
+}
 class LuaSyntaxError extends Error {
     line;
     col;
@@ -35,7 +50,8 @@ const ESCAPES = {
     a: "\x07", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v",
     "\\": "\\", '"': '"', "'": "'", "\n": "\n",
 };
-function lex(src) {
+function lex(src, version = "lua51") {
+    const operators = getOperators(version);
     const toks = [];
     let i = 0;
     let line = 1;
@@ -147,7 +163,7 @@ function lex(src) {
         }
         // operators
         let matched = null;
-        for (const op of OPERATORS) {
+        for (const op of operators) {
             if (src.startsWith(op, i)) {
                 matched = op;
                 break;

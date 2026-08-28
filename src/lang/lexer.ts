@@ -1,4 +1,4 @@
-// NEVAHEX-VM — Lua 5.1 lexer
+// NEVAHEX-VM — Lua lexer
 export enum Tok {
   Name,
   Number,
@@ -15,16 +15,36 @@ export interface Token {
   col: number;
 }
 
+export type LuaVersion = "lua51" | "lua53" | "lua54" | "luau";
+
 const KEYWORDS = new Set([
   "and", "break", "do", "else", "elseif", "end", "false", "for", "function",
   "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true",
   "until", "while",
 ]);
 
-const OPERATORS = [
+const OPERATORS_LUA51 = [
   "...", "..", ".", "==", "~=", "<=", ">=", "<", ">", "=", "+", "-", "*", "/",
-  "%", "^", "#", "|", "&", "(", ")", "{", "}", "[", "]", ";", ":", ",",
+  "%", "^", "#", "(", ")", "{", "}", "[", "]", ";", ":", ",",
 ];
+
+const OPERATORS_LUA53 = [
+  "...", "..", ".", "==", "~=", "<=", ">=", "<", ">", "=", "+", "-", "*", "/",
+  "%", "^", "#", "|", "&", "~", "<<", ">>", "(", ")", "{", "}", "[", "]", ";", ":", ",",
+];
+
+const OPERATORS_LUA54 = OPERATORS_LUA53;
+
+const OPERATORS_LUAU = OPERATORS_LUA51;
+
+export function getOperators(version: LuaVersion): string[] {
+  switch (version) {
+    case "lua51": return OPERATORS_LUA51;
+    case "lua53": return OPERATORS_LUA53;
+    case "lua54": return OPERATORS_LUA54;
+    case "luau": return OPERATORS_LUAU;
+  }
+}
 
 export class LuaSyntaxError extends Error {
   constructor(msg: string, public line: number, public col: number) {
@@ -37,7 +57,8 @@ const ESCAPES: Record<string, string> = {
   "\\": "\\", '"': '"', "'": "'", "\n": "\n",
 };
 
-export function lex(src: string): Token[] {
+export function lex(src: string, version: LuaVersion = "lua51"): Token[] {
+  const operators = getOperators(version);
   const toks: Token[] = [];
   let i = 0;
   let line = 1;
@@ -144,7 +165,7 @@ export function lex(src: string): Token[] {
     }
     // operators
     let matched: string | null = null;
-    for (const op of OPERATORS) {
+    for (const op of operators) {
       if (src.startsWith(op, i)) {
         matched = op;
         break;

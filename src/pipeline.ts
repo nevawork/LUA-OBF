@@ -237,7 +237,8 @@ export interface ProtectResult {
 const DOMAINS = ["blob0", "blob1", "wm", "aux"] as const;
 
 export function protect(opts: ProtectOptions): ProtectResult {
-  const chunk: Chunk = parse(opts.source);
+  const targetLuaVersion = opts.envProfile === "luau" || opts.envProfile === "luau_executor" || opts.envProfile === "roblox_executor" ? "luau" : "lua51";
+  const chunk: Chunk = parse(opts.source, targetLuaVersion);
   const tier: Tier = opts.tier ?? "silent";
 
   // ---- per-build CSPRNG material (Addendum 0.3: deterministic, CSPRNG-seeded) ----
@@ -535,6 +536,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
   const antiEmu = !isExecutorProfile
     ? { ...DEFAULT_ANTI_EMULATION }
     : null;
+  const luaVersion: "lua51" | "luau" = targetLuaVersion;
   const emitted = emitRuntime({
     seeds,
     tier,
@@ -545,6 +547,7 @@ export function protect(opts: ProtectOptions): ProtectResult {
     rootPid: 1,
     perm,
     envProfile,
+    luaVersion: luaVersion,
     antiEmulation: antiEmu,
     cipherLiterals: embeddedCipherLits,
     dynLoad: opts.dynLoad === true && !isExecutorProfile,

@@ -1,31 +1,45 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parse = parse;
-// NEVAHEX-VM — Lua 5.1 recursive-descent parser
+// NEVAHEX-VM — Lua parser
 const lexer_1 = require("./lexer");
-// binary operator priorities (lua 5.1 lparser.c)
-const BINPRI = {
+const BINPRI_LUA51 = {
     "or": [1, 1],
     "and": [2, 2],
     "<": [3, 3], ">": [3, 3], "<=": [3, 3], ">=": [3, 3], "~=": [3, 3], "==": [3, 3],
-    "|": [4, 4], // bitwise OR (Lua 5.3+)
-    "~": [5, 5], // bitwise XOR (Lua 5.3+)
-    "&": [6, 6], // bitwise AND (Lua 5.3+)
-    "<<": [7, 7], ">>": [7, 7], // shifts (Lua 5.3+)
-    "..": [8, 7], // right associative
-    "+": [9, 9], "-": [9, 9],
-    "*": [10, 10], "/": [10, 10], "%": [10, 10],
-    "^": [13, 12], // right associative
+    "..": [5, 4],
+    "+": [6, 6], "-": [6, 6],
+    "*": [7, 7], "/": [7, 7], "%": [7, 7],
+    "^": [10, 9],
 };
-const UNARY_PRI = 11;
-function parse(src) {
-    return new Parser((0, lexer_1.lex)(src)).parseChunk();
+const BINPRI_LUA53 = {
+    "or": [1, 1],
+    "and": [2, 2],
+    "<": [3, 3], ">": [3, 3], "<=": [3, 3], ">=": [3, 3], "~=": [3, 3], "==": [3, 3],
+    "|": [4, 4],
+    "~": [5, 5],
+    "&": [6, 6],
+    "<<": [7, 7], ">>": [7, 7],
+    "..": [9, 8],
+    "+": [10, 10], "-": [10, 10],
+    "*": [11, 11], "/": [11, 11], "%": [11, 11],
+    "^": [14, 13],
+};
+const BINPRI_LUA54 = BINPRI_LUA53;
+const UNARY_PRI_LUA51 = 8;
+const UNARY_PRI_LUA53 = 12;
+function parse(src, version = "lua51") {
+    return new Parser((0, lexer_1.lex)(src, version), version).parseChunk();
 }
 class Parser {
     toks;
     pos = 0;
-    constructor(toks) {
+    binPri;
+    unaryPri;
+    constructor(toks, version = "lua51") {
         this.toks = toks;
+        this.binPri = version === "lua51" || version === "luau" ? BINPRI_LUA51 : BINPRI_LUA53;
+        this.unaryPri = version === "lua51" || version === "luau" ? UNARY_PRI_LUA51 : UNARY_PRI_LUA53;
     }
     peek(k = 0) {
         return this.toks[Math.min(this.pos + k, this.toks.length - 1)];
@@ -282,10 +296,10 @@ class Parser {
     parseExpr(limit = 0) {
         let left;
         const t = this.peek();
-        if ((t.type === lexer_1.Tok.Op && (t.value === "-" || t.value === "#" || t.value === "~")) ||
+        if ((t.type === lexer_1.Tok.Op && (t.value === "-" || t.value === "#")) ||
             (t.type === lexer_1.Tok.Keyword && t.value === "not")) {
             this.next();
-            const operand = this.parseExpr(UNARY_PRI);
+            const operand = this.parseExpr(this.unaryPri);
             left = { kind: "Unop", op: t.value, operand };
         }
         else {
@@ -294,9 +308,9 @@ class Parser {
         for (;;) {
             const op = this.peek();
             // infix operators arrive as Op tokens; 'and'/'or' arrive as Keywords
-            if ((op.type !== lexer_1.Tok.Op && op.type !== lexer_1.Tok.Keyword) || !BINPRI[op.value])
+            if ((op.type !== lexer_1.Tok.Op && op.type !== lexer_1.Tok.Keyword) || !this.binPri[op.value])
                 break;
-            const [lp, rp] = BINPRI[op.value];
+            const [lp, rp] = this.binPri[op.value];
             if (lp <= limit)
                 break;
             this.next();
