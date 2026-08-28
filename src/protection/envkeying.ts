@@ -55,9 +55,11 @@ export function emitEnvKeyingBlock(profile: EnvProfile, saVar: string, sbVar: st
   const p = PROFILES[profile];
   // deterministic DJB2 over version string + present-bits, in Lua
   const lines: string[] = [];
+  // Convert JavaScript array to Lua table syntax
+  const luaTable = "{" + p.bits.map(b => '"' + b + '"').join(",") + "}";
   lines.push(`do`);
   lines.push(`  local __fp=_VERSION or ""`);
-  lines.push(`  local __bits=${JSON.stringify(p.bits)}`);
+  lines.push(`  local __bits=${luaTable}`);
   lines.push(`  local __acc=5381`);
   lines.push(`  for i=1,#__fp do __acc=(__acc*33+string.byte(__fp,i))%1000000007 end`);
   lines.push(`  for _,bn in ipairs(__bits) do`);

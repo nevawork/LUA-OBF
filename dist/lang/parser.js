@@ -8,12 +8,16 @@ const BINPRI = {
     "or": [1, 1],
     "and": [2, 2],
     "<": [3, 3], ">": [3, 3], "<=": [3, 3], ">=": [3, 3], "~=": [3, 3], "==": [3, 3],
-    "..": [5, 4], // right associative
-    "+": [6, 6], "-": [6, 6],
-    "*": [7, 7], "/": [7, 7], "%": [7, 7],
-    "^": [10, 9], // right associative
+    "|": [4, 4], // bitwise OR (Lua 5.3+)
+    "~": [5, 5], // bitwise XOR (Lua 5.3+)
+    "&": [6, 6], // bitwise AND (Lua 5.3+)
+    "<<": [7, 7], ">>": [7, 7], // shifts (Lua 5.3+)
+    "..": [8, 7], // right associative
+    "+": [9, 9], "-": [9, 9],
+    "*": [10, 10], "/": [10, 10], "%": [10, 10],
+    "^": [13, 12], // right associative
 };
-const UNARY_PRI = 8;
+const UNARY_PRI = 11;
 function parse(src) {
     return new Parser((0, lexer_1.lex)(src)).parseChunk();
 }
@@ -278,7 +282,7 @@ class Parser {
     parseExpr(limit = 0) {
         let left;
         const t = this.peek();
-        if ((t.type === lexer_1.Tok.Op && (t.value === "-" || t.value === "#")) ||
+        if ((t.type === lexer_1.Tok.Op && (t.value === "-" || t.value === "#" || t.value === "~")) ||
             (t.type === lexer_1.Tok.Keyword && t.value === "not")) {
             this.next();
             const operand = this.parseExpr(UNARY_PRI);

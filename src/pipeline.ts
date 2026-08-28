@@ -255,7 +255,12 @@ export function protect(opts: ProtectOptions): ProtectResult {
   if (opts.flatten !== false)
     flattenControlFlow(chunk, { keys: () => 1 + rng.int(100000) });
   injectOpaqueJunk(chunk, opts.junkDensity ?? 0.12, rng);
-  if (opts.mbaPlus !== false)
+
+  // MBA+ generates bitwise operations (&, |, ~) which are NOT supported in Luau.
+  // Luau has no native bitwise operators - only bit32 library functions.
+  // Disable MBA+ for Luau targets to prevent parser/compiler failures.
+  const isLuauTarget = opts.envProfile && ["luau", "luau_executor", "roblox_executor"].includes(opts.envProfile);
+  if (opts.mbaPlus !== false && !isLuauTarget)
     applyMbaPlus(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
 
   // ---- Phase 3: SMT-resistant MBA database ----
