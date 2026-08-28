@@ -37,7 +37,9 @@ switch (cmd) {
     if (!["lua51", "luajit", "luau", "luau_executor", "roblox_executor", "universal"].includes(target))
       fail("target must be lua51|luajit|luau|luau_executor|roblox_executor|universal");
     const isExecutorTarget = ["luau", "luau_executor", "roblox_executor"].includes(target);
-    const envKeying = hasFlag("--env-keying") ? (target as "roblox_executor" | "luau_executor" | "universal") : "universal";
+    const envKeying = hasFlag("--env-keying")
+      ? (target as "roblox_executor" | "luau_executor" | "universal")
+      : (isExecutorTarget ? (target as "roblox_executor" | "luau_executor") : "universal");
     const result = protect({
       source: source!,
       tier,

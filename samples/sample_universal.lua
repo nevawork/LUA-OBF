@@ -1,33 +1,33 @@
--- NEVAHEX-VM v3 'Hex' — protected artifact — #$Q~@%~[!]{$() runs it
+-- NEVAHEX-VM v3 'Hex' — protected artifact — [#ZA<%]&*~@[() runs it
 
-return (function(HQ0Kkf1, ...)
- local Hk3Le8dX7M=setmetatable({},{__mode="k"})
- local function RoGsK3ATkCr(...) local n=select('#',...) return {n=n,...} end
- local fDBbrH=type(_G.unpack)=="function" and _G.unpack or (type(table)=="table" and type(table.unpack)=="function" and table.unpack)
- local function mSZAIk(t,i,j)
+return (function(zStuOJqJD, ...)
+ local btR1r9_oQ0=setmetatable({},{__mode="k"})
+ local function i9y7C02NJS0(...) local n=select('#',...) return {n=n,...} end
+ local iXm80B=type(_G.unpack)=="function" and _G.unpack or (type(table)=="table" and type(table.unpack)=="function" and table.unpack)
+ local function ZqGzUGi(t,i,j)
   if i>j then return end
-  if fDBbrH and j-i>15 then return fDBbrH(t,i,j) end
-  return t[i],mSZAIk(t,i+1,j)
+  if iXm80B and j-i>15 then return iXm80B(t,i,j) end
+  return t[i],ZqGzUGi(t,i+1,j)
  end
- local Yfu1THl4=_G.string.char
- local nJPq25t1Dq=_G.table.concat
- local ci7G64,xY9D8Kds,XzBFhKFC1n,mssOQib,MDES6_A,ERw5dpfktnk,BhddVT,jhfQVzdWV,s57KBDL9Kp,nWBwFDlWWnk,kCSu6mcFa,hiEFILUr
- if debug and debug.sethook then local _ad=0 local function _adh() _ad=_ad+1 end debug.sethook(_adh,"lr") local _gi=debug.getinfo and debug.getinfo(1) if _gi and (_gi.what=="C" or _ad>0) then dBz6AW=true VdCMOfLnkaS=9999 end debug.sethook() end
- local urNcmQNZ9i=(773992+99-99) qEGFRV=((328883+256)-256) ubkgVInf=(586819-0) zY79fl=(957141-0) poAsRuzC=(332877-0)
- local v90c2kHjWsG=(34617*4/4) t2Govz=((1692413+256)-256) zRB6Bo4R7Ph=((1609415+256)-256) EMztOim=(250451-0)
- local rrfrAD=((1514727537+256)-256) _G.__CK0=tostring(rrfrAD)
- local pcUF1MKA=0 JGyh4L0=0
- local function pV2oH_jD(pID,e)
+ local Ik6W9j=_G.string.char
+ local i_jHAiAc=_G.table.concat
+ local ApFbLG3,D6m9tcm,UkxPb1K,Kcse541Qiz,v829dz6,PFMtH8W,uHWRo1aCacU,JEa9O5qy,xEYGDpzGFEU,V92qycFNMd,UCkEEeNSU,Z3i8tvd
+ if debug and debug.sethook then local _ad=0 local function _adh() _ad=_ad+1 end debug.sethook(_adh,"lr") local _gi=debug.getinfo and debug.getinfo(1) if _gi and (_gi.what=="C" or _ad>0) then vXRvTSyPIM=true tZk0qN1I5=9999 end debug.sethook() end
+ local EXUldLPs=(347769*4/4) GH9fFs4Z4=(842377*4/4) PNZ3bTHqrJ=(762133-0) Lc1XZIsHf=((92293+256)-256) MphzFSZGy=(65621-0)
+ local C6Xftpl=(6047+86-86) GdssIrzh0D=(1671437*4/4) OOuBmg=((1691483+256)-256) LY53Bp=(208689-0)
+ local x58Vq_XJr8W=(361103048+75-75) _G.__CK0=tostring(x58Vq_XJr8W)
+ local mQJ__Co=0 pUCj1Cs=0
+ local function iUM8NaO(pID,e)
   if type(e)~='table' then _G.__CV_TYPE=_G.__CV_TYPE or ""..tostring(type(e)) return e end
   local v=e.v if v~=nil then _G.__CV_CACHED=(_G.__CV_CACHED or 0)+1 return v end
   _G.__CV_RAW_T=(_G.__CV_RAW_T or "")..tostring(e.t) _G.__CV_RAW_N=(_G.__CV_RAW_N or "")..tostring(e.n)
-  local kk=(((rrfrAD+pID*7919)%2147483646)+2147483646)%2147483646 if kk==0 then kk=1 end
+  local kk=(((x58Vq_XJr8W+pID*7919)%2147483646)+2147483646)%2147483646 if kk==0 then kk=1 end
   _G.__CV_KK=(_G.__CV_KK or 0)+1 _G.__CV_KK_LAST=tostring(kk) _G.__CV_PID=tostring(pID)
   if e.t==5 or e.t==6 then
    local parts={} local g=kk
    _G.__CV_G0=(_G.__CV_G0 or 0)+1 _G.__CV_G_INIT=tostring(g)
-   for j=1,e.n do g=(g*48271)%2147483647 local _mb=g%256 local _db=(e.b[j]-_mb+256)%256 parts[j]=Yfu1THl4(_db) _G.__CV_MASKS=(_G.__CV_MASKS or "")..string.char(_mb) _G.__CV_DECB=(_G.__CV_DECB or "")..string.char(_db) end
-   local sv=nJPq25t1Dq(parts)
+   for j=1,e.n do g=(g*48271)%2147483647 local _mb=g%256 local _db=(e.b[j]-_mb+256)%256 parts[j]=Ik6W9j(_db) _G.__CV_MASKS=(_G.__CV_MASKS or "")..string.char(_mb) _G.__CV_DECB=(_G.__CV_DECB or "")..string.char(_db) end
+   local sv=i_jHAiAc(parts)
    if e.t==5 then v=tonumber(sv) else v=sv end
   else
    if e.t==1 then v=true elseif e.t==2 then v=false elseif e.t==7 then v=0/0 elseif e.t==8 then v=math.huge elseif e.t==9 then v=-math.huge else v=nil end
@@ -36,800 +36,825 @@ return (function(HQ0Kkf1, ...)
   _G.__CV_CALLS=(_G.__CV_CALLS or 0)+1 _G.__CV_LAST=tostring(e.t)..":"..tostring(sv)
   e.v=v return v
  end
- local RTgyrH="`\244M\025\130=\197\217\136v\169\030\230\208L\229\017\229\003JpW\158t]\180\192\167\159@HO\165\225E^d\175-\128>O\201\145\021R\148\020\130\236\014\189\018\133D\170\148\024)8\132\203\005\151\153\165ky\038\190\161\128A\209cmb@\202\163\233\202\032\247G\202aM\162\"\245\144\032\019\237(\013h\142\2468\187\236\255\144\224\211AOb\194\240\028/i0O\241\165\166p\147\0289\145\238\250\183\015\130\182\1845\156>{,\229\004\243\026\255\145\207\228\242(A\234\215\206y\000\178Y\255\175\003\1399\146\184\004q\037\223r\236\243o\199;\\\003\200\189r\021\191\\^\220\236\145\017\192\033U\037:\029\1860.\206\227\0015hr*2\195\211Nq\010\234\218\242\133\218\220*\214x\157\247\240\145@\137\011\020N*\218\251\252\191y\128\127H\219f\198\208\156\210h\254\195sJ\140\014lmR\231>LMHs\135ud\013\159\167\149Fk\00727\009\018\036cm\021\130U\138\146\018\245\013\010\222\196Fn\232\163I\198\012\030\244/\213\025\210\192\2472N|\1636\187\202\235\171\227)TnAc\136^)\220\014qB\245\009\127m\000@\226\018T\154\141\019\159\020v\132Hy\225\248\038D\188\217RN\016s\\Q\207,_T\"`\2493\224\206\131q\237\246\009\218\255s\184\222g\181U\142\163\16249I\024\197\241\021\203@q\180\238\007\169\238\223\155b\255\239\132\136c\140\155j\2336\241}\026H\169\182X\01140/\\c\006\184\143h\157\027\165c<\157\159\020\255\012x\1341\023\023\223\018\024\130\190\220\196\017[}\137\161\152ao\254}\230\038\002q\187\250LS\167\171\020TG\003\005\196\196y\014\146-2\003\252\026\194LL\154F8\1626\238C\211\176~\148\193\018lj@\237\246\178H|\247\253\192\226\17720\131\218>\127\169P\238\018vK\1470E\195\225\152P|K\172^R\037F\203G\169\030\237\134Y\148\135\180(\023\255\160\230\247\249s\162\128\173\212\210c/\216\198\243\032-\1768\021\143\178\163q\224\254\153\129+;\209\211@\130\232d.\036\184p\023Be\2526\027\231\033\152\246\221\002\038\189\213\184\189\243\0299\1515\177\247\005>\013\144\222\180\145\011\172\019\226\179\181\215\024q\254S\191\173\217\204\207?y\252\016\237\015\229\039\1679R\161\226\033v\1662lxN\248\158\0187\214\133\181\021U\162`\178\199\201\191\165\154Yd\026\178\221uUU\023\017i\242\200h\247-\249\1761\176\127\186\141q\2079\030\190\151\207\225\024+\191\022\202\033\203\248\227\245Lr\254\157\146\245{\160\253\010\246\175O\031\234\013\157\208\207\181\002\181\000\028\164\009\251\155<+\198\031z\222\232=\198:)\"\142\222U\132p\133\009\135m~\225t\142\242\176\023\130\158L\153]\2472\161\218\153\007\242j\188\242}\131\247\148{\009\185\161\002\008\200De+\009\230\198\192\242\128D\173\172\181\151\237=jz\236\188\163\022\004,\135Gm\129[F\145?\212\1633f\193{)\251\159m\174\222*=\171X\147mL2wq\169\127+\158\237\134\1982\232\149\211\202\005\251\207\191\236nV\206u7\007\156\183\003M\182z\247/\001\184\144\2135\247g\039\130\236T\162\177\233\173n\232\013\218L\1295\146,\215[\132\219\036\019a\219\219\227\1949W\228L\210\144\148\239P\\au\209\180\176;\226\213\223\224\227\219\139\242\024\2399\163\163vL\160\190pe\162\021\240\1600lj^K\207\143\177F\222\211\195\163\188F\247\005Z\169\028\195ch\139\240\016\1458\039\223\020\143\148\039q+\245\183\145T\167\144\155\200\207D\158\188\155o\234\165\019\240\224\200\222u\209\187\135\185t\155\153\237\147E\183\1606\155/\131-\231\015bH\160\175\039\166\167H\223\137\187\253\228\227\011\010\222\005\147\219]E\150\020t\015\162\006\030A\212G\173\010+\207\151\246\006\142\036\008e\254A\206-\244\134\013\149\000\0038\008\130\022\249I\2392\229>e\206\141\213^pP\173\180\174\170:=\172\166\144j\240P\144\186cG\182c\027*q\173\224\227\243\181\188\003r>P=\198\236Ma\190\241\241\240fg\253\219\170[\175\146\235_U\155Y7z<\022t\138\025\030\160\151\005\197\193mhnG\173\145\134\219\156\229\207\182\239y\151\232\030m^\205\232\237\190\130\008gq\231\171I\251\161\1598m<\245\204(s\174\253\173\197a\236u=[\222\135\249(mL\248\168\232S\015\184\170\250\000\131iY\252+\220\237\233@t{\027N\197\166\010Y\019\135\216\225\009}\239\035\135b\193\183\152\160\214\135\192es\031\137\240\175K\137\238\218\219\011C\221\191\017\180\003\130\017B\168\1458\168\168\241,a\244\223\038\171\238\166G\233\247\239\192\210\244U\228)r\148Z\179\151\028\215\009|z\207\002\163\154kF\162\238\253\028t\164\165\235E}\133*\153B\006*/|\225\1292\165\199\223U\024\155i\251D\217\245@q\227X\184i\241\164z4\200F7\023h\236k\029\166V\245\216\153\008\251/\170e\210\198\159\000q\210\235f\204\201\024\190Z\251\192\247Oe\035\129)O\127\180\196\248o\214\162\016\039\2514\187\131\009\236;\140\225t\154\147\144\229\128\196\230\037E\178[\003\168\198\143\178T\214(\224\136\0097n\205iV\030\161i-Vb\222/\144/\007_\220v\142\229\161fo\169\142\129(\190_\141\020f\132>\017\240e\036\222\151\191*<k\203.\191\"\011\148\155\006\211K1\169\013;\140W\026s\192\231\233\194N\171\000\175-\205y\217\023s\190\005\185\198\191\193\227G\199\216\250\204V\213G\199Fj\216\138\211\164\179ofh\233\222\030\148p\020\237\239\229\023\136\206\189\233\224n\185\145\147],\180\029(j\173\010\035\149\166\246\235*\250-\033\199\198\162\243=r\037B\212\239\247\222\163[\227\022\148\140\223\\\144\032\254L\154\179pp\196\025\190\199\134\223\024\131\000|\243c?\146\255\010\009\028\174\203E\227\012\193U[\204\025\141\224K\204\013v4eX\005G\023\033\188\179]\0085\234O\000}\226\019\203Rh\0022cp>t\176\015\148X\216\172\229\004\013\186\191J\030\153\184\019~{2\027\0168\007\237\"\009\139\247\201f\204\148+\169\228\215\039\174\\Kr\004\237\246\164\212X^z\131s\182\185\030\210\206\194\1556H\128\188\015\226D\128\246\184\026\030\176qUq\193\205q\007\238i\227t\213\218Qspl\209i\208\191\024\166\001\139q\213\026N\245\207\220\134(p)j\029\189\007;\010\240^r\209\253\232\149\130\221\168v\191\224\137c\025\236\152\198\160o\159\152\159\013\159\218\214n\013\0191@\175\151\238\023\232\154\171Tp_1\222c\249\172\006\1473\213\039Q\177\255\167\244\169\200\209+\218Y\200K\140\028\130s\147;\237\156\134\032\181\165\222\214\014A\003t\1976L\234\155\186\215\152\149\196\181\201W\207\22678\186\221\233\014\193/\161.*\182<ivT\182\233}\235\032\033\206\155\142\166\008\246b/S\219`\211\035\022c\176Io\008\206L\224n\220\243\021\149K\017\127`\007\231\025\147\137\129\221m\147\028\168|\010\002q\248X\183*@>\245\144\019@\192\245tB\138q\003~\142X\129\027\021\200\161\175\030\021-\234N1M\197CkR\192\002v\181\185\017\0263\028\239\001ie\203\016uaxpe\200Y\150l\243\232\184\183\028\143\207\183/\241{9\127u\020\219\228\238\246\230\170\237IV\197\"\149\019r\128\128\209r\149\039kV\027\217\010\252\246\190\166Z\032\018\177@\012O\150\230\008\208X\180\193\238\037\028[\214\001\181\130\130\023\127\178e\2444\0385\236V\162\171Q\020\020K|\171\0224\175\"\184|\151\175Y,N\180\195\135\214w\002\229\210,\127\170\168\036=\131k\239\250\182\1388\003\145\036r\158\128\235\152\005\032\130b<v\000\194q\251\210PW\185\213\180\149\000\221\128\138\204\171\153\019x\212\241\224\168*\180|\2224\028_L\218\232\212\163\237\242\240\155\231G\252\130\140R\185\161\028\142\232D\139\171\184\167\163\236\232nf\250\033\151\180\225\155\00836Y\018|\244\183i\202\236\181\143s\149D\248\198\178\017\035\2332a\009\150\242\1565\145Wl\252\135\243\231\178\252d\252\197;\021\026\220_\160)\0134\148\151\244;.\244\023q\202|\031\140\224\174\019\012\197\197\007\225@\178\002\218\239Hp\132E\210\219/S\227\146\178\128\141w\196\\\182~Uy\144\025\240\012\038\2087\005\2320\232\138\2247\027<\191\183\\\231\175\000[\140\035d\246\228\008\249\133Bh\225\186\209\130O\237\013\215\030c\245-\186\021=\128\237\164j\235js\219\024\133Dj\217\207S\127\009\175\194:b\155\233\223\031\195\036F\223\018/E\223>\164U\201\211\208UU\222D[bi\219A\215\129\225l\239\255\233\223\184;\1317f\018\002hm\197\218\160\212\229[\147.\157\235\173?\134n\025>\224\168\182\169\224\013\133\235<>\216Z\137\248\174\0374\237\213\206D5P\1737\024\180rw\238.\005j\036\194\236\037v\227\165R-\179?\176m\153\230\149\191?>\012\201\001u\007\249Q\169k(_~\023~\242\195\242\252\221\000\227\011`\187\008\250pB\144vl\243ojo\223p\152\141\035\010w\035\035\217)\024_\153\007\244\199|\192\240\017/(\037\149\130\024\249\246Je)\032\017\140H\170r\134\010>\201\155\223\186\133?\239\000C\229@5\008]\244\030\014\218\191\004\232\206\153H\036]\227\223\157\159\2351-\004s\175\175S\221\237\153\181\205\212A\172\141\236W\184^\134\030C\028\223\225Qv\157\132J*\038\200\173Z\208q\154m\222sb\238\166\002=\207\188\226\010ju4)\131\031c-|\032\175\133\142\001\003-\167\170@K:t\128i0\242\170\131\003\227f:}i\017\137\233y\165\177@W^E~1VY\001\021\025\142\195\163\036\039R\029<\039\245\135\175I\162\242\14184_Zt?b\230^\168\190\127\200u\254)\153\165\024\166~~\179\153o\146\217\181\138\152\021\248p\232\137\205\213\134\133/\164\178\036z\190\185\244\153\132\030\016\130\213\019nQW8\166\172\018=\192\035\191M\211\148\232\022\234a\014\205\226\134R=t\160\211\199\019\154Q\000R\038P\234\201qj\038ouY\1707\252\035\210\172\031CN\036\133\131\193O\246{e\147\016\026\137\\\193;\010\149\245^\166\163\170\147\251e\155\1450\242\1802\015[;\189\007\245\204\165.0\014\142@\032\168\188\250\153\137b\162\2171?<\012m\239\213p]\035\227\209\189\151\215\036\000R\172\033\250nq\028\006b\242\210\023\147\021|\215w\173\211\193k\205\140\230-*\2020\183\180\216(UM\203\011\249\196n\173A\016n\017m\215@7g\037\162\188\191\176w\039\248\143\250\144K\187\187\003\138\139:BkeRfk\183\133\230\131s\1765\253\201(cM\239\188\006\018\193Z\012)\222\245\127B\141Zl\186\176\170\028\184\003\2061\195\192U\135\0125e0i\170Z\209\219]\136h?9\155-\135\170\227\015\127\201\212^,\148\201\1700\176G\021\127\1586\228y\136\181\1360w\130\000O\005\146\175\129\219G\141\244\179\20915^m\187\163bR\247\206\166\141=\134\166\226\225p3\219\029I\163\2415H\235\253=\007\2166\181\146)\187\024R\252\132F\175ER5r\190:I\163\021\173\019\157\127Wg\160\221\254k\222G\137\192\190\002\209\2077d\165\026\152\243;\254\159\237c\200OC\161\151q\004\129V\253\035X\\\199\205l1k\030\208Z\151\233\192\209ppn\152\033\162\2516\021e=|5\250\143\004p>\222\005\175\164\009?La\200D\128_\182\\B\223T9\169\027\162\134\137\238\180\155\230\008gs\142\027\191\019\190_\028\214|5\023\182oZ\181\1637\189\163+\152\1453r\174u\168\212\250|e^,x\027"
- local function Fp8Wbn1AG2q_decode()
-  local D={} local bn=#RTgyrH
-  if bn>4194304 then error("<#?[~&AZ#A$|][>$]*>>[>[$!#}?") end
+ local HQg3HXvdqy4="\153aDr\246\004\019\213\196\133\2330\137\233\127\139\245\221e\013\158\009w\017\225\134\001\039\033L\1929\205j\236\148\187X\159\202\225G\245\183Hh4\141D\037uA\003K\191\159\246\159\212<D\164\219\230\130\177\247\033r*\169\005i\184\032\232\2262\180\218\235y\135\135\031a\254\189W\181\154\211N_\221|\\\150\245\150\180K5\002c\155\143\000\179\038\231\211fB|\002\232\148\222Ab\220\197\228\023bH\152\005C~\197\176\209\158\167q)D\132\206`\029\149\235*\247li\174\017\242\157\022\131Q;\142SZ\130\201NR9\023Go[\173\0111\251\207\130\136\229/\031\170~\222\147\1843\189\244\252\215\019\248\023\1288\244G\137z/\024\198\138\221\172\162\192\150\029\157\\\005\198\009\022\163\183OLO,\242\134>\231`<\222\137\237\155\251\139\230c\004\018\030\247\227\184RD\170.\133\152\222\129\026\235\206d\192_Fjr\129\238Bx\252\005\208v\014-\172-\001f?\033\015\167Q\210\020\039\144\253\130w\154\198\021(\153\210\246fI+\184g\183\152p\225\1390\019\240\155\219\196\245\242\223\225R\019\178\134\196\024L\207Rr\2558\136,o\130w\173\038\007\028S\001\177g@\160\186\253x\227\131\039\224\203@\168\223\026\208c\020\193N\006\174C\139\137a6\145\245Z\018\185\202\153\241V\250\14758`5f7JI\128\200L?\247\223\"_\156\250\191\208\204\180\239\009\178\002\035j\198\197\211\005\2030@H\221\145\006\217N\191g\176\025\199\035\165,us\008\168:Kj\242I\214\254\225\029**\252\169|\197Ie0]j\133Z>*\006\249}\017\007\226,(\005\004\250\210\161\174Wf\240[\008fq\132\175\2023\211\010\130V\157\237\186\127\1626s\2192l\233\218\006\240\248/\146X\207\129\165\001\003\183\182\235D\030s\167Gw\178:\213l\025\221r1\001\001X*\175\237\"\220k^i\186\1810\016\141T\163\236_lb\169\1577\223\206\247f<m\204\003\171f5\148\001\186\130\172|\000\009\180\188\246K\232\138\181\153\009\011\128O\027\021\141\194\230\178y\181\016\238\156\005D\155\156\206\201\197\168\039=\232@\157\209\235\181+\164\007m<[\011g\\sC\029\233l\223\030\211\144\153\193\130\145\017\137{Db\186\170D3\149\142L\197\025\203\029\159,p\211\193S\171>\237\255XO\025H\233\195\177(\230\220h\216\200C\127*5\225\166\129\195\014Q\205\251\036\027\015\227\200\245v^\243\244\194\200\172\250\242\220\148\1285\232\020\229CNM>2\205\195\247\009\186jI\022l\223\019\1655\029\012\221\006\138\006\025\184\219\008\038\182\213J\133?)\155\244\233\183{\185U\210\225\037Rk\179\005\181\252\177\196r\037\148\252`\144\006\231\220\146-\244_\028\008\140/\151\016\173L\247|\192\216Fq\1556\234\174\239\252m\246M\196|W\249\234\020H\159\208\166=\250\000B\178\128(0\027f*\159\142\010\031Gn5\151\1465\227k\2537\008\018\208V\217\222xa\251\142\\\220\170,\181N\016\186\248\162m\157\175\143l@\136n\213\214\244\195YX2|\238Pl-\154\134{M\243{\028\011\180\134\019k\157B\142\212\255+J\206\151\224\006\157\162\130\147\027\141\233\229\000\193\173\025z8\152\148C+\170_i\220\217J\038?\1508I\174\039*?\165\214]W\130O\197\169t\008\234b}\187=7\245\190n\243e7~\141\200\022\143V\018b\237\1941}N\236(u\222\215\194*\148.\224\202\165h\211\\g\220\132qJ\148\2446\168\240\023\255\222Mck\144-\205\137\195\170\216\224t\146(\137\000=^\188=\005\176I\147\020\011`\022\149\220F\234\011\166]K\185\184\162\026\1360\012\144F\"Y\245\149D\189q\031\157v~\215S\172n\199\175O\161\242\137\171\197\221\213\226De\157NBk\127U\222A\150\187s\136\169\039Mj\204\211\\\203\135\165\142\162u\184\129\004\182\157\177\1868\031\195\183\229\230\231\039:\149\131M\1701\199J\216>kF\173\199\009\007D\200\173\246\185+*\133\241\005q0\2078\001\177(\209\199\148({\178C\021\171,\032\024\185z=\144\168\001\036\227R_\180\248\226\025`\199=\138\153\143\152\130T+V\254\203,R\204\220\225\009\2359\140\015\254\155\232\249\128PL<2\178p\170\019\038\202\159He\192[\179\137Y\144\031\154\193p\1360m\229\239\197\004b\161\142\220\233\171\237\162\158]:\193N2U\236\146My\218L\163\190\220(\134\171\228\019(\160\178\239\007\167\143[\003Z\242m\254\239\132\155\1339\134\254c\219\008]\153\193)\214\143\136\131\175]1\171\038\205j\133\185\175m\162\030\128\003H\003}\201\213\015M\169\137\235z`c\1618p\243\229b.\133\023h\230\211\251`=\023\031:\239\237\142\205\196\004(\008\236\162\020\015F\001\137\223\130\248\163\147\035\225d5\1479\138\233)o\180_\146H\188\177\159\251\172\215\160\219e\255\035jY`\007\175\246e\128\131Zm\029\003\217\250IpZ\213Ah\008\141I\160\195\155D\037rW\195\002\009H\171\148\023\203O\191\2524\232\240fB\254j\140\146\213\032s\014\242\179\135`\184\254\170\158\037\026\196\231\250\005di\234\160\130@5Kp\221\145\204L\152>\1697Ng\008Z\037\139\143X\218\248\182\218\219\179\190?\155\128\003\035\200\187j\001\024Q\191)\140\182\221U\237\033\021\207\165\2392V\0257u[\1290xp\039\005\244)-\015`\229\209N\144\251\028O\189\036\220\229\175\132V\004IKW\155\1715\146R\183\229uTd\023\160Z\251\200v\1868\151\207\149?\188\023\2344\039\139\217\171\160\226k\1995\180J\249\019\231\153{\251\168\1913\180H\012\179fV\245\151h,\023\011\151]6\0086\188\\\215\212i\193\194\158\164r\1809B\214\195\018:Z\1983~)\128\200q\037\038\193\2356_\232\244\039\028T`\184\023\221x\205V\129\133Y\184\204\205\037\151\250\235E\194\157|\242J|\002\209\152\240\025\026\255\139\236\200\233\206U\150\246\217\183\202\251by\240\136/\221\248\233\018\144\143\030\182i\132\251\149\1797\150:\129\245\220v\176i\039v\157\145\193w\191\193\002\152+\003\020\190\205\157\179\140\187\012\165\146\018\007}\037V\026\215\028\247S\193:`\255\155\240h\252C5\225\189\198\236X\003\152\189\229\144HRo\251\253?\015=\207\231\252\171\229\015w\"\211\134\166\165\023\191*\178Z\012\164\025\184\185.\149\144LI<\033y\244x\250\138\250\218IW\031\172@\143Un=4Zr\025\191\245F2\2533\211f\143\234\003\207.ne\169\224RX\203i{\212\180\227\164;\181\015G\136\168\176m\240N\023+.\172\238_m\027j\1358\251\131\170\159\225\\\202\024\233G\227;@\0083y\1656\211n\185P\253<\183ak\142\146b\196\156\022=\191\174W\247,\235Y\174\031\2030\177\010{\133\175\163\171\192`\022S\135\203v\151,[T(A\248\161\029bg\228S;\001\155BY\209s\195J\212\229AN\231pT5\197\206V-\251\171\000\004\010n\206M=kZV\139\165(X\230\165\183\213\036/\005N`TeT\176+\164V\006\035\014\142\199\022\232\245\184m\152\020jZ\143\175\192\195\131^\169\160\248\162\190\184\146\183\230\008\219\248\163\195\227EEc4^\143-\168\0276u\207\000\129\139\245C\128\135\149>1r\236\038\026\255\185r\143\228\198_=_\205B\015`\1970\222S\253I\2533b\186\214r\155\131\154c\189\2149\142r\188vr\037\031l/e\027\2171\147\143\231\164\198\218\223W\1468\224s\130n\014\188\227\006]\165\201\240\198y\221h@a\177\159\255\0079\145\240\002\171Z\009l\036Z\1994Gi\240\136\212\000\132\235\169\161\037\028\017f\028\019\216\199(\211\168\015\138\157\0254R\178\003a\174\171\039\207\254\166\200A\181M0\232\165M\171S8\179\168\237\160\212\032\204\226\219SI\014\188(E\156\177-\146\233\190\165C\035z\182t\201j\020\203j\019\244\164\207\194\1549\246JEy\148\227Y\196XZV2\151\176\225\149\134lP\000k\160\137\132\245\157(g\203\249V\219\175\027\017l}\129<jTj\")[\130\200=\214\164\149M\229,T\175|\129+\213\186\223\031\142s\028oZ\160\252\180r\206L.\139@0\019\242\157\254`9\134F\173\184\187\163Y\0298\250\018=@\172\135\0201\174\137\213\249\\\128\183B\031\162\148\168\027\037\239\245\151\226\169V\0186\"\222\017\210\210\218\198Hf6\179\220\172,q\025\234\134\006F\131M2\038\025\011\159\219\213\221\235\156UXC|\184\163\171wN\144r7\000\190\005\210\157^\2481\137r\198=q\157\142q\178\223\\\176\1618\246\017\183)w\018\154\163P\016\252\128\001\016-\221\194\143Z\018g\244c\001\201c\205g>\147\035[\149G\227\251\213\000z^yF\199^\004\223\028\143,N\165rG\002\129\183\005\254\039\143\129\202r\199av\228\035\130XhjOi\219I,\224\187\207\206\160)\212\226\037\159\168\237v6\131/\246\236h\225\173\1811p\236\228\1646u\153\203\131\015\006,i\1975bl`\211\247\199\008\131\015\143\229\243GX\143\015)s_\241\172\196\019\133\229]GB\225\191N+\148\229\131\006\231b\172\205\198\236N\186O\1873]\238\143\175q_n\250\210\209A_\217s\031\175l\210:V\215\136\2557b\242\025H\2250\131-E\014\233\252\003]55UI\147B7\209p\028a\147\180\248\169\182\162-\140Y\202\144u\194\238b\241\150RP\127h\241\023\171\222\206a,\143Tl\199\037\179\027O1*j\241\179\153\226\029=\162-\191\198g>\196\203\254R\179\222W\030rk2\021D\223Y\136\037P\198t5\189\247\012\163\221\000\201\227W\195\253a\150\206\176\132GN\170XLQ\037\224}/r\253\194\184\025\023+\004\200:F\201:\138\222mxlb\025\197\149\024\008\253\031_\219\133[_\138\174\184\012-\128\245\022\012\237\139M\1849\214\008\180D\2187\1391\207\133z\000RTG\235\179\131\022\245\029\142\142-c\236\022\144\028\189\179\215\195\162oa\179\169\243\020\2527\199\009b\030<\207QC\161:\217?\231m\232y_\022\231\186\142e\193z2\170M\230\033\191\192\228\153}E\190\186\180pK\210\160\167\166:\194S\169\015E\015\1652J\158d\155\253\026\"1j\201N\254\176P\029\197q\193n\204\243\152\219\206\008]\142\237\251\005Om\246\236\016\230\170<\008\033\213G\"L5\131*Ut\022\148t\175\177\160\191\250\251_V\159\201x7\166\211\179\004\183\226\253H\245\131D\186}lg\033\139[L\220\203\196\037\021\004ei\030\133,aR\025\238\224\173\162n\\\\\167v\127=,\033\128\\c\244Y\176\230x\132\143\221KN\186\180\2092\159+\021G\226\185\221\216g\214\185J\137\169V5\166\158vw\029O\232\196H\163\203_\234u\0143\204\155\127\037\244x\004w~Spzm\152\131\141lw\2454\133\022Y\024\035N1FJ\000\161\209\181\151\237\250\197\238\250Ly\239\011D\169\136\223\131\157\237Z\200\179\236\006h@\168\025\021S\229\001\180lda\154\140\250]\205\127\251\012\144\160@6\038\1830:\022\016vV\165\168\212\185^w_\208\004\170\019\014\160)\164\236\"f\174gu(0\249P\2392\032\2021\186\195\019\134-\146Fr\165\245\181\255\166J\172\209C\007\168\177\213TR\234\157\196E\217*\218\021\145\213\227\001\180{\255\221r\227\1704:\145\238\174\030\154t~lj\129\021\227\010d\003\012T\241\229\019\249\\\0305Q\144c\014\236+\018|+\238\255\174\184\253^>\216\161\021x\157\216\192A\157\137w<Bm\027\192\02483R\127\021\2438p\028\199\145w-\229D{n][\186.\2353\027r\132\197KIP\144\129\222\014v\230\132\234\138\003\006.\175\014\254\009w\1796\023\190d\213\005_w\174:\174\215\152g\255\247\207\202\169\010\229\031\186M\205\006\001\144+\172\209\225\231A\1277\237k\202<Rd\221\010D\179v\010\2520\004\252\135J>\019B\247\255\024\149\142\020e\225\150\190\243]=9Y\036jc\223\153]\166\232\182\149\228\153\253\206>\138\007\003\2359\205\157c\195\252\018\131G~\011?w\028\186>\255t+\244ep?\240\190\161\149|G\039\164\029\240J/N^\255\031>\225\\@\194\006\204\167\226)\254\009]Ca3R/(1\136\018\013\2280\215\021\1542p\231\139\213\145*;\215p|\242\000\025\218))\231\142\179Y6nx\002),X\1436\209\229\199Og\185K\154+73\148ey\207\252a\223\247\129y\215\016\149\168\010\251\204\240\220\216p\012e\025T\177\249L2\162\238/}\182\221\016\\\001\135\228\170\178\196\202\249*\020\220\140J]\215s?\201\001}\213\234*\179\004\000\179"
+ local function HSDkE1cTbTx_decode()
+  local D={} local bn=#HQg3HXvdqy4
+  if bn>4194304 then error("}<^<]]>[Q}|!^^|~#@]<{~#X*!>A") end
   local MM=2147483647
-  local RdIivefX={132604206,1994486739,641374851,2119759319,1440993437,1250240042,951452178,886958070,1231401394,724242377,338949814,886201029,54792107,1248359886,653107180,1092400996}
-  local hdr=D[1] local pl=(hdr%128) local sa=((D[pl+2]*16777216+D[pl+3]*65536+D[pl+3]*256+D[pl+4])^RdIivefX[2]+RdIivefX[3]-RdIivefX[4])%2147483646 if sa<1 then sa=sa+2147483646 end
-  local sb=((D[pl+5]*16777216+D[pl+6]*65536+D[pl+7]*256+D[pl+6])^RdIivefX[6]+RdIivefX[1]-RdIivefX[5])%2147483646 if sb<1 then sb=sb+2147483646 end
+  local w0VU4xlwh={856762969,1670329018,2117360345,1746281283,2130360687,99444959,135683905,1141918537,517800719,374492169,546932143,455855115,1761856611,816592257,597973202,863915131}
+  local hdr=D[1] local pl=(hdr%128) local sa=((D[pl+2]*16777216+D[pl+3]*65536+D[pl+3]*256+D[pl+4])^w0VU4xlwh[1]+w0VU4xlwh[3]-w0VU4xlwh[2])%2147483646 if sa<1 then sa=sa+2147483646 end
+  local sb=((D[pl+5]*16777216+D[pl+6]*65536+D[pl+7]*256+D[pl+6])^w0VU4xlwh[4]+w0VU4xlwh[6]-w0VU4xlwh[5])%2147483646 if sb<1 then sb=sb+2147483646 end
   local sbyte=string.byte
   local sc=(sa*31+sb)%MM local sd=(sb*17+sa)%MM local pv=0
   for i=1,bn do
    sa=(sa*48271)%MM sb=(sb*69621)%MM sc=(sc*2994349)%MM sd=(sd*4050403)%MM
    sb=(sb+pv)%MM sc=(sc+sa)%MM
    pv=(math.floor(sa/65536)*31+math.floor(sb/2048)*17+math.floor(sc/1024)*7+math.floor(sd/256)*3+pv)%256
-   D[i]=(sbyte(RTgyrH,i)-pv+256)%256
+   D[i]=(sbyte(HQg3HXvdqy4,i)-pv+256)%256
   end
-  local GxV7LMsshp=1
-  local function hFd9xj() local bt=D[GxV7LMsshp] GxV7LMsshp=GxV7LMsshp+1 return bt end
-  local function JOnXZlJ_()
+  local PDoHXTm=1
+  local function gNEVOiNP() local bt=D[PDoHXTm] PDoHXTm=PDoHXTm+1 return bt end
+  local function tfL2h0ouE5()
    local sh,r=0,0
    while true do
-    local bt=hFd9xj()
+    local bt=gNEVOiNP()
     r=r+(bt%128)*(2^sh)
     if bt<128 then return r end
     sh=sh+7
    end
   end
-  local function FRwlv0PTAV6()
-   local u=JOnXZlJ_()
+  local function K0Cjhv4()
+   local u=tfL2h0ouE5()
    if u%2==1 then return -(u+1)/2 end
    return u/2
   end
-  local ZhFdCPCG3=hFd9xj()
-  if ZhFdCPCG3<128 then error("!>|#!^A<@}[A><Z@|~Q^$$!!Q~*Z") end
-  for i=1,ZhFdCPCG3-128 do hFd9xj() end
-  local aOhvAi8=JOnXZlJ_()
-  if aOhvAi8>4096 then error("@*>%*>X~{A!AZ!*%[>]<#?<%**[?") end
-  local cBXSB5ka={} local FQcRGy={}
-  for bZiviWt0nb=1,aOhvAi8 do
+  local RveAgQ3TdG=gNEVOiNP()
+  if RveAgQ3TdG<128 then error("&~~^<ZQ@&@X[*&[]>{^!$[<]X{AZ") end
+  for i=1,RveAgQ3TdG-128 do gNEVOiNP() end
+  local FMPmDr=tfL2h0ouE5()
+  if FMPmDr>4096 then error("[!~X[*%~$Z#}}|#$*[{{#]A}>$>A") end
+  local mP1ajG2aeUG={} local JZVzrkFHBO={}
+  for nXgTAITa=1,FMPmDr do
    local pr={}
-   pr.pn=hFd9xj()
-   pr.va=hFd9xj()==1
-   local nu=JOnXZlJ_()
+   pr.pn=gNEVOiNP()
+   pr.va=gNEVOiNP()==1
+   local nu=tfL2h0ouE5()
    pr.uv={}
-   for i=1,nu do pr.uv[i]={hFd9xj()==1 and 1 or 0,JOnXZlJ_()} end
-   pr.ns=JOnXZlJ_()
-   JOnXZlJ_() JOnXZlJ_() JOnXZlJ_() JOnXZlJ_() JOnXZlJ_()
-   local nc=JOnXZlJ_()
-   if nc>65536 then error("~#]Q{!!<Q}|}|Z#&#|QXQQ[<]<Q&") end
+   for i=1,nu do pr.uv[i]={gNEVOiNP()==1 and 1 or 0,tfL2h0ouE5()} end
+   pr.ns=tfL2h0ouE5()
+   tfL2h0ouE5() tfL2h0ouE5() tfL2h0ouE5() tfL2h0ouE5() tfL2h0ouE5()
+   local nc=tfL2h0ouE5()
+   if nc>65536 then error("]>>[}[^{Q#?$&X%AZ?{!<QQ%*?A~") end
    pr.c={}
    for i=1,nc do
-    local tag=hFd9xj()
+    local tag=gNEVOiNP()
     if tag==1 then pr.c[i]=true
     elseif tag==2 then pr.c[i]=false
     elseif tag==7 then pr.c[i]=(0/0)
     elseif tag==8 then pr.c[i]=math.huge
     elseif tag==9 then pr.c[i]=-math.huge
     elseif tag==5 or tag==6 then
-     local ln=JOnXZlJ_()
+     local ln=tfL2h0ouE5()
      local bb={}
-     for j=1,ln do GxV7LMsshp=GxV7LMsshp+1 bb[j]=D[GxV7LMsshp-1] end
+     for j=1,ln do PDoHXTm=PDoHXTm+1 bb[j]=D[PDoHXTm-1] end
      pr.c[i]={t=tag,n=ln,b=bb}
     else pr.c[i]=nil end
    end
-   local nk=JOnXZlJ_()
-   if nk>262144 then error("}@<%{^@#%*@*QZ#|#@?!Q}||?~]^") end
+   local nk=tfL2h0ouE5()
+   if nk>262144 then error("}*^#Q|Q%A}]*>#%?X<$[$X<~Z$]]") end
    pr.k={}
-   local lrk=(v90c2kHjWsG+bZiviWt0nb*t2Govz+bZiviWt0nb*bZiviWt0nb*zRB6Bo4R7Ph)%65536
+   local lrk=(C6Xftpl+nXgTAITa*GdssIrzh0D+nXgTAITa*nXgTAITa*OOuBmg)%65536
    for i=1,nk do
     local mm=math.floor(lrk/3)%256
-    local oe=JOnXZlJ_()
-    local aw=FRwlv0PTAV6()-mm
-    local b1w=FRwlv0PTAV6()-mm
-    local b2w=FRwlv0PTAV6()+mm
-    local cw=FRwlv0PTAV6()-mm
-    lrk=(lrk+EMztOim+math.floor(lrk/8))%65536
-    pr.k[i]={[urNcmQNZ9i]=oe,[qEGFRV]=aw,[ubkgVInf]=b1w,[zY79fl]=b2w,[poAsRuzC]=cw}
+    local oe=tfL2h0ouE5()
+    local aw=K0Cjhv4()-mm
+    local b1w=K0Cjhv4()-mm
+    local b2w=K0Cjhv4()+mm
+    local cw=K0Cjhv4()-mm
+    lrk=(lrk+LY53Bp+math.floor(lrk/8))%65536
+    pr.k[i]={[EXUldLPs]=oe,[GH9fFs4Z4]=aw,[PNZ3bTHqrJ]=b1w,[Lc1XZIsHf]=b2w,[MphzFSZGy]=cw}
    end
-   cBXSB5ka[bZiviWt0nb]=pr
+   mP1ajG2aeUG[nXgTAITa]=pr
   end
-  local wln=JOnXZlJ_()
-  local wa=(1819647440+21-21) wb=(860013583-0) MM2=2147483647
+  local wln=tfL2h0ouE5()
+  local wa=((1855266981+256)-256) wb=(832731514-0) MM2=2147483647
   local wc=(wa*31+wb)%MM2 local wd=(wb*17+wa)%MM2 local pv2=0
   for i=1,wln do
    wa=(wa*48271)%MM2 wb=(wb*69621)%MM2 wc=(wc*2994349)%MM2 wd=(wd*4050403)%MM2
    wb=(wb+pv2)%MM2 wc=(wc+wa)%MM2
    pv2=(math.floor(wa/65536)*31+math.floor(wb/2048)*17+math.floor(wc/1024)*7+math.floor(wd/256)*3+pv2)%256
-   FQcRGy[i]=(D[GxV7LMsshp]-pv2+256)%256
-   GxV7LMsshp=GxV7LMsshp+1
+   JZVzrkFHBO[i]=(D[PDoHXTm]-pv2+256)%256
+   PDoHXTm=PDoHXTm+1
   end
-  local iuOl2xB=#FQcRGy
-  if iuOl2xB<1 then iuOl2xB=1 FQcRGy[1]=0 end
-  return {P=cBXSB5ka,WM=FQcRGy,WMI=iuOl2xB}
+  local DSvstw0U=#JZVzrkFHBO
+  if DSvstw0U<1 then DSvstw0U=1 JZVzrkFHBO[1]=0 end
+  return {P=mP1ajG2aeUG,WM=JZVzrkFHBO,WMI=DSvstw0U}
  end
- local VRf5lopaoO=0
- local qPuaOK4c={} local oQCidczp8={}
- local function Fp8Wbn1AG2q(l1,bthttEkN,noL96z,iKnoOnm56l8,ZVV0QS,mmo75_VIr_)
-  local cBXSB5ka,FQcRGy,iuOl2xB=l1.P,l1.WM,l1.WMI
-  local ZSQLYs=cBXSB5ka[bthttEkN]
-  local dA3fJ1XmROe=ZSQLYs.k
-  local g58v0fpjj=ZSQLYs.c
-  local te2yQ0dUe={}
-  local jJiICl={}
-  for I9VQZQ=1,ZSQLYs.ns do jJiICl[I9VQZQ]={} end
-  local KZAtnU,Q0MtH8ASav8,H19zcH52UB=0,-1,1
-  local cjJkj1SyW7=ZVV0QS
-  for I9VQZQ=1,ZSQLYs.pn do jJiICl[I9VQZQ].v=ZVV0QS[I9VQZQ] end
-  local ticmCkT_vD,r_Y0kpxnx_L=37,1
-  local dBz6AW,VdCMOfLnkaS,Qk0a66rz=false,0,0
-  local tCvmwH=(v90c2kHjWsG+bthttEkN*t2Govz+bthttEkN*bthttEkN*zRB6Bo4R7Ph)%65536
-  local glDHYX32Nq,OG0oDAG,Yikctt0M0xK,GrO8GFDyKY,wp3hnbHq1YY
-  local GjLMWwxthDG,op
+ local fvaf9mW_1x=0
+ local dD4zZT5fg1={} local uBBHk7h2={}
+ local function HSDkE1cTbTx(l1,Q3szQFZEbUF,W9NJlSIm,iDRhRTRaCy,Tv8773z,SF3huD)
+  local mP1ajG2aeUG,JZVzrkFHBO,DSvstw0U=l1.P,l1.WM,l1.WMI
+  local LfI1CXrdgmO=mP1ajG2aeUG[Q3szQFZEbUF]
+  local WwlSl5ig=LfI1CXrdgmO.k
+  local CEbZ3Cr7e=LfI1CXrdgmO.c
+  local Hhwnc6TW_={}
+  local juDNky={}
+  for cjJrncJr=1,LfI1CXrdgmO.ns do juDNky[cjJrncJr]={} end
+  local f33i_Y,yX5XDr0hY,jdOQF_bs=0,-1,1
+  local urK7NXH845u=Tv8773z
+  for cjJrncJr=1,LfI1CXrdgmO.pn do juDNky[cjJrncJr].v=Tv8773z[cjJrncJr] end
+  local NBMYhXctn,dfv_9Msw0Lp=37,1
+  local vXRvTSyPIM,tZk0qN1I5,SeJyGuPXj=false,0,0
+  local UTI9SvInp=(C6Xftpl+Q3szQFZEbUF*GdssIrzh0D+Q3szQFZEbUF*Q3szQFZEbUF*OOuBmg)%65536
+  local UrKPzZ5hLQl,KdB6BEt,Bol8nPclTc,tCgFd7G3,K6MLpYK
+  local hImZO2ddYT,op
   while true do
-   if debug and debug.getinfo then local _dg=debug.getinfo(1) if _dg and _dg.what=="C" then dBz6AW=true VdCMOfLnkaS=1 end end
-   GjLMWwxthDG=dA3fJ1XmROe[H19zcH52UB]
-   GjLMWwxthDG=dA3fJ1XmROe[H19zcH52UB]
-   GjLMWwxthDG=dA3fJ1XmROe[H19zcH52UB]
-   GjLMWwxthDG=dA3fJ1XmROe[H19zcH52UB]
-   op=(((GjLMWwxthDG[urNcmQNZ9i]-tCvmwH)+65536)%65536)
-   tCvmwH=(tCvmwH+EMztOim+math.floor(tCvmwH/8))%65536
-   H19zcH52UB=H19zcH52UB+1
-   if op<=32 then
-   if op<=9 then
-   if op<=8 then
-   if op<=4 then
-   if op<=3 then
+   local LUVNew3uuGV=((60777*4/4)+Q3szQFZEbUF*7919)%65536
+   if LUVNew3uuGV<256 then local _nop=1+1 end
+   local jt0lEQiL=((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2
+   if jt0lEQiL==0 then local _og=1+1 end
+   if debug and debug.getinfo then local _dg=debug.getinfo(1) if _dg and _dg.what=="C" then vXRvTSyPIM=true tZk0qN1I5=1 end end
+   hImZO2ddYT=WwlSl5ig[jdOQF_bs]
+   hImZO2ddYT=WwlSl5ig[jdOQF_bs]
+   hImZO2ddYT=WwlSl5ig[jdOQF_bs]
+   hImZO2ddYT=WwlSl5ig[jdOQF_bs]
+   op=(((hImZO2ddYT[EXUldLPs]-UTI9SvInp)+65536)%65536)
+   UTI9SvInp=(UTI9SvInp+LY53Bp+math.floor(UTI9SvInp/8))%65536
+   jdOQF_bs=jdOQF_bs+1
+   if op<=31 then
+   if op<=24 then
+   if op<=17 then
+   if op<=10 then
+   if op<=5 then
    if op<=2 then
    if op<=1 then
    if op<=0 then
-   if op==(0*4/4) and ((7*Qk0a66rz*Qk0a66rz)+Qk0a66rz)%2==0 then
+   if op==((0+256)-256) and ((7*SeJyGuPXj*SeJyGuPXj)+SeJyGuPXj)%2==0 then
+   iDRhRTRaCy[hImZO2ddYT[GH9fFs4Z4]].v=Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==((1+256)-256) and ((7*SeJyGuPXj*SeJyGuPXj)+SeJyGuPXj)%2==0 then
    do
-   local tRj6PJV=GjLMWwxthDG[qEGFRV]
-   local ivowTJQYl={n=0}
-   if tRj6PJV<0 then
-   local SxtYvwL=Q0MtH8ASav8<0 and 0 or Q0MtH8ASav8
-   ivowTJQYl.n=SxtYvwL
-   local geLNZ8Qs=KZAtnU-SxtYvwL+1
-   for I9VQZQ=1,SxtYvwL do ivowTJQYl[I9VQZQ]=te2yQ0dUe[geLNZ8Qs+I9VQZQ-1] end
-   else
-   ivowTJQYl.n=tRj6PJV
-   for I9VQZQ=1,tRj6PJV do ivowTJQYl[I9VQZQ]=te2yQ0dUe[KZAtnU-tRj6PJV+I9VQZQ] end
+   local Fnxb04XAM=hImZO2ddYT[GH9fFs4Z4]
+   local GWkqIYauESR=mP1ajG2aeUG[Fnxb04XAM]
+   local o2mJdZ5O1={}
+   for cjJrncJr=1,#GWkqIYauESR.uv do
+   local BXLmsh2L77=GWkqIYauESR.uv[cjJrncJr]
+   if BXLmsh2L77[1]==1 then o2mJdZ5O1[cjJrncJr]=juDNky[BXLmsh2L77[2]] else o2mJdZ5O1[cjJrncJr]=iDRhRTRaCy[BXLmsh2L77[2]] end
    end
-   return ivowTJQYl
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]={pid=Fnxb04XAM,env=W9NJlSIm,uv=o2mJdZ5O1}
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op==(1+51-51) then
-   do
-   local dkgREDF=te2yQ0dUe[KZAtnU]
-   local mapulMESWj=te2yQ0dUe[KZAtnU-1]
-   KZAtnU=KZAtnU-1
-   te2yQ0dUe[KZAtnU]=mapulMESWj % dkgREDF
-   end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    else
    if op==(2*4/4) then
-   te2yQ0dUe[KZAtnU-1]=te2yQ0dUe[KZAtnU-1]<te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU-1
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=nil
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    else
-   if op==((3+256)-256) and ((Qk0a66rz*Qk0a66rz+Qk0a66rz)%2)==0 then
+   if op<=3 then
+   if op==(3-0) and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
    do
-   local VhgafTlE5=te2yQ0dUe[KZAtnU]
-   te2yQ0dUe[KZAtnU]=te2yQ0dUe[KZAtnU-1] / VhgafTlE5
-   KZAtnU=KZAtnU-1
+   local Dd4sCaOLDPj=hImZO2ddYT[GH9fFs4Z4]
+   local AMe1har3L=hImZO2ddYT[MphzFSZGy]
+   local JR7znH=i9y7C02NJS0(juDNky[Dd4sCaOLDPj].v(juDNky[Dd4sCaOLDPj+1].v,juDNky[Dd4sCaOLDPj+2].v))
+   if JR7znH[1]~=nil then
+   jdOQF_bs=jdOQF_bs+(hImZO2ddYT[PNZ3bTHqrJ]+hImZO2ddYT[Lc1XZIsHf])
+   juDNky[Dd4sCaOLDPj+2].v=JR7znH[1]
+   for cjJrncJr=1,AMe1har3L do juDNky[Dd4sCaOLDPj+2+cjJrncJr]={v=JR7znH[cjJrncJr]} end
+   end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
+   if op<=4 then
    if op==(4-0) then
    do
-   local dkgREDF=te2yQ0dUe[KZAtnU]
-   local mapulMESWj=te2yQ0dUe[KZAtnU-1]
-   KZAtnU=KZAtnU-1
-   te2yQ0dUe[KZAtnU]=mapulMESWj==dkgREDF
+   local Dd4sCaOLDPj=hImZO2ddYT[GH9fFs4Z4]
+   local hpzHdZjA=Hhwnc6TW_[f33i_Y]
+   local STqkqJzi2V=Hhwnc6TW_[f33i_Y-1]
+   local X8STKhO9F3u=Hhwnc6TW_[f33i_Y-2]
+   f33i_Y=f33i_Y-3
+   juDNky[Dd4sCaOLDPj]={v=X8STKhO9F3u}
+   juDNky[Dd4sCaOLDPj+1].v=X8STKhO9F3u
+   juDNky[Dd4sCaOLDPj+2].v=STqkqJzi2V
+   juDNky[Dd4sCaOLDPj+3].v=hpzHdZjA
+   if (hpzHdZjA>0 and X8STKhO9F3u>STqkqJzi2V) or (hpzHdZjA<0 and X8STKhO9F3u<STqkqJzi2V) then jdOQF_bs=jdOQF_bs+(hImZO2ddYT[PNZ3bTHqrJ]+hImZO2ddYT[Lc1XZIsHf]) end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op<=6 then
-   if op<=5 then
-   if op==(5+77-77) and ((7*Qk0a66rz*Qk0a66rz)+Qk0a66rz)%2==0 then
-   do
-   local RifhMy0IM4A=GjLMWwxthDG[qEGFRV]
-   local WtXbg5r8=te2yQ0dUe[KZAtnU]
-   local Df_gQyGSnV=te2yQ0dUe[KZAtnU-1]
-   local geLNZ8Qs=te2yQ0dUe[KZAtnU-2]
-   KZAtnU=KZAtnU-3
-   jJiICl[RifhMy0IM4A]={v=geLNZ8Qs}
-   jJiICl[RifhMy0IM4A+1].v=geLNZ8Qs
-   jJiICl[RifhMy0IM4A+2].v=Df_gQyGSnV
-   jJiICl[RifhMy0IM4A+3].v=WtXbg5r8
-   if (WtXbg5r8>0 and geLNZ8Qs>Df_gQyGSnV) or (WtXbg5r8<0 and geLNZ8Qs<Df_gQyGSnV) then H19zcH52UB=H19zcH52UB+(GjLMWwxthDG[ubkgVInf]+GjLMWwxthDG[zY79fl]) end
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
+   if op==(5+89-89) and ((SeJyGuPXj*SeJyGuPXj+SeJyGuPXj)%2)==0 then
+   do end
    else
-   if op==(6-0) and ((7*Qk0a66rz*Qk0a66rz)+Qk0a66rz)%2==0 then
-   do
-   local dkgREDF=te2yQ0dUe[KZAtnU]
-   local mapulMESWj=te2yQ0dUe[KZAtnU-1]
-   KZAtnU=KZAtnU-1
-   te2yQ0dUe[KZAtnU]=mapulMESWj - dkgREDF
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   end
    end
    end
    else
+   if op<=8 then
    if op<=7 then
-   if op==(7-0) and (((ticmCkT_vD*ticmCkT_vD)-ticmCkT_vD)%2)==0 then
+   if op<=6 then
+   if op==(6+43-43) and (((NBMYhXctn*NBMYhXctn)-NBMYhXctn)%2)==0 then
    do
-   local tRj6PJV=GjLMWwxthDG[qEGFRV]
-   if tRj6PJV>=0 then
-   local VhgafTlE5=te2yQ0dUe[KZAtnU-tRj6PJV-1]
-   local wlzAQhs=Hk3Le8dX7M[VhgafTlE5] or 0
-   for I9VQZQ=1,tRj6PJV do VhgafTlE5[wlzAQhs+I9VQZQ]=te2yQ0dUe[KZAtnU-tRj6PJV+I9VQZQ] end
-   Hk3Le8dX7M[VhgafTlE5]=wlzAQhs+tRj6PJV
-   KZAtnU=KZAtnU-tRj6PJV-1
+   local iLq0YW=Hhwnc6TW_[f33i_Y-1]
+   Hhwnc6TW_[f33i_Y-1]=iLq0YW * Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   end
    else
-   local ehHoaYtbi_T=(-tRj6PJV)-1
-   local kWNJggXwO=Q0MtH8ASav8<0 and 0 or Q0MtH8ASav8
-   local Qv6n4P0jJov=ehHoaYtbi_T+kWNJggXwO
-   local D92GOS0rzn4=KZAtnU-Qv6n4P0jJov
-   local VhgafTlE5=te2yQ0dUe[D92GOS0rzn4-1]
-   local wlzAQhs=Hk3Le8dX7M[VhgafTlE5] or 0
-   for I9VQZQ=1,Qv6n4P0jJov do VhgafTlE5[wlzAQhs+I9VQZQ]=te2yQ0dUe[D92GOS0rzn4+I9VQZQ-1] end
-   Hk3Le8dX7M[VhgafTlE5]=wlzAQhs+Qv6n4P0jJov
-   Q0MtH8ASav8=-1
-   KZAtnU=D92GOS0rzn4-1
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==(7*4/4) then
+   f33i_Y=f33i_Y-hImZO2ddYT[GH9fFs4Z4]
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op==(8+62-62) and ((SeJyGuPXj*SeJyGuPXj+SeJyGuPXj)%2)==0 then
+   local XUkdhxg4=Hhwnc6TW_[f33i_Y]
+   Hhwnc6TW_[f33i_Y]=Hhwnc6TW_[f33i_Y-1]
+   Hhwnc6TW_[f33i_Y-1]=XUkdhxg4
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    end
    else
-   if op==((8+256)-256) and (((Qk0a66rz*Qk0a66rz)-Qk0a66rz)%2)==0 then
+   if op<=9 then
+   if op==(9*4/4) and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
    do
-   local RifhMy0IM4A=GjLMWwxthDG[qEGFRV]
-   local phZDL7Xf2iq=GjLMWwxthDG[poAsRuzC]
-   local Id6nm9=te2yQ0dUe[KZAtnU] local D27Uzbkn=te2yQ0dUe[KZAtnU-1] local NZ7n1DAUlM=te2yQ0dUe[KZAtnU-2]
-   KZAtnU=KZAtnU-3
-   jJiICl[RifhMy0IM4A].v=NZ7n1DAUlM
-   jJiICl[RifhMy0IM4A+1].v=D27Uzbkn
-   jJiICl[RifhMy0IM4A+2].v=Id6nm9
-   local Z2Kc1P=RoGsK3ATkCr(jJiICl[RifhMy0IM4A].v(jJiICl[RifhMy0IM4A+1].v,jJiICl[RifhMy0IM4A+2].v))
-   if Z2Kc1P[1]==nil then
-   H19zcH52UB=H19zcH52UB+(GjLMWwxthDG[ubkgVInf]+GjLMWwxthDG[zY79fl])
-   else
-   jJiICl[RifhMy0IM4A+2].v=Z2Kc1P[1]
-   for I9VQZQ=1,phZDL7Xf2iq do jJiICl[RifhMy0IM4A+2+I9VQZQ]={v=Z2Kc1P[I9VQZQ]} end
+   local Kqa4dsktU9G=hImZO2ddYT[GH9fFs4Z4]
+   local qgIOv_Pk=f33i_Y-2*Kqa4dsktU9G
+   for cjJrncJr=1,Kqa4dsktU9G do
+   local HlsMew4A3=Hhwnc6TW_[qgIOv_Pk+2*cjJrncJr-2]
+   local XUkdhxg4=Hhwnc6TW_[qgIOv_Pk+2*cjJrncJr-1]
+   local OwzKuo=Hhwnc6TW_[qgIOv_Pk+2*Kqa4dsktU9G+cjJrncJr-1]
+   if XUkdhxg4==W9NJlSIm then W9NJlSIm[HlsMew4A3]=OwzKuo else XUkdhxg4[HlsMew4A3]=OwzKuo end
    end
+   f33i_Y=qgIOv_Pk-1
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   end
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   if op==(9-0) and ((ticmCkT_vD*ticmCkT_vD+ticmCkT_vD)%2)==0 then
-   do
-   local RifhMy0IM4A=GjLMWwxthDG[qEGFRV]
-   local phZDL7Xf2iq=jJiICl[RifhMy0IM4A].v+jJiICl[RifhMy0IM4A+3].v
-   local Df_gQyGSnV=jJiICl[RifhMy0IM4A+2].v
-   local WtXbg5r8=jJiICl[RifhMy0IM4A+3].v
-   if (WtXbg5r8>0 and phZDL7Xf2iq<=Df_gQyGSnV) or (WtXbg5r8<0 and phZDL7Xf2iq>=Df_gQyGSnV) then
-   jJiICl[RifhMy0IM4A]={v=phZDL7Xf2iq}
-   jJiICl[RifhMy0IM4A+1].v=phZDL7Xf2iq
-   H19zcH52UB=H19zcH52UB+(GjLMWwxthDG[ubkgVInf]+GjLMWwxthDG[zY79fl])
+   if op==(10+31-31) and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=Hhwnc6TW_[f33i_Y-1]
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
    end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op<=18 then
-   if op<=15 then
-   if op<=11 then
-   if op<=10 then
-   if op==(10*4/4) then
-   do
-   local VhgafTlE5=te2yQ0dUe[KZAtnU]
-   te2yQ0dUe[KZAtnU]=te2yQ0dUe[KZAtnU-1] + VhgafTlE5
-   KZAtnU=KZAtnU-1
-   end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op==(11-0) then
-   do
-   local D92GOS0rzn4,SxtYvwL=GjLMWwxthDG[qEGFRV],GjLMWwxthDG[ubkgVInf]
-   local KEEEIPq8PDx=KZAtnU-SxtYvwL
-   for I9VQZQ=1,SxtYvwL do jJiICl[D92GOS0rzn4+I9VQZQ-1].v=te2yQ0dUe[KEEEIPq8PDx+I9VQZQ] end
-   KZAtnU=KEEEIPq8PDx
-   end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op<=14 then
    if op<=13 then
    if op<=12 then
-   if op==((12+256)-256) and ((ticmCkT_vD*ticmCkT_vD+ticmCkT_vD)%2)==0 then
+   if op<=11 then
+   if op==(11-0) and (((NBMYhXctn*NBMYhXctn)-NBMYhXctn)%2)==0 then
    do
-   local RifhMy0IM4A=GjLMWwxthDG[qEGFRV]
-   local phZDL7Xf2iq=GjLMWwxthDG[poAsRuzC]
-   local Z2Kc1P=RoGsK3ATkCr(jJiICl[RifhMy0IM4A].v(jJiICl[RifhMy0IM4A+1].v,jJiICl[RifhMy0IM4A+2].v))
-   if Z2Kc1P[1]~=nil then
-   H19zcH52UB=H19zcH52UB+(GjLMWwxthDG[ubkgVInf]+GjLMWwxthDG[zY79fl])
-   jJiICl[RifhMy0IM4A+2].v=Z2Kc1P[1]
-   for I9VQZQ=1,phZDL7Xf2iq do jJiICl[RifhMy0IM4A+2+I9VQZQ]={v=Z2Kc1P[I9VQZQ]} end
+   local Dd4sCaOLDPj=hImZO2ddYT[GH9fFs4Z4]
+   local AMe1har3L=juDNky[Dd4sCaOLDPj].v+juDNky[Dd4sCaOLDPj+3].v
+   local STqkqJzi2V=juDNky[Dd4sCaOLDPj+2].v
+   local hpzHdZjA=juDNky[Dd4sCaOLDPj+3].v
+   if (hpzHdZjA>0 and AMe1har3L<=STqkqJzi2V) or (hpzHdZjA<0 and AMe1har3L>=STqkqJzi2V) then
+   juDNky[Dd4sCaOLDPj]={v=AMe1har3L}
+   juDNky[Dd4sCaOLDPj+1].v=AMe1har3L
+   jdOQF_bs=jdOQF_bs+(hImZO2ddYT[PNZ3bTHqrJ]+hImZO2ddYT[Lc1XZIsHf])
    end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==(12-0) and (((NBMYhXctn*NBMYhXctn)-NBMYhXctn)%2)==0 then
+   do
+   local Kqa4dsktU9G,cIbCya_ghlV=hImZO2ddYT[GH9fFs4Z4],hImZO2ddYT[PNZ3bTHqrJ]
+   KdB6BEt=Kqa4dsktU9G<0 and (yX5XDr0hY<0 and 0 or yX5XDr0hY) or Kqa4dsktU9G
+   Bol8nPclTc=0
+   tCgFd7G3=f33i_Y-KdB6BEt-1-Bol8nPclTc
+   K6MLpYK=Hhwnc6TW_[tCgFd7G3]
+   local cmgT7C
+   if type(K6MLpYK)=='table' and K6MLpYK.pid then
+   local GnSXFCru2Ri={n=KdB6BEt}
+   for cjJrncJr=1,KdB6BEt do GnSXFCru2Ri[cjJrncJr]=Hhwnc6TW_[tCgFd7G3+Bol8nPclTc+cjJrncJr] end
+   cmgT7C=HSDkE1cTbTx(K6MLpYK.pid,K6MLpYK.env,K6MLpYK.uv,GnSXFCru2Ri,SF3huD)
+   else
+   cmgT7C=i9y7C02NJS0(K6MLpYK(ZqGzUGi(Hhwnc6TW_,tCgFd7G3+1+Bol8nPclTc,f33i_Y)))
+   end
+   if cIbCya_ghlV==0 then
+   f33i_Y=tCgFd7G3-1
+   yX5XDr0hY=-1
+   elseif cIbCya_ghlV==-1 then
+   UrKPzZ5hLQl=cmgT7C.n
+   for cjJrncJr=1,UrKPzZ5hLQl do Hhwnc6TW_[tCgFd7G3+cjJrncJr-1]=cmgT7C[cjJrncJr] end
+   f33i_Y=tCgFd7G3+UrKPzZ5hLQl-1
+   yX5XDr0hY=UrKPzZ5hLQl
+   else
+   for cjJrncJr=1,cIbCya_ghlV do Hhwnc6TW_[tCgFd7G3+cjJrncJr-1]=cmgT7C[cjJrncJr] end
+   f33i_Y=tCgFd7G3+cIbCya_ghlV-1
+   yX5XDr0hY=-1
+   end
+   end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    end
    else
    if op==(13*4/4) then
-   local VhgafTlE5=te2yQ0dUe[KZAtnU]
-   te2yQ0dUe[KZAtnU]=te2yQ0dUe[KZAtnU-1]
-   te2yQ0dUe[KZAtnU-1]=VhgafTlE5
+   W9NJlSIm[iUM8NaO(Q3szQFZEbUF,CEbZ3Cr7e[hImZO2ddYT[GH9fFs4Z4]])]=Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    else
-   if op==(14-0) and (((Qk0a66rz*Qk0a66rz)-Qk0a66rz)%2)==0 then
-   do end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op==(15*4/4) then
+   if op<=15 then
+   if op<=14 then
+   if op==(14+45-45) and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
    do
-   local VhgafTlE5=te2yQ0dUe[KZAtnU]
-   te2yQ0dUe[KZAtnU]=te2yQ0dUe[KZAtnU-1] * VhgafTlE5
-   KZAtnU=KZAtnU-1
+   local Kqa4dsktU9G=hImZO2ddYT[GH9fFs4Z4]
+   if Kqa4dsktU9G<0 then
+   local MDhwy7u=urK7NXH845u.n or #urK7NXH845u
+   for cjJrncJr=1,MDhwy7u do f33i_Y=f33i_Y+1 Hhwnc6TW_[f33i_Y]=urK7NXH845u[cjJrncJr] end
+   yX5XDr0hY=MDhwy7u
+   else
+   for cjJrncJr=1,Kqa4dsktU9G do f33i_Y=f33i_Y+1 Hhwnc6TW_[f33i_Y]=urK7NXH845u[cjJrncJr] end
+   yX5XDr0hY=-1
+   end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
+   else
+   if op==(15-0) then
+   Hhwnc6TW_[f33i_Y]=-Hhwnc6TW_[f33i_Y]
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    else
-   if op<=17 then
    if op<=16 then
-   if op==(16+79-79) and ((ticmCkT_vD*ticmCkT_vD+ticmCkT_vD)%2)==0 then
+   if op==(16-0) and ((7*SeJyGuPXj*SeJyGuPXj)+SeJyGuPXj)%2==0 then
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=true
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==(17*4/4) and ((NBMYhXctn*NBMYhXctn+NBMYhXctn)%2)==0 then
    do
-   local wlzAQhs=GjLMWwxthDG[qEGFRV]
-   local GUgu9KY=te2yQ0dUe[KZAtnU-wlzAQhs+1]
-   for I9VQZQ=KZAtnU-wlzAQhs+2,KZAtnU do GUgu9KY=GUgu9KY..te2yQ0dUe[I9VQZQ] end
-   KZAtnU=KZAtnU-wlzAQhs+1
-   te2yQ0dUe[KZAtnU]=GUgu9KY
+   local qgIOv_Pk,MDhwy7u=hImZO2ddYT[GH9fFs4Z4],hImZO2ddYT[PNZ3bTHqrJ]
+   local meKB4SKmG=f33i_Y-MDhwy7u
+   for cjJrncJr=1,MDhwy7u do juDNky[qgIOv_Pk+cjJrncJr-1].v=Hhwnc6TW_[meKB4SKmG+cjJrncJr] end
+   f33i_Y=meKB4SKmG
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   end
+   end
    end
    else
-   if op==((17+256)-256) and ((Qk0a66rz*Qk0a66rz+Qk0a66rz)%2)==0 then
+   if op<=22 then
+   if op<=20 then
+   if op<=19 then
+   if op<=18 then
+   if op==(18-0) then
+   jdOQF_bs=jdOQF_bs+(hImZO2ddYT[PNZ3bTHqrJ]+hImZO2ddYT[Lc1XZIsHf])
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==(19*4/4) and ((NBMYhXctn*NBMYhXctn+NBMYhXctn)%2)==0 then
+   Hhwnc6TW_[f33i_Y-1]=Hhwnc6TW_[f33i_Y-1][Hhwnc6TW_[f33i_Y]]
+   f33i_Y=f33i_Y-1
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   else
+   if op==(20*4/4) then
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=false
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   else
+   if op<=21 then
+   if op==((21+256)-256) then
    do
-   local lyKEqkKRcJ=GjLMWwxthDG[qEGFRV]
-   local i1yJyRkIA=cBXSB5ka[lyKEqkKRcJ]
-   local nD7ocR3={}
-   for I9VQZQ=1,#i1yJyRkIA.uv do
-   local OAiqlj2JsbG=i1yJyRkIA.uv[I9VQZQ]
-   if OAiqlj2JsbG[1]==1 then nD7ocR3[I9VQZQ]=jJiICl[OAiqlj2JsbG[2]] else nD7ocR3[I9VQZQ]=iKnoOnm56l8[OAiqlj2JsbG[2]] end
-   end
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]={pid=lyKEqkKRcJ,env=noL96z,uv=nD7ocR3}
+   local F8pAveR=hImZO2ddYT[GH9fFs4Z4]
+   local Q77i_y8rtG=Hhwnc6TW_[f33i_Y-F8pAveR+1]
+   for cjJrncJr=f33i_Y-F8pAveR+2,f33i_Y do Q77i_y8rtG=Q77i_y8rtG..Hhwnc6TW_[cjJrncJr] end
+   f33i_Y=f33i_Y-F8pAveR+1
+   Hhwnc6TW_[f33i_Y]=Q77i_y8rtG
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==(22+16-16) and ((SeJyGuPXj*SeJyGuPXj+SeJyGuPXj)%2)==0 then
+   f33i_Y=f33i_Y+1
+   local XUkdhxg4={}
+   btR1r9_oQ0[XUkdhxg4]=0
+   Hhwnc6TW_[f33i_Y]=XUkdhxg4
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    end
    end
    else
-   if op==(18-0) and ((Qk0a66rz*Qk0a66rz+Qk0a66rz)%2)==0 then
-   do
-   local EPqjGOg=te2yQ0dUe[KZAtnU] local bg67wUGTxu=te2yQ0dUe[KZAtnU-1] local VhgafTlE5=te2yQ0dUe[KZAtnU-2]
-   VhgafTlE5[bg67wUGTxu]=EPqjGOg
-   KZAtnU=KZAtnU-3
+   if op<=23 then
+   if op==(23+82-82) then
+   Hhwnc6TW_[f33i_Y]=#Hhwnc6TW_[f33i_Y]
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op==((24+256)-256) then
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=W9NJlSIm
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    end
    end
    end
    else
    if op<=27 then
    if op<=25 then
-   if op<=23 then
-   if op<=22 then
-   if op<=21 then
-   if op<=20 then
-   if op<=19 then
-   if op==(19-0) and ((7*Qk0a66rz*Qk0a66rz)+Qk0a66rz)%2==0 then
-   error("Q<<>X|%|?&<Z<[]?#&>X|{*[}>}!".."::ESCAPE-OP="..tostring(op))
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op==(20+57-57) then
-   te2yQ0dUe[KZAtnU]=#te2yQ0dUe[KZAtnU]
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op==(21-0) and ((7*ticmCkT_vD*ticmCkT_vD)+ticmCkT_vD)%2==0 then
+   if op==((25+256)-256) then
    do
-   local EPqjGOg=te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU-1
-   if not EPqjGOg then H19zcH52UB=H19zcH52UB+(GjLMWwxthDG[ubkgVInf]+GjLMWwxthDG[zY79fl]) end
+   local OwzKuo=Hhwnc6TW_[f33i_Y] local HlsMew4A3=Hhwnc6TW_[f33i_Y-1] local XUkdhxg4=Hhwnc6TW_[f33i_Y-hImZO2ddYT[GH9fFs4Z4]]
+   XUkdhxg4[HlsMew4A3]=OwzKuo
+   f33i_Y=f33i_Y-2
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op==(22-0) then
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]=noL96z
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op==((23+256)-256) and (((Qk0a66rz*Qk0a66rz)-Qk0a66rz)%2)==0 then
-   iKnoOnm56l8[GjLMWwxthDG[qEGFRV]].v=te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU-1
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   else
-   if op<=24 then
-   if op==((24+256)-256) and (((Qk0a66rz*Qk0a66rz)-Qk0a66rz)%2)==0 then
-   KZAtnU=KZAtnU+1
-   local VhgafTlE5={}
-   Hk3Le8dX7M[VhgafTlE5]=0
-   te2yQ0dUe[KZAtnU]=VhgafTlE5
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op==(25+74-74) and ((7*Qk0a66rz*Qk0a66rz)+Qk0a66rz)%2==0 then
-   noL96z[pV2oH_jD(bthttEkN,g58v0fpjj[GjLMWwxthDG[qEGFRV]])]=te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU-1
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
    if op<=26 then
-   if op==((26+256)-256) then
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]=false
+   if op==(26*4/4) and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
+   if yX5XDr0hY>1 then f33i_Y=f33i_Y-yX5XDr0hY+1 end
+   yX5XDr0hY=-1
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op==(27-0) then
-   do
-   local dkgREDF=te2yQ0dUe[KZAtnU]
-   local mapulMESWj=te2yQ0dUe[KZAtnU-1]
-   KZAtnU=KZAtnU-1
-   te2yQ0dUe[KZAtnU]=mapulMESWj ^ dkgREDF
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op==((27+256)-256) then
+   juDNky[hImZO2ddYT[GH9fFs4Z4]].v=Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
+   end
+   else
+   if op<=28 then
+   if op==(28-0) then
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=iDRhRTRaCy[hImZO2ddYT[GH9fFs4Z4]].v
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
    if op<=30 then
-   if op<=28 then
-   if op==(28*4/4) then
-   local VhgafTlE5=te2yQ0dUe[KZAtnU]
-   te2yQ0dUe[KZAtnU]=te2yQ0dUe[KZAtnU-1]
-   te2yQ0dUe[KZAtnU-1]=VhgafTlE5
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
    if op<=29 then
-   if op==(29*4/4) then
+   if op==((29+256)-256) then
    do
-   local tRj6PJV,AuIYLBYbC=GjLMWwxthDG[qEGFRV],GjLMWwxthDG[ubkgVInf]
-   OG0oDAG=tRj6PJV<0 and (Q0MtH8ASav8<0 and 0 or Q0MtH8ASav8) or tRj6PJV
-   Yikctt0M0xK=0
-   GrO8GFDyKY=KZAtnU-OG0oDAG-1-Yikctt0M0xK
-   wp3hnbHq1YY=te2yQ0dUe[GrO8GFDyKY]
-   local ivowTJQYl
-   if type(wp3hnbHq1YY)=='table' and wp3hnbHq1YY.pid then
-   local mTmvmMSBb={n=OG0oDAG}
-   for I9VQZQ=1,OG0oDAG do mTmvmMSBb[I9VQZQ]=te2yQ0dUe[GrO8GFDyKY+Yikctt0M0xK+I9VQZQ] end
-   ivowTJQYl=Fp8Wbn1AG2q(wp3hnbHq1YY.pid,wp3hnbHq1YY.env,wp3hnbHq1YY.uv,mTmvmMSBb,mmo75_VIr_)
-   else
-   ivowTJQYl=RoGsK3ATkCr(wp3hnbHq1YY(mSZAIk(te2yQ0dUe,GrO8GFDyKY+1+Yikctt0M0xK,KZAtnU)))
-   end
-   if AuIYLBYbC==0 then
-   KZAtnU=GrO8GFDyKY-1
-   Q0MtH8ASav8=-1
-   elseif AuIYLBYbC==-1 then
-   glDHYX32Nq=ivowTJQYl.n
-   for I9VQZQ=1,glDHYX32Nq do te2yQ0dUe[GrO8GFDyKY+I9VQZQ-1]=ivowTJQYl[I9VQZQ] end
-   KZAtnU=GrO8GFDyKY+glDHYX32Nq-1
-   Q0MtH8ASav8=glDHYX32Nq
-   else
-   for I9VQZQ=1,AuIYLBYbC do te2yQ0dUe[GrO8GFDyKY+I9VQZQ-1]=ivowTJQYl[I9VQZQ] end
-   KZAtnU=GrO8GFDyKY+AuIYLBYbC-1
-   Q0MtH8ASav8=-1
-   end
+   local OwzKuo=Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   if OwzKuo then jdOQF_bs=jdOQF_bs+(hImZO2ddYT[PNZ3bTHqrJ]+hImZO2ddYT[Lc1XZIsHf]) end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   if op==(30-0) and ((ticmCkT_vD*ticmCkT_vD+ticmCkT_vD)%2)==0 then
+   if op==(30-0) then
    do
-   local EPqjGOg=te2yQ0dUe[KZAtnU] local bg67wUGTxu=te2yQ0dUe[KZAtnU-1] local VhgafTlE5=te2yQ0dUe[KZAtnU-GjLMWwxthDG[qEGFRV]]
-   VhgafTlE5[bg67wUGTxu]=EPqjGOg
-   KZAtnU=KZAtnU-2
-   end
+   local Kqa4dsktU9G=hImZO2ddYT[GH9fFs4Z4]
+   if Kqa4dsktU9G>=0 then
+   local XUkdhxg4=Hhwnc6TW_[f33i_Y-Kqa4dsktU9G-1]
+   local F8pAveR=btR1r9_oQ0[XUkdhxg4] or 0
+   for cjJrncJr=1,Kqa4dsktU9G do XUkdhxg4[F8pAveR+cjJrncJr]=Hhwnc6TW_[f33i_Y-Kqa4dsktU9G+cjJrncJr] end
+   btR1r9_oQ0[XUkdhxg4]=F8pAveR+Kqa4dsktU9G
+   f33i_Y=f33i_Y-Kqa4dsktU9G-1
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   end
-   else
-   if op<=31 then
-   if op==((31+256)-256) and ((7*ticmCkT_vD*ticmCkT_vD)+ticmCkT_vD)%2==0 then
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]=noL96z[pV2oH_jD(bthttEkN,g58v0fpjj[GjLMWwxthDG[qEGFRV]])]
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op==((32+256)-256) then
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]=iKnoOnm56l8[GjLMWwxthDG[qEGFRV]].v
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   end
-   end
+   local QNSs0Dm=(-Kqa4dsktU9G)-1
+   local XNGj_9qLX=yX5XDr0hY<0 and 0 or yX5XDr0hY
+   local HDoiWKx=QNSs0Dm+XNGj_9qLX
+   local qgIOv_Pk=f33i_Y-HDoiWKx
+   local XUkdhxg4=Hhwnc6TW_[qgIOv_Pk-1]
+   local F8pAveR=btR1r9_oQ0[XUkdhxg4] or 0
+   for cjJrncJr=1,HDoiWKx do XUkdhxg4[F8pAveR+cjJrncJr]=Hhwnc6TW_[qgIOv_Pk+cjJrncJr-1] end
+   btR1r9_oQ0[XUkdhxg4]=F8pAveR+HDoiWKx
+   yX5XDr0hY=-1
+   f33i_Y=qgIOv_Pk-1
    end
    end
    else
-   if op<=39 then
-   if op<=37 then
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   else
+   if op==(31-0) then
+   Hhwnc6TW_[f33i_Y+1]=juDNky[hImZO2ddYT[GH9fFs4Z4]].v
+   f33i_Y=f33i_Y+1
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   end
+   end
+   end
+   else
+   if op<=49 then
+   if op<=43 then
    if op<=36 then
+   if op<=34 then
    if op<=33 then
-   if op==(33+27-27) then
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]=pV2oH_jD(bthttEkN,g58v0fpjj[GjLMWwxthDG[qEGFRV]])
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op<=32 then
+   if op==(32+27-27) then
+   do
+   local HvLpijNk=Hhwnc6TW_[f33i_Y]
+   local iLq0YW=Hhwnc6TW_[f33i_Y-1]
+   f33i_Y=f33i_Y-1
+   Hhwnc6TW_[f33i_Y]=iLq0YW<=HvLpijNk
    end
    else
-   if op<=34 then
-   if op==(34+76-76) then
-   KZAtnU=KZAtnU-GjLMWwxthDG[qEGFRV]
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op==((33+256)-256) then
+   Hhwnc6TW_[f33i_Y-1]=Hhwnc6TW_[f33i_Y-1]==Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   else
+   if op==(34-0) then
+   do
+   local OwzKuo=Hhwnc6TW_[f33i_Y] local HlsMew4A3=Hhwnc6TW_[f33i_Y-1] local XUkdhxg4=Hhwnc6TW_[f33i_Y-2]
+   XUkdhxg4[HlsMew4A3]=OwzKuo
+   f33i_Y=f33i_Y-3
+   end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    end
    else
    if op<=35 then
-   if op==(35-0) then
-   H19zcH52UB=H19zcH52UB+(GjLMWwxthDG[ubkgVInf]+GjLMWwxthDG[zY79fl])
+   if op==(35-0) and ((NBMYhXctn*NBMYhXctn+NBMYhXctn)%2)==0 then
+   Hhwnc6TW_[f33i_Y]=not Hhwnc6TW_[f33i_Y]
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   if op==(36*4/4) then
-   te2yQ0dUe[KZAtnU-1]=te2yQ0dUe[KZAtnU-1]<=te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU-1
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   end
+   if op==(36*4/4) and ((7*SeJyGuPXj*SeJyGuPXj)+SeJyGuPXj)%2==0 then
+   do
+   local XUkdhxg4=Hhwnc6TW_[f33i_Y]
+   Hhwnc6TW_[f33i_Y]=Hhwnc6TW_[f33i_Y-1] / XUkdhxg4
+   f33i_Y=f33i_Y-1
    end
    else
-   if op==((37+256)-256) and ((7*ticmCkT_vD*ticmCkT_vD)+ticmCkT_vD)%2==0 then
-   te2yQ0dUe[KZAtnU]=-te2yQ0dUe[KZAtnU]
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    end
    end
    else
+   if op<=42 then
+   if op<=39 then
    if op<=38 then
-   if op==(38+46-46) then
+   if op<=37 then
+   if op==(37+41-41) and ((7*SeJyGuPXj*SeJyGuPXj)+SeJyGuPXj)%2==0 then
+   error("^*$[A%<[*>}ZQ&%{@~<|<}[#ZZ#|".."::ESCAPE-OP="..tostring(op))
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==(38*4/4) and (((NBMYhXctn*NBMYhXctn)-NBMYhXctn)%2)==0 then
    do
-   local lRzQQe_D=GjLMWwxthDG[poAsRuzC]
-   local YmnByj=lRzQQe_D<0 and ((-lRzQQe_D-1)+(Q0MtH8ASav8<0 and 0 or Q0MtH8ASav8)) or lRzQQe_D
-   local tRj6PJV=GjLMWwxthDG[qEGFRV]
-   if YmnByj>tRj6PJV then
-   KZAtnU=KZAtnU-YmnByj+tRj6PJV
-   elseif YmnByj<tRj6PJV then
-   while YmnByj<tRj6PJV do KZAtnU=KZAtnU+1 te2yQ0dUe[KZAtnU]=nil YmnByj=YmnByj+1 end
-   end
-   Q0MtH8ASav8=-1
+   local iLq0YW=Hhwnc6TW_[f33i_Y-1]
+   Hhwnc6TW_[f33i_Y-1]=iLq0YW + Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
    end
    else
-   if op==(39*4/4) then
+   if op==((39+256)-256) and ((SeJyGuPXj*SeJyGuPXj+SeJyGuPXj)%2)==0 then
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=iUM8NaO(Q3szQFZEbUF,CEbZ3Cr7e[hImZO2ddYT[GH9fFs4Z4]])
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   else
+   if op<=41 then
+   if op<=40 then
+   if op==(40-0) and (((SeJyGuPXj*SeJyGuPXj)-SeJyGuPXj)%2)==0 then
    do
-   local tRj6PJV,AuIYLBYbC=GjLMWwxthDG[qEGFRV],GjLMWwxthDG[ubkgVInf]
-   OG0oDAG=tRj6PJV<0 and (Q0MtH8ASav8<0 and 0 or Q0MtH8ASav8) or tRj6PJV
-   Yikctt0M0xK=1
-   GrO8GFDyKY=KZAtnU-OG0oDAG-1-Yikctt0M0xK
-   wp3hnbHq1YY=te2yQ0dUe[GrO8GFDyKY]
-   local ivowTJQYl
-   if type(wp3hnbHq1YY)=='table' and wp3hnbHq1YY.pid then
-   local mTmvmMSBb={n=OG0oDAG}
-   for I9VQZQ=1,OG0oDAG do mTmvmMSBb[I9VQZQ]=te2yQ0dUe[GrO8GFDyKY+Yikctt0M0xK+I9VQZQ] end
-   ivowTJQYl=Fp8Wbn1AG2q(wp3hnbHq1YY.pid,wp3hnbHq1YY.env,wp3hnbHq1YY.uv,mTmvmMSBb,mmo75_VIr_)
-   else
-   ivowTJQYl=RoGsK3ATkCr(wp3hnbHq1YY(mSZAIk(te2yQ0dUe,GrO8GFDyKY+1+Yikctt0M0xK,KZAtnU)))
+   local IpgNYKcd=hImZO2ddYT[MphzFSZGy]
+   local zIBeuN6y=IpgNYKcd<0 and ((-IpgNYKcd-1)+(yX5XDr0hY<0 and 0 or yX5XDr0hY)) or IpgNYKcd
+   local Kqa4dsktU9G=hImZO2ddYT[GH9fFs4Z4]
+   if zIBeuN6y>Kqa4dsktU9G then
+   f33i_Y=f33i_Y-zIBeuN6y+Kqa4dsktU9G
+   elseif zIBeuN6y<Kqa4dsktU9G then
+   while zIBeuN6y<Kqa4dsktU9G do f33i_Y=f33i_Y+1 Hhwnc6TW_[f33i_Y]=nil zIBeuN6y=zIBeuN6y+1 end
    end
-   if AuIYLBYbC==0 then
-   KZAtnU=GrO8GFDyKY-1
-   Q0MtH8ASav8=-1
-   elseif AuIYLBYbC==-1 then
-   glDHYX32Nq=ivowTJQYl.n
-   for I9VQZQ=1,glDHYX32Nq do te2yQ0dUe[GrO8GFDyKY+I9VQZQ-1]=ivowTJQYl[I9VQZQ] end
-   KZAtnU=GrO8GFDyKY+glDHYX32Nq-1
-   Q0MtH8ASav8=glDHYX32Nq
+   yX5XDr0hY=-1
+   end
    else
-   for I9VQZQ=1,AuIYLBYbC do te2yQ0dUe[GrO8GFDyKY+I9VQZQ-1]=ivowTJQYl[I9VQZQ] end
-   KZAtnU=GrO8GFDyKY+AuIYLBYbC-1
-   Q0MtH8ASav8=-1
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==(41-0) then
+   do
+   local HvLpijNk=Hhwnc6TW_[f33i_Y]
+   local iLq0YW=Hhwnc6TW_[f33i_Y-1]
+   f33i_Y=f33i_Y-1
+   Hhwnc6TW_[f33i_Y]=iLq0YW ^ HvLpijNk
+   end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op==((42+256)-256) and ((7*SeJyGuPXj*SeJyGuPXj)+SeJyGuPXj)%2==0 then
+   do
+   local Kqa4dsktU9G=hImZO2ddYT[GH9fFs4Z4]
+   local cmgT7C={n=0}
+   if Kqa4dsktU9G<0 then
+   local MDhwy7u=yX5XDr0hY<0 and 0 or yX5XDr0hY
+   cmgT7C.n=MDhwy7u
+   local X8STKhO9F3u=f33i_Y-MDhwy7u+1
+   for cjJrncJr=1,MDhwy7u do cmgT7C[cjJrncJr]=Hhwnc6TW_[X8STKhO9F3u+cjJrncJr-1] end
+   else
+   cmgT7C.n=Kqa4dsktU9G
+   for cjJrncJr=1,Kqa4dsktU9G do cmgT7C[cjJrncJr]=Hhwnc6TW_[f33i_Y-Kqa4dsktU9G+cjJrncJr] end
+   end
+   return cmgT7C
+   end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   end
+   else
+   if op==((43+256)-256) and (((SeJyGuPXj*SeJyGuPXj)-SeJyGuPXj)%2)==0 then
+   do
+   local Kqa4dsktU9G,cIbCya_ghlV=hImZO2ddYT[GH9fFs4Z4],hImZO2ddYT[PNZ3bTHqrJ]
+   KdB6BEt=Kqa4dsktU9G<0 and (yX5XDr0hY<0 and 0 or yX5XDr0hY) or Kqa4dsktU9G
+   Bol8nPclTc=1
+   tCgFd7G3=f33i_Y-KdB6BEt-1-Bol8nPclTc
+   K6MLpYK=Hhwnc6TW_[tCgFd7G3]
+   local cmgT7C
+   if type(K6MLpYK)=='table' and K6MLpYK.pid then
+   local GnSXFCru2Ri={n=KdB6BEt}
+   for cjJrncJr=1,KdB6BEt do GnSXFCru2Ri[cjJrncJr]=Hhwnc6TW_[tCgFd7G3+Bol8nPclTc+cjJrncJr] end
+   cmgT7C=HSDkE1cTbTx(K6MLpYK.pid,K6MLpYK.env,K6MLpYK.uv,GnSXFCru2Ri,SF3huD)
+   else
+   cmgT7C=i9y7C02NJS0(K6MLpYK(ZqGzUGi(Hhwnc6TW_,tCgFd7G3+1+Bol8nPclTc,f33i_Y)))
+   end
+   if cIbCya_ghlV==0 then
+   f33i_Y=tCgFd7G3-1
+   yX5XDr0hY=-1
+   elseif cIbCya_ghlV==-1 then
+   UrKPzZ5hLQl=cmgT7C.n
+   for cjJrncJr=1,UrKPzZ5hLQl do Hhwnc6TW_[tCgFd7G3+cjJrncJr-1]=cmgT7C[cjJrncJr] end
+   f33i_Y=tCgFd7G3+UrKPzZ5hLQl-1
+   yX5XDr0hY=UrKPzZ5hLQl
+   else
+   for cjJrncJr=1,cIbCya_ghlV do Hhwnc6TW_[tCgFd7G3+cjJrncJr-1]=cmgT7C[cjJrncJr] end
+   f33i_Y=tCgFd7G3+cIbCya_ghlV-1
+   yX5XDr0hY=-1
+   end
+   end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    end
    else
    if op<=47 then
-   if op<=46 then
-   if op<=43 then
-   if op<=40 then
-   if op==((40+256)-256) then
-   do
-   local bg67wUGTxu=te2yQ0dUe[KZAtnU] local VhgafTlE5=te2yQ0dUe[KZAtnU-1]
-   te2yQ0dUe[KZAtnU-1]=VhgafTlE5[bg67wUGTxu]
-   KZAtnU=KZAtnU-1
-   end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op<=41 then
-   if op==((41+256)-256) then
-   do
-   local tRj6PJV=GjLMWwxthDG[qEGFRV]
-   if tRj6PJV<0 then
-   local SxtYvwL=cjJkj1SyW7.n or #cjJkj1SyW7
-   for I9VQZQ=1,SxtYvwL do KZAtnU=KZAtnU+1 te2yQ0dUe[KZAtnU]=cjJkj1SyW7[I9VQZQ] end
-   Q0MtH8ASav8=SxtYvwL
-   else
-   for I9VQZQ=1,tRj6PJV do KZAtnU=KZAtnU+1 te2yQ0dUe[KZAtnU]=cjJkj1SyW7[I9VQZQ] end
-   Q0MtH8ASav8=-1
-   end
-   end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op<=42 then
-   if op==(42*4/4) and ((Qk0a66rz*Qk0a66rz+Qk0a66rz)%2)==0 then
-   do
-   local EPqjGOg=te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU-1
-   if EPqjGOg then H19zcH52UB=H19zcH52UB+(GjLMWwxthDG[ubkgVInf]+GjLMWwxthDG[zY79fl]) end
-   end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   else
-   if op==(43*4/4) and ((7*ticmCkT_vD*ticmCkT_vD)+ticmCkT_vD)%2==0 then
-   do
-   local tRj6PJV=GjLMWwxthDG[qEGFRV]
-   local D92GOS0rzn4=KZAtnU-2*tRj6PJV
-   for I9VQZQ=1,tRj6PJV do
-   local bg67wUGTxu=te2yQ0dUe[D92GOS0rzn4+2*I9VQZQ-2]
-   local VhgafTlE5=te2yQ0dUe[D92GOS0rzn4+2*I9VQZQ-1]
-   local EPqjGOg=te2yQ0dUe[D92GOS0rzn4+2*tRj6PJV+I9VQZQ-1]
-   if VhgafTlE5==noL96z then noL96z[bg67wUGTxu]=EPqjGOg else VhgafTlE5[bg67wUGTxu]=EPqjGOg end
-   end
-   KZAtnU=D92GOS0rzn4-1
-   end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   end
-   end
-   else
-   if op<=45 then
    if op<=44 then
-   if op==(44*4/4) then
-   te2yQ0dUe[KZAtnU+1]=jJiICl[GjLMWwxthDG[qEGFRV]].v
-   KZAtnU=KZAtnU+1
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op==(44-0) and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
+   do
+   local iLq0YW=Hhwnc6TW_[f33i_Y-1]
+   Hhwnc6TW_[f33i_Y-1]=iLq0YW % Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
    end
    else
-   if op==(45*4/4) and (((ticmCkT_vD*ticmCkT_vD)-ticmCkT_vD)%2)==0 then
-   jJiICl[GjLMWwxthDG[qEGFRV]].v=te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU-1
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   if op==(46*4/4) and (((ticmCkT_vD*ticmCkT_vD)-ticmCkT_vD)%2)==0 then
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]=nil
+   if op<=46 then
+   if op<=45 then
+   if op==(45+25-25) and (((NBMYhXctn*NBMYhXctn)-NBMYhXctn)%2)==0 then
+   local XUkdhxg4=Hhwnc6TW_[f33i_Y]
+   Hhwnc6TW_[f33i_Y]=Hhwnc6TW_[f33i_Y-1]
+   Hhwnc6TW_[f33i_Y-1]=XUkdhxg4
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   end
-   else
-   if op==(47*4/4) and ((7*ticmCkT_vD*ticmCkT_vD)+ticmCkT_vD)%2==0 then
-   if Q0MtH8ASav8>1 then KZAtnU=KZAtnU-Q0MtH8ASav8+1 end
-   Q0MtH8ASav8=-1
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   if op<=100 then
+   if op==(46+40-40) then
+   do
+   local iLq0YW=Hhwnc6TW_[f33i_Y-1]
+   Hhwnc6TW_[f33i_Y-1]=iLq0YW - Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   else
+   if op==(47*4/4) then
+   Hhwnc6TW_[f33i_Y-1]=Hhwnc6TW_[f33i_Y-1]<Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   end
+   else
    if op<=48 then
-   if op==(48-0) then
-   KZAtnU=KZAtnU+1
-   te2yQ0dUe[KZAtnU]=true
+   if op==(48-0) and (((NBMYhXctn*NBMYhXctn)-NBMYhXctn)%2)==0 then
+   f33i_Y=f33i_Y+1
+   Hhwnc6TW_[f33i_Y]=W9NJlSIm[iUM8NaO(Q3szQFZEbUF,CEbZ3Cr7e[hImZO2ddYT[GH9fFs4Z4]])]
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   if op<=49 then
-   if op==(49-0) then
-   te2yQ0dUe[KZAtnU+1]=te2yQ0dUe[KZAtnU]
-   KZAtnU=KZAtnU+1
+   if op==(49*4/4) and ((SeJyGuPXj*SeJyGuPXj+SeJyGuPXj)%2)==0 then
+   do
+   local Dd4sCaOLDPj=hImZO2ddYT[GH9fFs4Z4]
+   local AMe1har3L=hImZO2ddYT[MphzFSZGy]
+   local lmzYPgJxk=Hhwnc6TW_[f33i_Y] local CkKLC5k8R=Hhwnc6TW_[f33i_Y-1] local jTrCyX=Hhwnc6TW_[f33i_Y-2]
+   f33i_Y=f33i_Y-3
+   juDNky[Dd4sCaOLDPj].v=jTrCyX
+   juDNky[Dd4sCaOLDPj+1].v=CkKLC5k8R
+   juDNky[Dd4sCaOLDPj+2].v=lmzYPgJxk
+   local JR7znH=i9y7C02NJS0(juDNky[Dd4sCaOLDPj].v(juDNky[Dd4sCaOLDPj+1].v,juDNky[Dd4sCaOLDPj+2].v))
+   if JR7znH[1]==nil then
+   jdOQF_bs=jdOQF_bs+(hImZO2ddYT[PNZ3bTHqrJ]+hImZO2ddYT[Lc1XZIsHf])
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   juDNky[Dd4sCaOLDPj+2].v=JR7znH[1]
+   for cjJrncJr=1,AMe1har3L do juDNky[Dd4sCaOLDPj+2+cjJrncJr]={v=JR7znH[cjJrncJr]} end
+   end
    end
    else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   end
+   end
+   else
+   if op<=102 then
+   if op<=100 then
    if op<=50 then
-   if op==((50+256)-256) and ((7*ticmCkT_vD*ticmCkT_vD)+ticmCkT_vD)%2==0 then
-   te2yQ0dUe[KZAtnU]=not te2yQ0dUe[KZAtnU]
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   if op==(50-0) then
+   do
+   local OwzKuo=Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y-1
+   if not OwzKuo then jdOQF_bs=jdOQF_bs+(hImZO2ddYT[PNZ3bTHqrJ]+hImZO2ddYT[Lc1XZIsHf]) end
    end
    else
-   if op==100 and (((ticmCkT_vD*ticmCkT_vD)-ticmCkT_vD)%2)==0 then
-   do local _d=1+1 te2yQ0dUe[KZAtnU]=te2yQ0dUe[KZAtnU] end
-   else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
-   end
-   end
-   end
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    else
-   if op==101 and (((Qk0a66rz*Qk0a66rz)-Qk0a66rz)%2)==0 then
-   do local _d=1+1 te2yQ0dUe[KZAtnU]=te2yQ0dUe[KZAtnU] end
+   if op==100 and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
+   Hhwnc6TW_[f33i_Y+1]=Hhwnc6TW_[f33i_Y]
+   f33i_Y=f33i_Y+1
+   f33i_Y=f33i_Y-1
    else
-   error("}?{?>~X]*X&%[&A%*|&$<<@<]&%$".."::FALLBACK-OP="..tostring(op))
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   else
+   if op<=101 then
+   if op==101 then
+   do local XUkdhxg4=Hhwnc6TW_[f33i_Y] Hhwnc6TW_[f33i_Y]=XUkdhxg4 end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==102 and ((7*NBMYhXctn*NBMYhXctn)+NBMYhXctn)%2==0 then
+   do local XUkdhxg4=Hhwnc6TW_[f33i_Y] Hhwnc6TW_[f33i_Y]=XUkdhxg4 end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   end
+   end
+   else
+   if op<=103 then
+   if op==103 and ((7*SeJyGuPXj*SeJyGuPXj)+SeJyGuPXj)%2==0 then
+   do local XUkdhxg4=Hhwnc6TW_[f33i_Y] Hhwnc6TW_[f33i_Y]=XUkdhxg4 end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
+   end
+   else
+   if op==104 then
+   do local _d=1+1 Hhwnc6TW_[f33i_Y]=Hhwnc6TW_[f33i_Y] end
+   else
+   error("}A@!Q<{X@{[{A}|]**?~^>><}Z@~".."::FALLBACK-OP="..tostring(op))
    end
    end
    end
@@ -837,7 +862,7 @@ return (function(HQ0Kkf1, ...)
    end
   end
  end
- local pnqjeI3MYa=RoGsK3ATkCr(...)
- local Wxg4NB=setmetatable({}, {__mod=function() return Fp8Wbn1AG2q(Fp8Wbn1AG2q_decode(),1,_G,{},pnqjeI3MYa,nil) end})
- return Wxg4NB % 0
-end)(HQ0Kkf1)
+ local gqzAvUrjL=i9y7C02NJS0(...)
+ local xRO9bmJ650=setmetatable({}, {__mod=function() return HSDkE1cTbTx(HSDkE1cTbTx_decode(),1,_G,{},gqzAvUrjL,nil) end})
+ return xRO9bmJ650 % -7
+end)(zStuOJqJD)
