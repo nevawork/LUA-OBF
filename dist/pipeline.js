@@ -34,7 +34,8 @@ function canonicalManifestJson(v) {
         return `[${v.map(canonicalManifestJson).join(",")}]`;
     if (v && typeof v === "object") {
         const o = v;
-        return `{${Object.keys(o).sort().map((k) => `${JSON.stringify(k)}:${canonicalManifestJson(o[k])}`).join(",")}}`;
+        const keys = Object.keys(o).sort().filter((k) => o[k] !== undefined);
+        return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalManifestJson(o[k])}`).join(",")}}`;
     }
     return JSON.stringify(v);
 }
@@ -405,6 +406,10 @@ function protect(opts) {
         mbaStats: opts.mbaDatabase === true ? (0, mba_database_1.getMbaStats)() : undefined,
         factorizationEnabled: opts.factorizationKeys === true,
     };
+    if (opts.mbaDatabase !== true)
+        delete authPayload.mbaStats;
+    if (opts.factorizationKeys !== true)
+        delete authPayload.factorizationEnabled;
     const auth = (0, prng_1.hmacSha256)(nonce, Buffer.from(canonicalManifestJson(authPayload), "utf8")).toString("hex");
     const manifest = {
         format: "nevahex-manifest",

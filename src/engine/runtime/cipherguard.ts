@@ -23,6 +23,8 @@ export interface CipherGuardNames {
   /** cipher seed registers (already declared where the guard is inserted) */
   saVar: string;
   sbVar: string;
+  scVar?: string;
+  sdVar?: string;
   /** constant-decryption coupling flag (file-scope, init 0) */
   cvwVar: string;
   /** cryptic error literal */
@@ -65,6 +67,8 @@ export function emitCipherGuard(
     lines.push(
       `   ${n.saVar}=${saShift} if ${n.saVar}<1 then ${n.saVar}=${n.saVar}+${M31 - 1} end`,
       `   ${n.sbVar}=${sbShift} if ${n.sbVar}<1 then ${n.sbVar}=${n.sbVar}+${M31 - 1} end`,
+      `   ${n.scVar||"sc"}=(${n.saVar}*31+${n.sbVar})%${M31}`,
+      `   ${n.sdVar||"sd"}=(${n.sbVar}*17+${n.saVar})%${M31}`,
       `   ${n.cvwVar}=1`,
       `   _G.__CGM=1`,
     );

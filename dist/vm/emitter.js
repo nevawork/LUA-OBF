@@ -296,7 +296,7 @@ function emitRuntime(opts) {
             ` if sb<1 then sb=sb+2147483646 end`);
     }
     else {
-        body.push(`  local sa=${obf(s0, rng)} sb=${obf(s1, rng)} MM=${M31}`);
+        body.push(`  local sa=${obf(s0, rng)} sb=${obf(s1, rng)} sc=(sa*31+sb)%${M31} sd=(sb*17+sa)%${M31} MM=${M31}`);
     }
     // ---- Phase 5: ciphertext integrity guard (pre-decode) ----
     if (tier !== "off" && opts.blobSlices && opts.blobSlices.length > 0) {
@@ -332,7 +332,7 @@ function emitRuntime(opts) {
     }
     // cipher v3 core: 4-stream cross-mixed feedback. Mirror of cipher.ts.
     body.push(`  local sbyte=string.byte`);
-    body.push(`  local sc=(sa*31+sb)%MM local sd=(sb*17+sa)%MM local pv=0`);
+    body.push(`  local pv=0`);
     body.push(`  for i=1,bn do`);
     body.push(`   sa=(sa*48271)%MM sb=(sb*69621)%MM sc=(sc*2994349)%MM sd=(sd*4050403)%MM`);
     body.push(`   sb=(sb+pv)%MM sc=(sc+sa)%MM`);
