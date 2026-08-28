@@ -11,8 +11,7 @@
 // emitRuntime returns; breaches throw with a named report.
 import { BuildRng } from "../gen/prng";
 import { Op } from "./opcodes";
-import { Seeds, normSeed, wmSeeds, InstrFieldKeys, decryptBlob, deserializeBlob } from "./serializer";
-import { writeFileSync } from "fs";
+import { Seeds, normSeed, wmSeeds, InstrFieldKeys } from "./serializer";
 import { IdAllocator } from "../engine/runtime/identifiers";
 import { Tier, tierViolationLines } from "../engine/runtime/tiers";
 import { emitIntegrityCheck, IntegrityNames } from "../engine/runtime/integrity";
@@ -470,7 +469,6 @@ body.push(` local function ${N.cv}(pID,e)`);
   body.push(`  if ${N.hdr}<128 then error(${JSON.stringify(garbage(rng))}) end`);
   body.push(`  for i=1,${N.hdr}-128 do ${N.u8}() end`);
   body.push(`  local ${N.np}=${N.uvar}()`);
-  body.push(`  print("DECODE np=", ${N.np})`);
   body.push(`  if ${N.np}>${runtimeBudget.maxProtos} then error(${JSON.stringify(garbage(rng))}) end`);
   body.push(`  local ${N.protos}={} local ${N.wm}={}`);
   body.push(`  for ${N.pid2}=1,${N.np} do`);
@@ -502,7 +500,6 @@ body.push(` local function ${N.cv}(pID,e)`);
   body.push(`    else pr.c[i]=nil end`);
   body.push(`   end`);
    body.push(`   local nk=${N.uvar}()`);
-  body.push(`   print("DECODE pid=", ${N.pid2}, "nk=", nk)`);
   body.push(`   if nk>${runtimeBudget.maxCode} then error(${JSON.stringify(garbage(rng))}) end`);
   body.push(`   pr.k={}`);
   // per-proto rolling-key mirror for operand de-whitening (Phase 3 non-linear)
@@ -581,7 +578,9 @@ body.push(` local function ${N.cv}(pID,e)`);
     body.push(`   if debug and debug.getinfo then local _dg=debug.getinfo(1) if _dg and _dg.what=="C" then ${F.poison}=true ${F.PB}=1 end end`);
   }
   body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
-  body.push(`   if ${F.pc}<=6 then print("TRC PC="..tostring(${F.pc}).." RK="..tostring(${rkN}).." OE="..tostring(${F.ins}[${keyNames.OP}]).." OP="..tostring(${F.op}).." A="..tostring(${F.ins}[${keyNames.A}]).." B="..tostring(${F.ins}[${keyNames.B1}]+${F.ins}[${keyNames.B2}]).." C="..tostring(${F.ins}[${keyNames.C}])) end`);
+  body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
+  for (const cl of countdown) body.push(`   ${cl}`);
+  body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
   for (const cl of countdown) body.push(`   ${cl}`);
   body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
   body.push(`   ${F.op}=(((${F.ins}[${keyNames.OP}]-${rkN})+65536)%65536)`);
@@ -655,19 +654,6 @@ body.push(` local function ${N.cv}(pID,e)`);
         budget.problems.join("\n  "),
     );
   }
-
-  try {
-    writeFileSync(
-      "scripts/_dbg.json",
-      JSON.stringify({
-        perm: opts.perm,
-        opencode: opts.opencode,
-        fieldKeys: opts.fieldKeys,
-        seeds: opts.seeds,
-        blob: Array.from(opts.blob),
-      }),
-    );
-  } catch {}
 
   return { lua: L.join("\n"), dispatchOrder };
 }

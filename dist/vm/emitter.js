@@ -469,7 +469,10 @@ function emitRuntime(opts) {
         body.push(`   if debug and debug.getinfo then local _dg=debug.getinfo(1) if _dg and _dg.what=="C" then ${F.poison}=true ${F.PB}=1 end end`);
     }
     body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
-    body.push(`   if ${F.pc}<20 then _G.__VM_TRACE=(_G.__VM_TRACE or "").."PC="..tostring(${F.pc}).." RK="..tostring(${rkN}).." INS="..tostring(${F.ins}[${keyNames.OP}]).." A="..tostring(${F.ins}[${keyNames.A}]).." B="..tostring(${F.ins}[${keyNames.B1}]+${F.ins}[${keyNames.B2}]).." C="..tostring(${F.ins}[${keyNames.C}]).."\\n" end`);
+    body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
+    for (const cl of countdown)
+        body.push(`   ${cl}`);
+    body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
     for (const cl of countdown)
         body.push(`   ${cl}`);
     body.push(`   ${F.ins}=${F.K}[${F.pc}]`);
