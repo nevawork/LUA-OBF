@@ -75,13 +75,20 @@ describe("Roblox/Luau executor nil-index safety", () => {
   });
 
   it("the envAlias is initialized with the _ENV -> _G -> {} fallback", () => {
-    // Find the envAlias local and verify the fallback chain.
-    const envAliasMatch = code.match(/local (\w+)=type\(_ENV\)=="table" and _ENV/);
-    expect(envAliasMatch).not.toBeNull();
-    // The same line should also have the _G fallback.
+    // The envAlias line has the form: local <name>=(type(_ENV)=="table" and _ENV) or (type(_G)=="table" and _G) or {}
+    // Find the line by searching for the _ENV fallback pattern.
     const line = code.split("\n").find(l => l.includes("type(_ENV)==\"table\" and _ENV"));
     expect(line).toBeDefined();
+    // Extract the variable name: "local NAME=(type(_ENV)..."
+    const m = line!.match(/local (\w+)=\(type\(_ENV\)/);
+    expect(m).not.toBeNull();
+    const envAlias = m![1];
+    // The same line must also have the _G fallback and the {} fallback.
     expect(line!).toMatch(/type\(_G\)=="table" and _G/);
     expect(line!).toMatch(/or \{\}/);
+    // The envAlias must be used as the env argument in the bootstrap.
+    // The bootstrap pattern is: <runname>(_decode(), N, envAlias, {}, <args>, nil)
+    const bootstrap = code.match(new RegExp(`(\\w+)_decode\\(\\),\\d+,${envAlias},\\{\\},`));
+    expect(bootstrap).not.toBeNull();
   });
 });
