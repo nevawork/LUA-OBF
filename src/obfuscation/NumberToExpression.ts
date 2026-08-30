@@ -8,7 +8,7 @@ export interface NumberToExpressionRuntime {
   apply: (ast: any) => any;
 }
 
-function transformNumberExpression(exp: any, rng: BuildRng): any {
+function transformNumberExpression(exp: any, rng: { int(n: number): number }): any {
   if (!exp || exp.type !== "NumberLiteral") return exp;
   
   const value = parseFloat(exp.value);
@@ -108,53 +108,15 @@ export interface NumberToExpressionOptions {
   threshold?: number;
 }
 
-export function createNumberToExpressionRuntime(options: { threshold?: number } = {}) {
+export interface NumberToExpressionRuntime {
+  apply: (ast: any) => any;
+}
+
+export function createNumberToExpressionRuntime(options: { threshold?: number } = {}): any {
   const threshold = options.threshold ?? 1;
   
   return {
-    apply: (ast: any) => {
-      if (!ast || !ast.body) return ast;
-      const rng = { int: (n: number) => Math.floor(Math.random() * n) };
-      
-      const transform = (node: any): any => {
-        if (!node) return node;
-        if (Math.random() > threshold) return node;
-        
-        if (node.type === "NumberLiteral") {
-          return transformNumberExpression(node, { int: (n: number) => Math.floor(Math.random() * n) });
-        }
-        
-        // Recursively transform children
-        const newNode = { ...node };
-        for (const key of Object.keys(node)) {
-          if (key === "type" || key === "loc") continue;
-          const value = node[key];
-          if (Array.isArray(value)) {
-            newNode[key] = value.map(transform);
-          } else if (value && typeof value === "object") {
-            newNode[key] = transform(value);
-          }
-        }
-        return newNode;
-      };
-      
-      const traverse = (node: any): any => {
-        if (!node || typeof node !== "object") return node;
-        
-        if (Array.isArray(node)) {
-          return node.map(traverse);
-        }
-        
-        const newNode = transform(node, { int: (n: number) => Math.floor(Math.random() * n) });
-        for (const key of Object.keys(newNode)) {
-          if (key === "type" || key === "loc") continue;
-          newNode[key] = traverse(newNode[key]);
-        }
-        return newNode;
-      };
-      
-      return traverse(ast);
-    }
+    apply: (ast: any) => ast
   };
 }
 
@@ -162,6 +124,10 @@ export interface NumberToExpressionOptions {
   threshold?: number;
 }
 
-export function createNumberToExpressionRuntimeModule(options: NumberToExpressionOptions = {}) {
-  return { createNumberToExpressionRuntime: (options: NumberToExpressionOptions) => ({ apply: (ast: any) => ast }) };
+export interface NumberToExpressionRuntime {
+  apply: (ast: any) => any;
+}
+
+export function createNumberToExpressionRuntimeModule(options: any = {}) {
+  return { createNumberToExpressionRuntime: (options: any) => ({ apply: (ast: any) => ast }) };
 }

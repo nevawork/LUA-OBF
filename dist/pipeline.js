@@ -24,12 +24,6 @@ const luau_compiler_1 = require("./engine/vm/luau-compiler");
 const luau_antideobfuscation_1 = require("./protection/luau-antideobfuscation");
 const luau_optimizer_1 = require("./engine/vm/luau-optimizer");
 const mba_database_1 = require("./transforms/mba-database");
-// New obfuscation modules
-const ConstantArray_1 = require("./obfuscation/ConstantArray");
-const StringEncryption_1 = require("./obfuscation/StringEncryption");
-const ControlFlowScrambler_1 = require("./obfuscation/ControlFlowScrambler");
-const StringSplitting_1 = require("./obfuscation/StringSplitting");
-const NumberToExpression_1 = require("./obfuscation/NumberToExpression");
 const mba_synthesizer_1 = require("./transforms/mba-synthesizer");
 const anti_luahunt_1 = require("./protection/anti-luahunt");
 const path_explosion_1 = require("./protection/path-explosion");
@@ -63,52 +57,6 @@ function protect(opts) {
     if (opts.flatten !== false)
         (0, transforms_1.flattenControlFlow)(chunk, { keys: () => 1 + rng.int(100000) });
     (0, transforms_1.injectOpaqueJunk)(chunk, opts.junkDensity ?? 0.12, rng);
-    // MBA+ generates bitwise operations (&, |, ~) which are NOT supported in Luau.
-    // Luau has no native bitwise operators - only bit32 library functions.
-    // Disable MBA+ for Luau targets to prevent parser/compiler failures.
-    const isLuauTarget = opts.envProfile && ["luau", "luau_executor", "roblox_executor"].includes(opts.envProfile);
-    if (opts.mbaPlus !== false && !isLuauTarget)
-        (0, transforms_1.applyMbaPlus)(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
-    // ---- Phase 1.5: New obfuscation passes (source-level) ----
-    // Constant Array extraction with base64/base85/mixed encoding + local wrappers
-    const constantArrayRuntime = (0, ConstantArray_1.createConstantArrayRuntime)({
-        threshold: 1,
-        stringsOnly: false,
-        shuffle: true,
-        rotate: true,
-        encoding: "mixed",
-        localWrapperThreshold: 1,
-        localWrapperCount: 3,
-        localWrapperArgCount: 5,
-        maxWrapperOffset: 65535,
-    }, rng);
-    chunk = constantArrayRuntime.apply(chunk, rng);
-    // String Encryption with custom PRNG
-    const stringEncryptionRuntime = (0, StringEncryption_1.createStringEncryptionRuntime)({
-        threshold: 1,
-    }, rng);
-    chunk = stringEncryptionRuntime.apply(chunk, rng);
-    // String Splitting with custom concatenation
-    const stringSplittingRuntime = (0, StringSplitting_1.createStringSplittingRuntime)({
-        threshold: 1,
-        minLength: 3,
-        maxLength: 8,
-        concatenationType: "custom",
-        customFunctionType: "local",
-        customLocalFunctionsCount: 2,
-    }, rng);
-    chunk = stringSplittingRuntime.apply(chunk, rng);
-    // Number to Expression conversion
-    const numberToExpressionRuntime = (0, NumberToExpression_1.createNumberToExpressionRuntime)({
-        threshold: 0.3,
-    }, rng);
-    chunk = numberToExpressionRuntime.apply(chunk, rng);
-    // Control Flow Scrambling with opaque predicates
-    const controlFlowRuntime = (0, ControlFlowScrambler_1.createControlFlowScramblerRuntime)({
-        seed: rng.int(2147483646),
-        enabled: true,
-    }, rng);
-    chunk = controlFlowRuntime.apply(chunk, rng);
     // MBA+ generates bitwise operations (&, |, ~) which are NOT supported in Luau.
     // Luau has no native bitwise operators - only bit32 library functions.
     // Disable MBA+ for Luau targets to prevent parser/compiler failures.
