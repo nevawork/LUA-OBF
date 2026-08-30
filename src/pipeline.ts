@@ -28,6 +28,15 @@ import { applyLuauAntiDeobfuscation, LuauAntiDeobfuscationOptions } from "./prot
 import { optimizeLuauBytecode, LuauOptimizationOptions } from "./engine/vm/luau-optimizer";
 import { verifyLuauBytecode, disassembleLuau } from "./engine/vm/luau-verifier";
 import { getMbaDatabase, getMbaStats } from "./transforms/mba-database";
+
+// New obfuscation modules
+import { createConstantArrayRuntime, ConstantArrayOptions } from "./obfuscation/ConstantArray";
+import { createStringEncryptionRuntime, StringEncryptionOptions } from "./obfuscation/StringEncryption";
+import { createProxyLocalsRuntime, ProxyLocalsOptions } from "./obfuscation/ProxyLocals";
+import { createAntiTamperRuntime, AntiTamperOptions } from "./obfuscation/AntiTamper";
+import { createControlFlowScramblerRuntime, ControlFlowScramblerOptions } from "./obfuscation/ControlFlowScrambler";
+import { createStringSplittingRuntime, StringSplittingOptions } from "./obfuscation/StringSplitting";
+import { createNumberToExpressionRuntime, NumberToExpressionOptions } from "./obfuscation/NumberToExpression";
 import { generateSemiprime, synthesizePartialPoint } from "./transforms/mba-synthesizer";
 import { generatePolymorphicHandlers, generateGadgetDetection, generatePathExplosionPredicates } from "./protection/anti-luahunt";
 import { injectPathExplosionPredicates, generateSelfModifyingCode } from "./protection/path-explosion";
@@ -257,6 +266,58 @@ export function protect(opts: ProtectOptions): ProtectResult {
   if (opts.flatten !== false)
     flattenControlFlow(chunk, { keys: () => 1 + rng.int(100000) });
   injectOpaqueJunk(chunk, opts.junkDensity ?? 0.12, rng);
+
+  // MBA+ generates bitwise operations (&, |, ~) which are NOT supported in Luau.
+  // Luau has no native bitwise operators - only bit32 library functions.
+  // Disable MBA+ for Luau targets to prevent parser/compiler failures.
+  const isLuauTarget = opts.envProfile && ["luau", "luau_executor", "roblox_executor"].includes(opts.envProfile);
+  if (opts.mbaPlus !== false && !isLuauTarget)
+    applyMbaPlus(chunk, { rng }); // corrected MBA+ algebra (spec summary item 8)
+
+  // ---- Phase 1.5: New obfuscation passes (source-level) ----
+  // Constant Array extraction with base64/base85/mixed encoding + local wrappers
+  const constantArrayRuntime = createConstantArrayRuntime({
+    threshold: 1,
+    stringsOnly: false,
+    shuffle: true,
+    rotate: true,
+    encoding: "mixed",
+    localWrapperThreshold: 1,
+    localWrapperCount: 3,
+    localWrapperArgCount: 5,
+    maxWrapperOffset: 65535,
+  }, rng);
+  chunk = constantArrayRuntime.apply(chunk, rng);
+
+  // String Encryption with custom PRNG
+  const stringEncryptionRuntime = createStringEncryptionRuntime({
+    threshold: 1,
+  }, rng);
+  chunk = stringEncryptionRuntime.apply(chunk, rng);
+
+  // String Splitting with custom concatenation
+  const stringSplittingRuntime = createStringSplittingRuntime({
+    threshold: 1,
+    minLength: 3,
+    maxLength: 8,
+    concatenationType: "custom",
+    customFunctionType: "local",
+    customLocalFunctionsCount: 2,
+  }, rng);
+  chunk = stringSplittingRuntime.apply(chunk, rng);
+
+  // Number to Expression conversion
+  const numberToExpressionRuntime = createNumberToExpressionRuntime({
+    threshold: 0.3,
+  }, rng);
+  chunk = numberToExpressionRuntime.apply(chunk, rng);
+
+  // Control Flow Scrambling with opaque predicates
+  const controlFlowRuntime = createControlFlowScramblerRuntime({
+    seed: rng.int(2147483646),
+    enabled: true,
+  }, rng);
+  chunk = controlFlowRuntime.apply(chunk, rng);
 
   // MBA+ generates bitwise operations (&, |, ~) which are NOT supported in Luau.
   // Luau has no native bitwise operators - only bit32 library functions.

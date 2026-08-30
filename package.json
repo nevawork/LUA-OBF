@@ -1,8 +1,8 @@
 {
-  "name": "nevahex-vm",
-  "version": "2.1.0",
-  "description": "NEVAHEX-VM v2.1 The Abyss - Lua obfuscation system",
-  "main": "index.js",
+  "name": "NEVAHEX",
+  "version": "3.0.0",
+  "description": "Advanced Lua/Luau Obfuscator - NEVAHEX",
+  "main": "dist/pipeline.js",
   "scripts": {
     "build": "tsc",
     "cli": "tsx src/cli.ts",
@@ -10,23 +10,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nevawork/LUA-OBF.git"
+    "url": "git+https://github.com/nevahex/NEVAHEX.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["lua", "luau", "obfuscator", "obfuscation", "protection", "security"],
+  "author": "NEVAHEX Team",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/nevawork/LUA-OBF/issues"
+    "url": "https://github.com/nevahex/NEVAHEX/issues"
   },
-  "homepage": "https://github.com/nevawork/LUA-OBF#readme",
+  "homepage": "https://github.com/nevahex/NEVAHEX#readme",
   "dependencies": {
-    "@types/node": "^26.3.0",
-    "tsx": "^4.23.12",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.11",
-    "wasmoon": "^1.16.0"
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
   },
-  "bin": {
-    "nevahex": "dist/cli.js"
-  }
+  "devDependencies": {}
 }
