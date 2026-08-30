@@ -318,6 +318,9 @@ function emitRuntime(opts) {
         const tableLit = opts.blobSlices
             .map((s) => `{p=${obf(s.p, rng)},a=${obf(s.a, rng)},h=${obf(s.h, rng)}}`)
             .join(",");
+        if (process.env.NEVAHEX_DEBUG) {
+            console.log("tableLit length:", tableLit.length, "chars, slices:", (tableLit.match(/{p=/g) || []).length);
+        }
         const guardLines = (0, cipherguard_1.emitCipherGuard)(tier, opts.blobSlices, tableLit, {
             blobVar: N.blob,
             saVar: "sa",
