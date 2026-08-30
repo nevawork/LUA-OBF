@@ -1,18 +1,71 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-// shim: canonical implementation lives in src/engine/vm/opcodes.ts
-__exportStar(require("../engine/vm/opcodes"), exports);
+exports.OP_NAMES = exports.Op = void 0;
+// NEVAHEX-VM — logical opcode set (physical numbering is shuffled per build)
+// Canonical location: src/vm/opcodes.ts
+var Op;
+(function (Op) {
+    Op[Op["MOVE"] = 0] = "MOVE";
+    Op[Op["SETLOCAL"] = 1] = "SETLOCAL";
+    Op[Op["DECL"] = 2] = "DECL";
+    Op[Op["STOREN"] = 3] = "STOREN";
+    Op[Op["LOADK"] = 4] = "LOADK";
+    Op[Op["NIL"] = 5] = "NIL";
+    Op[Op["TRUE"] = 6] = "TRUE";
+    Op[Op["FALSE"] = 7] = "FALSE";
+    Op[Op["PUSHENV"] = 8] = "PUSHENV";
+    Op[Op["GGET"] = 9] = "GGET";
+    Op[Op["GSET"] = 10] = "GSET";
+    Op[Op["UPVAL"] = 11] = "UPVAL";
+    Op[Op["SETUPVAL"] = 12] = "SETUPVAL";
+    Op[Op["GETTAB"] = 13] = "GETTAB";
+    Op[Op["SETTAB"] = 14] = "SETTAB";
+    Op[Op["SETTABAT"] = 15] = "SETTABAT";
+    Op[Op["NEWTABLE"] = 16] = "NEWTABLE";
+    Op[Op["SETLIST"] = 17] = "SETLIST";
+    Op[Op["CLOSURE"] = 18] = "CLOSURE";
+    Op[Op["CALL"] = 19] = "CALL";
+    Op[Op["CALLM"] = 20] = "CALLM";
+    Op[Op["VARARG"] = 21] = "VARARG";
+    Op[Op["RET"] = 22] = "RET";
+    Op[Op["ADD"] = 23] = "ADD";
+    Op[Op["SUB"] = 24] = "SUB";
+    Op[Op["MUL"] = 25] = "MUL";
+    Op[Op["DIV"] = 26] = "DIV";
+    Op[Op["MOD"] = 27] = "MOD";
+    Op[Op["POW"] = 28] = "POW";
+    Op[Op["CONCAT"] = 29] = "CONCAT";
+    Op[Op["EQ"] = 30] = "EQ";
+    Op[Op["LT"] = 31] = "LT";
+    Op[Op["LE"] = 32] = "LE";
+    Op[Op["NOT"] = 33] = "NOT";
+    Op[Op["LEN"] = 34] = "LEN";
+    Op[Op["NEG"] = 35] = "NEG";
+    Op[Op["JMP"] = 36] = "JMP";
+    Op[Op["JF"] = 37] = "JF";
+    Op[Op["JT"] = 38] = "JT";
+    Op[Op["DUP"] = 39] = "DUP";
+    Op[Op["POP"] = 40] = "POP";
+    Op[Op["SWAP"] = 41] = "SWAP";
+    Op[Op["DUP_ROT"] = 42] = "DUP_ROT";
+    Op[Op["ADJUST"] = 43] = "ADJUST";
+    Op[Op["ADJUST_ONE"] = 44] = "ADJUST_ONE";
+    Op[Op["MSET"] = 45] = "MSET";
+    Op[Op["FORPREP"] = 46] = "FORPREP";
+    Op[Op["FORLOOP"] = 47] = "FORLOOP";
+    Op[Op["GFORPREP"] = 48] = "GFORPREP";
+    Op[Op["GFORLOOP"] = 49] = "GFORLOOP";
+    Op[Op["ESCAPE"] = 50] = "ESCAPE";
+    // Phase 6: Luau bytecode extensions (Roblox Luau dialect)
+    Op[Op["GETVARARGS"] = 51] = "GETVARARGS";
+    Op[Op["GETIMPORT"] = 52] = "GETIMPORT";
+    Op[Op["FASTCALL"] = 53] = "FASTCALL";
+    Op[Op["FASTCALL1"] = 54] = "FASTCALL1";
+    Op[Op["FASTCALL2"] = 55] = "FASTCALL2";
+    Op[Op["FASTCALL2K"] = 56] = "FASTCALL2K";
+    Op[Op["FORGPREP"] = 57] = "FORGPREP";
+    Op[Op["FORGLOOP"] = 58] = "FORGLOOP";
+})(Op || (exports.Op = Op = {}));
+exports.OP_NAMES = Object.fromEntries(Object.entries(Op)
+    .filter(([k]) => isNaN(Number(k)))
+    .map(([k, v]) => [v, k]));
