@@ -4,7 +4,7 @@
 import { parse } from "./lang/parser";
 import { Chunk } from "./lang/nodes";
 import { BuildRng, randomNonce, sha256, hmacSha256 } from "./gen/prng";
-import { EnvProfile, bakeProfileSeeds } from "./protection/envkeying";
+import { bakeProfileSeeds } from "./protection/envkeying";
 import { computeLayerSeals, LayerSeals } from "./engine/triple/contracts";
 
 // Clyde VM imports - BEST VM
@@ -94,118 +94,6 @@ export interface Manifest {
   fieldKeys?: number[];
 }
 
-export interface ProtectOptions {
-  source: string;
-  tier?: Tier;
-  seedHex?: string;
-  watermark?: string;
-  junkDensity?: number;
-  flatten?: boolean;
-  envProfile?: EnvProfile;
-  antiEmulation?: boolean;
-  executorVm?: boolean;
-  mbaPlus?: boolean;
-  dynLoad?: boolean;
-  layered?: boolean;
-  superops?: boolean;
-  megaSuperops?: boolean;
-  superopNesting?: number;
-  mmTraps?: boolean;
-  keyless?: boolean;
-  stage2?: boolean;
-  emitSecrets?: boolean;
-  regObfuscate?: boolean;
-  constShuffle?: boolean;
-  mutationCount?: number;
-  mbaDatabase?: boolean;
-  factorizationKeys?: boolean;
-  dualVm?: boolean;
-  directThreaded?: boolean;
-  antiLuahunt?: boolean;
-  pathExplosion?: boolean;
-  selfModifying?: boolean;
-  luauVm?: boolean;
-  luauAntiDeobfuscation?: boolean;
-  luauOptimize?: boolean;
-  luraph?: boolean;
-}
-
-export type Tier = "silent" | "strict" | "hex3" | "apex";
-export type EnvProfile = "universal" | "luau" | "luau_executor" | "roblox_executor";
-
-interface LayerSeals {}
-interface Seeds {}
-interface SerializerOptions {}
-interface SerializedBlob {}
-interface DeserializeOpts {}
-interface DeserializedBlob {}
-interface ManifestAuthPayload {}
-
-class BuildRng {
-  constructor(public seed: Buffer) {}
-  int(n: number): number { return Math.floor(Math.random() * n); }
-}
-
-// Placeholder functions for compilation
-function parse(source: string, targetLuaVersion: string): any { return {}; }
-function compileChunk(chunk: any): any { return {}; }
-function encryptStrings(chunk: any, rng: any): void {}
-function flattenControlFlow(chunk: any, options: any): void {}
-function injectOpaqueJunk(chunk: any, junkDensity: number, rng: any): void {}
-function resetCounter(): void {}
-function preserveTaskLibrary(chunk: any): void {}
-function applyMbaPlus(chunk: any, options: any): void {}
-function obfuscateConstants(chunk: any, rng: any): void {}
-function shuffleConstantPool(root: any, rng: any): void {}
-function obfuscateRegisters(root: any, rng: any): void {}
-function getMbaDatabase(): any { return {}; }
-function getMbaStats(): any { return {}; }
-function generateSemiprime(rng: any): number { return 0; }
-function synthesizePartialPoint(rng: any): any { return {}; }
-function generatePolymorphicHandlers(rng: any): Map<number, string[]> { return new Map(); }
-function generateGadgetDetection(rng: any): any[] { return []; }
-function generatePathExplosionPredicates(rng: any): any[] { return []; }
-function injectPathExplosionPredicates(rng: any): any { return {}; }
-function generateSelfModifyingCode(rng: any): any[] { return []; }
-function generateLuraph(opts: any): string { return ""; }
-function makeOpenCodeParams(rng: any): any { return {}; }
-function initialRk(opencode: any, pid: number): number { return 0; }
-function stepRk(opencode: any, rk: number): number { return 0; }
-function decodeOp(opE: number, rk: number): number { return 0; }
-function fuseSuperOps(root: any, rng: any): any[] { return []; }
-function fuseMegaSuperOps(root: any, rng: any, options: any): any[] { return []; }
-function compileLuau(chunk: any, options: any): any { return {}; }
-function applyLuauAntiDeobfuscation(root: any, rng: any, options: any): any { return root; }
-function optimizeLuauBytecode(root: any, options: any): any { return root; }
-function verifyLuauBytecode(root: any): any { return {}; }
-function disassembleLuau(root: any): any { return {}; }
-function getMbaDatabase(): any { return {}; }
-function getMbaStats(): any { return {}; }
-function randomNonce(): Buffer { return Buffer.alloc(32); }
-function sha256(data: Buffer, key: Buffer): Buffer { return Buffer.alloc(32); }
-function hmacSha256(key: Buffer, data: Buffer): Buffer { return Buffer.alloc(32); }
-function normSeed(n: number): number { return n; }
-function spreadWatermark(root: any, wmRegion: any, rng: any): void {}
-function crc16(data: Buffer): number { return 0; }
-function bakeProfileSeeds(seeds: any, envProfile: EnvProfile): any { return null; }
-function computeLayerSeals(blob: string): LayerSeals { return {}; }
-function verifyGeneratedDispatch(lua: string, perm: any, usedPhysicalOps: any, options: any): any { return { ok: true, problems: [] }; }
-function canonicalManifestJson(v: any): string { return JSON.stringify(v); }
-function hmacSha256(key: Buffer, data: Buffer): Buffer { return Buffer.alloc(32); }
-
-interface LayerSeals {}
-interface Seeds {}
-interface SerializerOptions {}
-interface SerializedBlob {}
-interface DeserializeOpts {}
-interface DeserializedBlob {}
-interface ManifestAuthPayload {}
-
-class BuildRng {
-  constructor(public seed: Buffer) {}
-  int(n: number): number { return Math.floor(Math.random() * n); }
-}
-
 export function protect(opts: any): any {
   const targetLuaVersion = opts.envProfile === "luau" || opts.envProfile === "luau_executor" || opts.envProfile === "roblox_executor" ? "luau" : "lua51";
   const chunk: any = parse(opts.source, targetLuaVersion);
@@ -253,5 +141,3 @@ export function protect(opts: any): any {
     },
   };
 }
-
-export { Tier, EnvProfile, ProtectOptions, ProtectResult, Manifest, LayerSeals, BuildRng };
